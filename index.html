@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Mart Management Portal</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+        header { background: #1e3a8a; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 2fr; gap: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+        input, select, button { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f8fafc; color: #475569; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .stat-item { background: #eff6ff; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #bfdbfe; }
+        .stat-item h4 { margin: 0; color: #1e3a8a; font-size: 20px; }
+        .stat-item p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
+        #auth-panel { max-width: 400px; margin: 100px auto; }
+        #main-dashboard { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Authentication Area -->
+    <div id="auth-panel" class="card">
+        <h3 id="auth-title">Blue Mart Security Portal</h3>
+        <input type="text" id="auth-user" placeholder="Username">
+        <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
+        <button onclick="handleAuth('login')">Sign In</button>
+        <button style="background:#059669" onclick="handleAuth('register')">Create New Account</button>
+    </div>
+
+    <!-- Main Application Interface -->
+    <div id="main-dashboard">
+        <header>
+            <h2>🛒 Blue Mart Management Studio</h2>
+            <div>Logged in as: <strong id="current-user">None</strong> | <a href="#" onclick="location.reload()" style="color:white; text-decoration:none; font-weight:bold;">Logout</a></div>
+        </header>
+
+        <div class="container">
+            <!-- Action Forms -->
+            <div>
+                <div class="card">
+                    <h3>Inventory Controls</h3>
+                    <select id="action-type" onchange="toggleFormFields()">
+                        <option value="add">Add / Match Product</option>
+                        <option value="sell">Sell Stock</option>
+                        <option value="restock">Restock Item</option>
+                        <option value="edit">Modify Fields</option>
+                        <option value="delete">Remove Product</option>
+                    </select>
+
+                    <input type="text" id="prod-name" placeholder="Product Name">
+                    <input type="number" id="prod-price" placeholder="Price ($)" step="0.01">
+                    <input type="text" id="prod-cat" placeholder="Category">
+                    <input type="number" id="prod-qty" placeholder="Quantity">
+                    
+                    <button id="action-btn" onclick="executeInventoryAction()">Submit Action</button>
+                </div>
+
+                <div class="card">
+                    <h3>Live System Metrics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item"><h4 id="stat-count">0</h4><p>Unique Lines</p></div>
+                        <div class="stat-item"><h4 id="stat-qty">0</h4><p>Total Units</p></div>
+                        <div class="stat-item" style="grid-column: span 2"><h4 id="stat-avg">$0.00</h4><p>Average Value</p></div>
+                        <div class="stat-item" style="grid-column: span 2"><h4 id="stat-max">-</h4><p>Most Expensive Line</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Display Grid -->
+            <div class="card">
+                <h3>Current Stock Registers</h3>
+                <input type="text" id="search-bar" onkeyup="filterInventoryTable()" placeholder="Quick Search items by name...">
+                <table id="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Product Identifier</th>
+                            <th>Category</th>
+                            <th>Unit Pricing</th>
+                            <th>In-Stock Units</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function defAPI(url, data) {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            return res.json();
+        }
+
+        async function handleAuth(mode) {
+            const username = document.getElementById('auth-user').value;
+            const password = document.getElementById('auth-pass').value;
+            if(!username || !password) return alert('Fill in all fields');
+            
+            const res = await defAPI(`/api/${mode}`, {username, password});
+            alert(res.message);
+            if(res.success) {
+                document.getElementById('auth-panel').style.display = 'none';
+                document.getElementById('main-dashboard').style.display = 'block';
+                document.getElementById('current-user').innerText = username;
+                refreshDashboard();
+            }
+        }
+
+        function toggleFormFields() {
+            const action = document.getElementById('action-type').value;
+            const p = document.getElementById('prod-price');
+            const c = document.getElementById('prod-cat');
+            const q = document.getElementById('prod-qty');
+            const btn = document.getElementById('action-btn');
+
+            p.style.display = (action === 'add' || action === 'edit') ? 'block' : 'none';
+            c.style.display = (action === 'add' || action === 'edit') ? 'block' : 'none';
+            q.style.display = (action !== 'delete') ? 'block' : 'none';
+            
+            btn.className = (action === 'delete') ? 'btn-danger' : '';
+            btn.innerText = action.toUpperCase() + ' PRODUCT';
+        }
+
+        async function executeInventoryAction() {
+            const action = document.getElementById('action-type').value;
+            const name = document.getElementById('prod-name').value;
+            const price = document.getElementById('prod-price').value;
+            const category = document.getElementById('prod-cat').value;
+            const quantity = document.getElementById('prod-qty').value;
+
+            if(!name) return alert('Product Name is mandatory');
+
+            let res;
+            if(action === 'add') res = await defAPI('/api/products/add', {name, price, category, quantity});
+            if(action === 'sell') res = await defAPI('/api/products/sell', {name, quantity});
+            if(action === 'restock') res = await defAPI('/api/products/restock', {name, quantity});
+            if(action === 'edit') res = await defAPI('/api/products/edit', {name, price: price||null, category: category||null, quantity: quantity||null});
+            if(action === 'delete') {
+                if(confirm(`Confirm deleting ${name}?`)) res = await defAPI('/api/products/delete', {name});
+                else return;
+            }
+
+            alert(res.message || (res.success ? "Success" : "Failed"));
+            refreshDashboard();
+        }
+
+        async function refreshDashboard() {
+            const pRes = await fetch('/api/products');
+            const products = await pRes.json();
+            
+            let html = '';
+            products.forEach(p => {
+                html += `<tr>
+                    <td><strong>${p['Product Name']}</strong></td>
+                    <td>${p['Category']}</td>
+                    <td>$${parseFloat(p['Price']).toFixed(2)}</td>
+                    <td>${p['Quantity']} units</td>
+                </tr>`;
+            });
+            document.getElementById('inventory-body').innerHTML = html;
+
+            const sRes = await fetch('/api/statistics');
+            const stats = await sRes.json();
+            document.getElementById('stat-count').innerText = stats.total_products;
+            document.getElementById('stat-qty').innerText = stats.total_quantity;
+            document.getElementById('stat-avg').innerText = stats.avg_price;
+            document.getElementById('stat-max').innerText = stats.expensive;
+            toggleFormFields();
+        }
+
+        function filterInventoryTable() {
+    const query = document.getElementById('search-bar').value.toLowerCase();
+    const rows = document.getElementById('inventory-body').getElementsByTagName('tr');
+    for (let row of rows) {
+        const name = row.innerText.toLowerCase();
+        row.style.display = name.includes(query) ? '' : 'none';
+    }
+}
+    </script>
+</body>
+</html>
