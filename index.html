@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blue Mart Management Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
         header { background: #1e3a8a; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
@@ -24,6 +25,55 @@
         .stat-item p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
         #auth-panel { max-width: 400px; margin: 100px auto; }
         #main-dashboard { display: none; }
+        /* Container framework that controls layout cards */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 15px;
+    width: 100%;
+    box-sizing: border-box;
+        /* Fix your statistics view for small mobile layouts */
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+
+    /* Wrap your data table container if you haven't already */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+}
+
+/* Responsive Rules for Small Mobile Devices */
+@media screen and (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    h1 {
+        font-size: 1.8rem; /* Scale down titles so they don't break lines awkwardly */
+        text-align: center;
+    }
+
+    /* Force dashboard modules to stack beautifully in a single column layout */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        padding: 5px;
+    }
+
+    /* Prevent wide tables from stretching the screen layout outwards */
+    .table-container {
+        width: 100%;
+        overflow-x: auto; /* Adds a clean touch-swipe horizontal scroll mechanism */
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -44,7 +94,8 @@
             <div>Logged in as: <strong id="current-user">None</strong> | <a href="#" onclick="location.reload()" style="color:white; text-decoration:none; font-weight:bold;">Logout</a></div>
         </header>
 
-        <div class="container">
+        <div class="container dashboard-grid">
+
             <!-- Action Forms -->
             <div>
                 <div class="card">
