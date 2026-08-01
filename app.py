@@ -2,7 +2,7 @@ import json
 import os
 from flask import Flask, render_template, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 
 DATA_FILE = "blue_mart_data.json"
 
