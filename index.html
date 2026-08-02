@@ -51,29 +51,42 @@
 
 /* Responsive Rules for Small Mobile Devices */
 @media screen and (max-width: 768px) {
-    body {
-        padding: 10px;
+    /* 1. Eliminate heavy white spaces on the margins of your headers */
+    body, .container.dashboard-grid {
+        padding: 8px !important;
+        margin: 0 !important;
+        width: 100% !important;
     }
 
     h1 {
-        font-size: 1.8rem; /* Scale down titles so they don't break lines awkwardly */
+        font-size: 1.8rem;
         text-align: center;
     }
 
-    /* Force dashboard modules to stack beautifully in a single column layout */
+    /* 2. Reposition control layouts down below headers */
     .dashboard-grid {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
         padding: 5px;
     }
 
-    /* Prevent wide tables from stretching the screen layout outwards */
+    /* Ensure card elements take up 100% width on the mobile screen */
+    .auth-panel, .inventory-controls, .metrics-panel {
+        width: 100% !important;
+        box-sizing: border-box;
+        margin: 0 0 10px 0 !important;
+    }
+
+    /* Prevent wide tables from stretching the layout outward */
     .table-container {
         width: 100%;
-        overflow-x: auto; /* Adds a clean touch-swipe horizontal scroll mechanism */
+        overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
 }
 
+ 
     </style>
 </head>
 <body>
