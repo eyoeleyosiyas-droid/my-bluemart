@@ -203,20 +203,28 @@ class ProductManager:
             return False, f"Target update validation execution error: {str(e)}"
 
     def delete_product(self, product_name):
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("DELETE FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
-            conn.commit()
-            row_count = cur.rowcount
-            cur.close()
-            conn.close()
-            
-            if row_count > 0:
-                return True, f"Product {product_name} deleted."
-            return False, "Product not found."
-        except Exception as e:
-            return False, f"Target purge row compilation sequence dropped: {str(e)}"
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Use TRIM() to strip hidden spaces from both the database column AND the input
+        query = "DELETE FROM products WHERE TRIM(LOWER(product_name)) = TRIM(LOWER(%s));"
+        
+        # Clean up the input string variable just in case
+        cleaned_name = product_name.strip()
+        
+        cur.execute(query, (cleaned_name,))
+        conn.commit()
+        row_count = cur.rowcount
+        cur.close()
+        conn.close()
+        
+        if row_count > 0:
+            return True, f"Product {product_name} deleted."
+        return False, "Product not found."
+    except Exception as e:
+        return False, f"Target purge row compilation sequence dropped: {str(e)}"
+
 
     def get_statistics(self):
         try:
