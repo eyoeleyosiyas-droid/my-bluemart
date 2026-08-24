@@ -417,6 +417,22 @@ def edit_product():
 def get_stats():
     p = ProductManager()
     return jsonify(p.get_statistics())
+@app.route('/force-database-update-xyz')
+def force_update():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Force inject the missing column manually
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';")
+        cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;")
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        return "Database architecture updated successfully! Go back and try registering now."
+    except Exception as e:
+        return f"Database update failed: {str(e)}"
 
 if __name__ == '__main__':
     app.run(debug=True)
