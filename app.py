@@ -22,51 +22,42 @@ def init_db():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        print("DATABASE BOOT: Executing a clean manual wipe and rebuild...")
         
-        # Step 1: Create core users table
+        # 1. DROP old tables to clear any structural glitches completely
+        cur.execute("DROP TABLE IF EXISTS products CASCADE;")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE;")
+        conn.commit()
+        
+        # 2. CREATE the brand new users table with the role column built-in
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 username VARCHAR(100) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(20) DEFAULT 'buyer'
             );
         """)
-        conn.commit() # Save immediately
+        conn.commit()
         
-        # Step 2: Inject role column (with its own independent commit)
-        try:
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';")
-            conn.commit()
-            print("Successfully patched 'role' column.")
-        except Exception as col_e:
-            conn.rollback()
-            print("Role column skip or error:", col_e)
-        
-        # Step 3: Create core products table
+        # 3. CREATE the brand new products table with multi-vendor support built-in
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS products (
+            CREATE TABLE products (
                 id SERIAL PRIMARY KEY,
                 product_name VARCHAR(255) UNIQUE NOT NULL,
                 price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 category VARCHAR(100),
-                quantity INT NOT NULL DEFAULT 0
+                quantity INT NOT NULL DEFAULT 0,
+                seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL
             );
         """)
-        conn.commit() # Save immediately
-        
-        # Step 4: Inject seller relationship link (with its own independent commit)
-        try:
-            cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;")
-            conn.commit()
-            print("Successfully patched 'seller_username' column.")
-        except Exception as col_p:
-            conn.rollback()
-            print("Seller column skip or error:", col_p)
+        conn.commit()
         
         cur.close()
         conn.close()
-        print("Database initialization step completed completely.")
+        print("DATABASE BOOT: All database tables recreated perfectly!")
     except Exception as e:
-        print("Database migration error on startup:", e)
+        print("Database fresh reset sequence failed:", e)
+
 
 
 # --- BACKEND BUSINESS LOGIC ---
