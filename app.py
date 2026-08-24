@@ -23,6 +23,7 @@ def init_db():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # 1. Check or build the core users schema table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username VARCHAR(100) PRIMARY KEY,
@@ -30,6 +31,13 @@ def init_db():
             );
         """)
         
+        # 2. INJECT SAFETY UPGRADE: Add user access role column if missing
+        cur.execute("""
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';
+        """)
+        
+        # 3. Check or build core products schema table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
@@ -40,14 +48,18 @@ def init_db():
             );
         """)
         
+        # 4. INJECT ARCHITECTURE UPGRADE: Link product listing to a specific seller account profile
+        cur.execute("""
+            ALTER TABLE products 
+            ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;
+        """)
+        
         conn.commit()
         cur.close()
         conn.close()
-        print("Database schemas checked and built successfully.")
+        print("Database schemas checked and built successfully with multi-vendor roles.")
     except Exception as e:
         print("Database migration error on startup:", e)
-
-init_db()
 
 # --- BACKEND BUSINESS LOGIC ---
 class Useraccount:
