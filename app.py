@@ -18,49 +18,85 @@ def get_db_connection():
 
 def init_db():
     if not DATABASE_URL:
+        print("DATABASE_URL is missing.")
         return
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        print("DATABASE BOOT: Executing a clean manual wipe and rebuild...")
-        
-        # 1. DROP old tables to clear any structural glitches completely
-        cur.execute("DROP TABLE IF EXISTS products CASCADE;")
-        cur.execute("DROP TABLE IF EXISTS users CASCADE;")
-        conn.commit()
-        
-        # 2. CREATE the brand new users table with the role column built-in
+
+        print("DATABASE BOOT: Checking database structure...")
+
+        # ------------------------------------------------
+        # 1. Create users table if it doesn't exist
+        # ------------------------------------------------
         cur.execute("""
-            CREATE TABLE users (
+            CREATE TABLE IF NOT EXISTS users (
                 username VARCHAR(100) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL,
-                role VARCHAR(20) DEFAULT 'buyer'
+                password VARCHAR(255) NOT NULL
             );
         """)
-        conn.commit()
-        
-        # 3. CREATE the brand new products table with multi-vendor support built-in
+
+        # Add role to an existing users table if it is missing
         cur.execute("""
-            CREATE TABLE products (
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';
+        """)
+
+        # ------------------------------------------------
+        # 2. Create products table if it doesn't exist
+        # ------------------------------------------------
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 product_name VARCHAR(255) UNIQUE NOT NULL,
                 price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 category VARCHAR(100),
-                quantity INT NOT NULL DEFAULT 0,
-                seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL
+                quantity INT NOT NULL DEFAULT 0
             );
         """)
+
+        # Add seller_username to an existing products table
+        cur.execute("""
+            ALTER TABLE products
+            ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100);
+        """)
+
+        # Add the foreign-key relationship if possible
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'products_seller_username_fkey'
+                ) THEN
+                    ALTER TABLE products
+                    ADD CONSTRAINT products_seller_username_fkey
+                    FOREIGN KEY (seller_username)
+                    REFERENCES users(username)
+                    ON DELETE SET NULL;
+                END IF;
+            END
+            $$;
+        """)
+
+        # Make sure existing users have a role
+        cur.execute("""
+            UPDATE users
+            SET role = 'buyer'
+            WHERE role IS NULL;
+        """)
+
         conn.commit()
-        
+
         cur.close()
         conn.close()
-        print("DATABASE BOOT: All database tables recreated perfectly!")
+
+        print("DATABASE BOOT: Database structure is ready!")
+
     except Exception as e:
-        print("Database fresh reset sequence failed:", e)
-
-
-
-
+        print("Database initialization failed:", e)
 # --- BACKEND BUSINESS LOGIC ---
 class Useraccount:
     def __init__(self, user_name):
@@ -417,23 +453,10 @@ def edit_product():
 def get_stats():
     p = ProductManager()
     return jsonify(p.get_statistics())
-@app.route('/force-database-update-xyz')
-def force_update():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Force inject the missing column manually
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';")
-        cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;")
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        return "Database architecture updated successfully! Go back and try registering now."
-    except Exception as e:
-        return f"Database update failed: {str(e)}"
+
+# Initialize/check database when application starts
+init_db()
+
 
 if __name__ == '__main__':
     app.run(debug=True)
-
