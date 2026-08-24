@@ -23,21 +23,25 @@ def init_db():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # 1. Check or build the core users schema table
+        # Step 1: Create core users table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username VARCHAR(100) PRIMARY KEY,
                 password VARCHAR(255) NOT NULL
             );
         """)
+        conn.commit() # Save immediately
         
-        # 2. INJECT SAFETY UPGRADE: Add user access role column if missing
-        cur.execute("""
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';
-        """)
+        # Step 2: Inject role column (with its own independent commit)
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';")
+            conn.commit()
+            print("Successfully patched 'role' column.")
+        except Exception as col_e:
+            conn.rollback()
+            print("Role column skip or error:", col_e)
         
-        # 3. Check or build core products schema table
+        # Step 3: Create core products table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
@@ -47,19 +51,23 @@ def init_db():
                 quantity INT NOT NULL DEFAULT 0
             );
         """)
+        conn.commit() # Save immediately
         
-        # 4. INJECT ARCHITECTURE UPGRADE: Link product listing to a specific seller account profile
-        cur.execute("""
-            ALTER TABLE products 
-            ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;
-        """)
+        # Step 4: Inject seller relationship link (with its own independent commit)
+        try:
+            cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100) REFERENCES users(username) ON DELETE SET NULL;")
+            conn.commit()
+            print("Successfully patched 'seller_username' column.")
+        except Exception as col_p:
+            conn.rollback()
+            print("Seller column skip or error:", col_p)
         
-        conn.commit()
         cur.close()
         conn.close()
-        print("Database schemas checked and built successfully with multi-vendor roles.")
+        print("Database initialization step completed completely.")
     except Exception as e:
         print("Database migration error on startup:", e)
+
 
 # --- BACKEND BUSINESS LOGIC ---
 class Useraccount:
