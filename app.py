@@ -108,12 +108,11 @@ class Useraccount:
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            # Fetch both password AND role from database
             cur.execute("SELECT password, role FROM users WHERE username = %s;", (self.user_name,))
             row = cur.fetchone()
             if row:
-                self.password = row[0]  # FIX: Extract individual string index 0
-                self.role = row[1]      # FIX: Extract individual string index 1
+                self.password = row[0]  # FIX: Extracted password string from tuple index 0
+                self.role = row[1]      # FIX: Extracted role string from tuple index 1
                 self.is_new = False
             cur.close()
             conn.close()
@@ -131,7 +130,6 @@ class Useraccount:
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            # Save the chosen role during registration
             cur.execute(
                 "INSERT INTO users (username, password, role) VALUES (%s, %s, %s);", 
                 (self.user_name, password_input, role_input)
