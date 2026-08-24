@@ -3,90 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Mart Management Portal</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Mart Marketplace</title>
+    <!-- Modern Font Family System -->
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
-        header { background: #1e3a8a; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 2fr; gap: 30px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
-        input, select, button { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
-        button:hover { background: #1d4ed8; }
-        .btn-danger { background: #dc2626; }
-        .btn-danger:hover { background: #b91c1c; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f8fafc; color: #475569; }
+        :root {
+            --bg-canvas: #0b1329;
+            --surface-panel: rgba(28, 37, 65, 0.65);
+            --border-glow: rgba(91, 192, 190, 0.15);
+            --text-primary: #ffffff;
+            --text-secondary: #9aa5b1;
+            --accent-glow: #5bc0be;
+            --accent-hover: #46a19f;
+            --danger-glow: #ff5a5f;
+            --danger-hover: #e0484c;
+            --success-glow: #02c39a;
+            --card-radius: 16px;
+            --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body { 
+            font-family: var(--font-stack); 
+            margin: 0; 
+            background: var(--bg-canvas); 
+            color: var(--text-primary); 
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header { 
+            background: rgba(11, 19, 41, 0.8); 
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glow);
+            color: white; 
+            padding: 20px 40px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h2 {
+            font-weight: 600;
+            font-size: 1.4rem;
+            margin: 0;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff, var(--accent-glow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container { 
+            max-width: 1400px; 
+            margin: 40px auto; 
+            padding: 0 30px; 
+            display: grid; 
+            grid-template-columns: 380px 1fr; 
+            gap: 35px; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .card { 
+            background: var(--surface-panel); 
+            backdrop-filter: blur(16px);
+            padding: 28px; 
+            border-radius: var(--card-radius); 
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            margin-bottom: 25px; 
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 32px 0 rgba(91, 192, 190, 0.05);
+        }
+
+        h3 { 
+            margin-top: 0; 
+            color: var(--text-primary); 
+            font-weight: 600;
+            font-size: 1.15rem;
+            letter-spacing: -0.3px;
+            padding-bottom: 12px; 
+            border-bottom: 1px solid var(--border-glow);
+            margin-bottom: 20px;
+        }
+
+        input, select, button { 
+            width: 100%; 
+            padding: 12px 16px; 
+            margin: 10px 0; 
+            border: 1px solid var(--border-glow); 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            background: rgba(11, 19, 41, 0.5);
+            color: var(--text-primary);
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 0 3px rgba(91, 192, 190, 0.15);
+        }
+
+        button { 
+            background: var(--accent-glow); 
+            color: #0b1329; 
+            border: none; 
+            font-weight: 600; 
+            cursor: pointer; 
+            margin-top: 15px;
+            letter-spacing: -0.1px;
+        }
+
+        button:hover { 
+            background: var(--accent-hover); 
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent-glow);
+            border: 1px solid var(--accent-glow);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(91, 192, 190, 0.1);
+        }
+
+        .btn-danger { background: var(--danger-glow); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-glow);
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+
+        th, td { 
+            padding: 16px; 
+            text-align: left; 
+            border-bottom: 1px solid var(--border-glow); 
+            font-size: 0.9rem;
+        }
+
+        th { 
+            background: rgba(11, 19, 41, 0.4); 
+            color: var(--text-secondary); 
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        td { color: var(--text-primary); }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .role-seller { background: rgba(2, 195, 154, 0.15); color: var(--success-glow); }
+        .role-buyer { background: rgba(91, 192, 190, 0.15); color: var(--accent-glow); }
+
         .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .stat-item { background: #eff6ff; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #bfdbfe; }
-        .stat-item h4 { margin: 0; color: #1e3a8a; font-size: 20px; }
-        .stat-item p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
-        #auth-panel { max-width: 400px; margin: 100px auto; }
+        .stat-item { 
+            background: rgba(11, 19, 41, 0.3); 
+            padding: 18px; 
+            border-radius: 10px; 
+            text-align: center; 
+            border: 1px solid var(--border-glow); 
+        }
+        .stat-item h4 { margin: 0; color: var(--accent-glow); font-size: 22px; font-weight: 600; }
+        .stat-item p { margin: 6px 0 0 0; color: var(--text-secondary); font-size: 0.8rem; font-weight: 400; }
+
+        #auth-panel { 
+            max-width: 420px; 
+            margin: 120px auto; 
+            box-sizing: border-box;
+        }
         #main-dashboard { display: none; }
-        /* Container framework that controls layout cards */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    padding: 15px;
-    width: 100%;
-    box-sizing: border-box;
-        /* Fix your statistics view for small mobile layouts */
-    .stats-grid {
-        grid-template-columns: 1fr !important;
-        gap: 10px;
-    }
 
-    /* Wrap your data table container if you haven't already */
-    table {
-        display: block;
-        width: 100%;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-
-}
-
-/* Responsive Rules for Small Mobile Devices */
-@media screen and (max-width: 768px) {
-    /* 1. Eliminate heavy white spaces on the margins of your headers */
-    body, .container.dashboard-grid {
-        padding: 8px !important;
-        margin: 0 !important;
-        width: 100% !important;
-    }
-
-    h1 {
-        font-size: 1.8rem;
-        text-align: center;
-    }
-
-    /* 2. Reposition control layouts down below headers */
-    .dashboard-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-        padding: 5px;
-    }
-
-    /* Ensure card elements take up 100% width on the mobile screen */
-    .auth-panel, .inventory-controls, .metrics-panel {
-        width: 100% !important;
-        box-sizing: border-box;
-        margin: 0 0 10px 0 !important;
-    }
-
-    /* Prevent wide tables from stretching the layout outward */
-    .table-container {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-}
-
- 
+        @media (max-width: 992px) {
+            .container { grid-template-columns: 1fr; padding: 0 20px; }
+            header { padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -96,29 +216,41 @@
         <h3 id="auth-title">Blue Mart Security Portal</h3>
         <input type="text" id="auth-user" placeholder="Username">
         <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
+        
+        <!-- Added Role Picker to wire into your PostgreSQL backend -->
+        <select id="auth-role">
+            <option value="buyer">Sign Up / Access as Buyer (View & Purchase)</option>
+            <option value="seller">Sign Up / Access as Seller (Manage Inventory)</option>
+        </select>
+        
         <button onclick="handleAuth('login')">Sign In</button>
-        <button style="background:#059669" onclick="handleAuth('register')">Create New Account</button>
+        <button class="btn-secondary" onclick="handleAuth('register')">Create New Account</button>
     </div>
 
     <!-- Main Application Interface -->
     <div id="main-dashboard">
         <header>
             <h2>Blue Mart Management Studio</h2>
-            <div>Logged in as: <strong id="current-user">None</strong> | <a href="#" onclick="location.reload()" style="color:white; text-decoration:none; font-weight:bold;">Logout</a></div>
+            <div>
+                Logged in as: <strong id="current-user">None</strong> 
+                <span id="user-role-badge" class="role-badge"></span> | 
+                <a href="#" onclick="handleLogout()" style="color:var(--danger-glow); text-decoration:none; font-weight:600; margin-left:10px;">Logout</a>
+            </div>
         </header>
 
-        <div class="container dashboard-grid">
+        <div class="container">
 
             <!-- Action Forms -->
             <div>
-                <div class="card">
-                    <h3>Inventory Controls</h3>
+                <!-- This entire panel morphs dynamic text options based on authorization state -->
+                <div class="card" id="control-card">
+                    <h3 id="control-title">Inventory Controls</h3>
                     <select id="action-type" onchange="toggleFormFields()">
-                        <option value="add">Add / Match Product</option>
-                        <option value="sell">Sell Stock</option>
-                        <option value="restock">Restock Item</option>
-                        <option value="edit">Modify Fields</option>
-                        <option value="delete">Remove Product</option>
+                        <option value="sell">Purchase Stock (Buyer view)</option>
+                        <option value="add" id="opt-add" style="display:none;">Add / Match Product</option>
+                        <option value="restock" id="opt-restock" style="display:none;">Restock Item</option>
+                        <option value="edit" id="opt-edit" style="display:none;">Modify Fields</option>
+                        <option value="delete" id="opt-delete" style="display:none;">Remove Product</option>
                     </select>
 
                     <input type="text" id="prod-name" placeholder="Product Name">
@@ -135,7 +267,6 @@
                         <div class="stat-item"><h4 id="stat-count">0</h4><p>Unique Lines</p></div>
                         <div class="stat-item"><h4 id="stat-qty">0</h4><p>Total Units</p></div>
                         <div class="stat-item" style="grid-column: span 2"><h4 id="stat-avg">$0.00</h4><p>Average Value</p></div>
-                        <div class="stat-item" style="grid-column: span 2"><h4 id="stat-max">-</h4><p>Most Expensive Line</p></div>
                     </div>
                 </div>
             </div>
@@ -143,23 +274,10 @@
             <!-- Inventory Display Grid -->
             <div class="card">
                 <h3>Current Stock Registers</h3>
-                <input type="text" id="search-bar" onkeyup="filterInventoryTable()" placeholder="Quick Search items by name...">
-                <table id="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>Product Identifier</th>
-                            <th>Category</th>
-                            <th>Unit Pricing</th>
-                            <th>In-Stock Units</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-body"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
+        <!-- Line 277 starts here -->
     <script>
+        let currentUserRole = 'buyer';
+
         async function defAPI(url, data) {
             const res = await fetch(url, {
                 method: 'POST',
@@ -172,16 +290,43 @@
         async function handleAuth(mode) {
             const username = document.getElementById('auth-user').value;
             const password = document.getElementById('auth-pass').value;
+            const role = document.getElementById('auth-role').value;
+            
             if(!username || !password) return alert('Fill in all fields');
             
-            const res = await defAPI(`/api/${mode}`, {username, password});
+            const res = await defAPI(`/api/${mode}`, {username, password, role});
             alert(res.message);
+            
             if(res.success) {
+                currentUserRole = res.role || role; 
                 document.getElementById('auth-panel').style.display = 'none';
                 document.getElementById('main-dashboard').style.display = 'block';
                 document.getElementById('current-user').innerText = username;
+                
+                const badge = document.getElementById('user-role-badge');
+                badge.innerText = currentUserRole;
+                badge.className = `role-badge role-${currentUserRole}`;
+                
+                setupInterfacePermissions();
                 refreshDashboard();
             }
+        }
+
+        async function handleLogout() {
+            await fetch('/api/logout', { method: 'POST' });
+            location.reload();
+        }
+
+        function setupInterfacePermissions() {
+            const isSeller = (currentUserRole === 'seller');
+            
+            document.getElementById('opt-add').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-restock').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-edit').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-delete').style.display = isSeller ? 'block' : 'none';
+            
+            document.getElementById('action-type').value = isSeller ? 'add' : 'sell';
+            toggleFormFields();
         }
 
         function toggleFormFields() {
@@ -191,12 +336,30 @@
             const q = document.getElementById('prod-qty');
             const btn = document.getElementById('action-btn');
 
-            p.style.display = (action === 'add' || action === 'edit') ? 'block' : 'none';
-            c.style.display = (action === 'add' || action === 'edit') ? 'block' : 'none';
-            q.style.display = (action !== 'delete') ? 'block' : 'none';
-            
-            btn.className = (action === 'delete') ? 'btn-danger' : '';
-            btn.innerText = action.toUpperCase() + ' PRODUCT';
+            p.style.display = 'block';
+            c.style.display = 'block';
+            q.style.display = 'block';
+            btn.className = '';
+
+            if (action === 'delete') {
+                p.style.display = 'none';
+                c.style.display = 'none';
+                q.style.display = 'none';
+                btn.innerText = 'DELETE PRODUCT FROM REGISTRY';
+                btn.className = 'btn-danger';
+            } else if (action === 'sell') {
+                p.style.display = 'none';
+                c.style.display = 'none';
+                btn.innerText = 'PURCHASE UNITS FROM VENDOR';
+            } else if (action === 'restock') {
+                p.style.display = 'none';
+                c.style.display = 'none';
+                btn.innerText = 'ADD ADDITIONAL BATCH STOCK';
+            } else if (action === 'edit') {
+                btn.innerText = 'UPDATE PRODUCT SPECIFICATIONS';
+            } else {
+                btn.innerText = 'REGISTER PRODUCT TO MARKETPLACE';
+            }
         }
 
         async function executeInventoryAction() {
@@ -206,54 +369,50 @@
             const category = document.getElementById('prod-cat').value;
             const quantity = document.getElementById('prod-qty').value;
 
-            if(!name) return alert('Product Name is mandatory');
+            if(!name) return alert('Product Name is required');
 
-            let res;
-            if(action === 'add') res = await defAPI('/api/products/add', {name, price, category, quantity});
-            if(action === 'sell') res = await defAPI('/api/products/sell', {name, quantity});
-            if(action === 'restock') res = await defAPI('/api/products/restock', {name, quantity});
-            if(action === 'edit') res = await defAPI('/api/products/edit', {name, price: price||null, category: category||null, quantity: quantity||null});
-            if(action === 'delete') {
-                if(confirm(`Confirm deleting ${name}?`)) res = await defAPI('/api/products/delete', {name});
-                else return;
-            }
+            let endpoint = `/api/products/${action}`;
+            let payload = { name, price, category, quantity };
 
-            alert(res.message || (res.success ? "Success" : "Failed"));
+            const res = await defAPI(endpoint, payload);
+            alert(res.message);
             refreshDashboard();
         }
 
         async function refreshDashboard() {
-            const pRes = await fetch('/api/products');
-            const products = await pRes.json();
+            const res = await fetch('/api/products');
+            const products = await res.json();
             
-            let html = '';
+            const tbody = document.getElementById('inventory-body');
+            tbody.innerHTML = '';
+            
             products.forEach(p => {
-                html += `<tr>
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                     <td><strong>${p['Product Name']}</strong></td>
-                    <td>${p['Category']}</td>
+                    <td>${p['Category'] || 'General'}</td>
                     <td>$${parseFloat(p['Price']).toFixed(2)}</td>
                     <td>${p['Quantity']} units</td>
-                </tr>`;
+                    <td><span class="role-badge role-seller">${p['Seller'] || 'System Drop'}</span></td>
+                `;
+                tbody.appendChild(tr);
             });
-            document.getElementById('inventory-body').innerHTML = html;
 
-            const sRes = await fetch('/api/statistics');
-            const stats = await sRes.json();
+            const statsRes = await fetch('/api/statistics');
+            const stats = await statsRes.json();
             document.getElementById('stat-count').innerText = stats.total_products;
             document.getElementById('stat-qty').innerText = stats.total_quantity;
             document.getElementById('stat-avg').innerText = stats.avg_price;
-            document.getElementById('stat-max').innerText = stats.expensive;
-            toggleFormFields();
         }
 
         function filterInventoryTable() {
-    const query = document.getElementById('search-bar').value.toLowerCase();
-    const rows = document.getElementById('inventory-body').getElementsByTagName('tr');
-    for (let row of rows) {
-        const name = row.innerText.toLowerCase();
-        row.style.display = name.includes(query) ? '' : 'none';
-    }
-}
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            const rows = document.querySelectorAll('#inventory-body tr');
+            rows.forEach(row => {
+                const text = row.querySelector('td').innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        }
     </script>
 </body>
 </html>
