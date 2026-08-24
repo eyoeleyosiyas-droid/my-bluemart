@@ -84,8 +84,8 @@ class Useraccount:
             cur.execute("SELECT password, role FROM users WHERE username = %s;", (self.user_name,))
             row = cur.fetchone()
             if row:
-                self.password = row[0]
-                self.role = row[1]
+                self.password = row[0]  # FIX: Extract individual string index 0
+                self.role = row[1]      # FIX: Extract individual string index 1
                 self.is_new = False
             cur.close()
             conn.close()
@@ -114,7 +114,7 @@ class Useraccount:
             self.password = password_input
             self.role = role_input
             self.is_new = False
-            return True, "Password and role set successfully."
+            return True, "Account created successfully."
         except Exception as e:
             return False, f"Account profile writing failed: {str(e)}"
 
