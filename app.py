@@ -4,7 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__, template_folder='.')
-
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
 # --- DATABASE CONFIGURATION ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -66,37 +66,47 @@ class Useraccount:
     def __init__(self, user_name):
         self.user_name = user_name
         self.password = None
+        self.role = 'buyer'  # Default fallback
         self.is_new = True
         
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT password FROM users WHERE username = %s;", (self.user_name,))
+            # Fetch both password AND role from database
+            cur.execute("SELECT password, role FROM users WHERE username = %s;", (self.user_name,))
             row = cur.fetchone()
             if row:
                 self.password = row[0]
+                self.role = row[1]
                 self.is_new = False
             cur.close()
             conn.close()
         except Exception as e:
             print("Error retrieving user profile account data:", e)
 
-    def set_password(self, password_input):
+    def set_password(self, password_input, role_input='buyer'):
         if not self.is_new:
             return False, "User already exists."
         if len(password_input) < 6:
             return False, "Password must be at least 6 characters."
+        if role_input not in ['buyer', 'seller']:
+            role_input = 'buyer'
         
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s);", (self.user_name, password_input))
+            # Save the chosen role during registration
+            cur.execute(
+                "INSERT INTO users (username, password, role) VALUES (%s, %s, %s);", 
+                (self.user_name, password_input, role_input)
+            )
             conn.commit()
             cur.close()
             conn.close()
             self.password = password_input
+            self.role = role_input
             self.is_new = False
-            return True, "Password set successfully."
+            return True, "Password and role set successfully."
         except Exception as e:
             return False, f"Account profile writing failed: {str(e)}"
 
@@ -270,6 +280,8 @@ class ProductManager:
 
 
 # --- ROUTING ENDPOINTS ---
+from flask import session
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -277,23 +289,43 @@ def index():
 @app.route('/api/register', methods=['POST'])
 def register():
     req = request.json
-    user = Useraccount(req.get('username'))
-    success, msg = user.set_password(req.get('password'))
+    username = req.get('username')
+    password = req.get('password')
+    role = req.get('role', 'buyer')  # Expects frontend to pass 'buyer' or 'seller'
+    
+    user = Useraccount(username)
+    success, msg = user.set_password(password, role)
     return jsonify({"success": success, "message": msg})
 
 @app.route('/api/login', methods=['POST'])
 def login():
     req = request.json
-    user = Useraccount(req.get('username'))
-    success, msg = user.verify_password(req.get('password'))
-    return jsonify({"success": success, "message": msg})
+    username = req.get('username')
+    password = req.get('password')
+    
+    user = Useraccount(username)
+    success, msg = user.verify_password(password)
+    
+    if success:
+        # Save user tracking information into cookie session memory
+        session['username'] = user.user_name
+        session['role'] = user.role
+        return jsonify({"success": True, "message": msg, "role": user.role, "username": user.user_name})
+        
+    return jsonify({"success": False, "message": msg})
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"success": True, "message": "Logged out safely."})
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT product_name AS \"Product Name\", price AS \"Price\", category AS \"Category\", quantity AS \"Quantity\" FROM products;")
+        # Fetching inventory so buyers can view everything
+        cur.execute("SELECT product_name AS \"Product Name\", price AS \"Price\", category AS \"Category\", quantity AS \"Quantity\", seller_username AS \"Seller\" FROM products;")
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -303,13 +335,61 @@ def get_products():
 
 @app.route('/api/products/add', methods=['POST'])
 def add_product():
+    # SECURITY GUARD: Deny access if not logged in as a seller
+    if 'username' not in session or session.get('role') != 'seller':
+        return jsonify({"success": False, "message": "Unauthorized. Only verified store sellers can add stock."}), 403
+        
     req = request.json
     p = ProductManager()
-    msg = p.add_product(req['name'], req['price'], req['category'], req['quantity'])
+    
+    # Modify query logic to associate item with the active session user
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO products (product_name, price, category, quantity, seller_username) VALUES (%s, %s, %s, %s, %s);",
+            (req['name'], float(req['price']), req['category'], int(req['quantity']), session['username'])
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        msg = "Product listed successfully under your vendor profile."
+    except Exception as e:
+        msg = f"Failed to list item: {str(e)}"
+        
     return jsonify({"success": True, "message": msg})
 
+@app.route('/api/products/delete', methods=['POST'])
+def delete_product():
+    # SECURITY GUARD: Block non-sellers from executing deletions
+    if 'username' not in session or session.get('role') != 'seller':
+        return jsonify({"success": False, "message": "Access Denied."}), 403
+        
+    req = request.json
+    p = ProductManager()
+    
+    # Cross-verify that the seller trying to delete the item actually owns it
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT seller_username FROM products WHERE TRIM(LOWER(product_name)) = TRIM(LOWER(%s));", (req['name'],))
+        row = cur.fetchone()
+        
+        if not row:
+            return jsonify({"success": False, "message": "Product not found."})
+            
+        if row[0] != session['username']:
+            return jsonify({"success": False, "message": "Unauthorized. You do not own this store item layout."}), 401
+            
+        success, msg = p.delete_product(req['name'])
+        return jsonify({"success": success, "message": msg})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+# --- REST OF BUYER ORDER ACTIONS ---
 @app.route('/api/products/sell', methods=['POST'])
 def sell_product():
+    # Buyers triggering an order call this route to simulate purchasing stock 
     req = request.json
     p = ProductManager()
     success, msg = p.sell_product(req['name'], req['quantity'])
@@ -317,6 +397,8 @@ def sell_product():
 
 @app.route('/api/products/restock', methods=['POST'])
 def restock_product():
+    if 'username' not in session or session.get('role') != 'seller':
+        return jsonify({"success": False, "message": "Unauthorized."}), 403
     req = request.json
     p = ProductManager()
     success, msg = p.restock_product(req['name'], req['quantity'])
@@ -324,16 +406,11 @@ def restock_product():
 
 @app.route('/api/products/edit', methods=['POST'])
 def edit_product():
+    if 'username' not in session or session.get('role') != 'seller':
+        return jsonify({"success": False, "message": "Unauthorized."}), 403
     req = request.json
     p = ProductManager()
     success, msg = p.edit_product(req['name'], req.get('price'), req.get('category'), req.get('quantity'))
-    return jsonify({"success": success, "message": msg})
-
-@app.route('/api/products/delete', methods=['POST'])
-def delete_product():
-    req = request.json
-    p = ProductManager()
-    success, msg = p.delete_product(req['name'])
     return jsonify({"success": success, "message": msg})
 
 @app.route('/api/statistics', methods=['GET'])
@@ -343,3 +420,4 @@ def get_stats():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
