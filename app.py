@@ -177,17 +177,29 @@ class ProductManager:
         except Exception as e:
             return f"Error executing asset registration database entry: {str(e)}"
 
-    def sell_product(self, product_name, quantity):
+       def sell_product(self, product_name, quantity, buyer_username):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT quantity FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
+            
+            # Fetch the current quantity AND the owner of the product
+            cur.execute("SELECT quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
             row = cur.fetchone()
 
             if not row:
+                cur.close()
+                conn.close()
                 return False, "Product not found."
 
             current_qty = row[0]
+            seller_username = row[1]
+
+            # BLOCK OWNERSHIP SALE: Prevent the seller from buying their own product
+            if seller_username == buyer_username:
+                cur.close()
+                conn.close()
+                return False, "Transaction blocked: You cannot purchase your own listed item!"
+
             if current_qty >= int(quantity):
                 new_qty = current_qty - int(quantity)
                 cur.execute("UPDATE products SET quantity = %s WHERE LOWER(product_name) = LOWER(%s);", (new_qty, product_name))
@@ -196,9 +208,12 @@ class ProductManager:
                 conn.close()
                 return True, f"Sold {quantity} units of {product_name}."
 
+            cur.close()
+            conn.close()
             return False, "Insufficient quantity available."
         except Exception as e:
             return False, f"Transaction calculation trace failed: {str(e)}"
+
 
     def restock_product(self, product_name, quantity):
         try:
