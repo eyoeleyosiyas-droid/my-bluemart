@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blue Mart Marketplace</title>
-    <link rel="preconnect" href="https://googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
-    <link href="https://googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-canvas: #0b1329;
@@ -23,8 +23,6 @@
             --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
-        * { box-sizing: border-box; }
-
         body {
             font-family: var(--font-stack);
             margin: 0;
@@ -36,50 +34,30 @@
             overflow-x: hidden;
         }
 
-        .logo-mark {
-            width: 34px;
-            height: 34px;
-            flex-shrink: 0;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
         header {
             background: rgba(11, 19, 41, 0.8);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-glow);
             color: white;
-            padding: 16px 40px;
+            padding: 20px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
-            flex-wrap: wrap;
-            gap: 10px;
         }
 
         header h2 {
             font-weight: 600;
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             margin: 0;
             letter-spacing: -0.5px;
             background: linear-gradient(135deg, #ffffff, var(--accent-glow));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }
-
-        .user-info {
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         .container {
@@ -90,6 +68,7 @@
             grid-template-columns: 380px 1fr;
             gap: 35px;
             width: 100%;
+            box-sizing: border-box;
         }
 
         .card {
@@ -100,13 +79,18 @@
             border: 1px solid var(--border-glow);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
             margin-bottom: 25px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 32px 0 rgba(91, 192, 190, 0.05);
         }
 
         h3 {
             margin-top: 0;
             color: var(--text-primary);
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             letter-spacing: -0.3px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border-glow);
@@ -119,16 +103,23 @@
             margin: 10px 0;
             border: 1px solid var(--border-glow);
             border-radius: 8px;
+            box-sizing: border-box;
             background: rgba(11, 19, 41, 0.5);
             color: var(--text-primary);
             font-family: var(--font-stack);
             font-size: 0.9rem;
+            transition: all 0.2s ease;
         }
 
         input:focus, select:focus {
             outline: none;
             border-color: var(--accent-glow);
             box-shadow: 0 0 0 3px rgba(91, 192, 190, 0.15);
+        }
+
+        select:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         button {
@@ -138,16 +129,23 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 15px;
+            letter-spacing: -0.1px;
         }
 
-        button:hover { background: var(--accent-hover); }
+        button:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
 
         .btn-secondary {
             background: transparent;
             color: var(--accent-glow);
             border: 1px solid var(--accent-glow);
         }
-        .btn-secondary:hover { background: rgba(91, 192, 190, 0.1); }
+
+        .btn-secondary:hover {
+            background: rgba(91, 192, 190, 0.1);
+        }
 
         .btn-danger { background: var(--danger-glow); color: white; }
         .btn-danger:hover { background: var(--danger-hover); }
@@ -156,17 +154,18 @@
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid var(--border-glow);
-            -webkit-overflow-scrolling: touch;
         }
 
-        table { width: 100%; border-collapse: collapse; min-width: 480px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
         th, td {
-            padding: 14px 16px;
+            padding: 16px;
             text-align: left;
             border-bottom: 1px solid var(--border-glow);
-            font-size: 0.88rem;
-            white-space: nowrap;
+            font-size: 0.9rem;
         }
 
         th {
@@ -174,7 +173,7 @@
             color: var(--text-secondary);
             font-weight: 500;
             text-transform: uppercase;
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             letter-spacing: 0.5px;
         }
 
@@ -185,12 +184,12 @@
             display: inline-block;
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .role-seller { background: rgba(91, 192, 190, 0.15); color: var(--accent-glow); }
-        .role-you { background: rgba(2, 195, 154, 0.18); color: var(--success-glow); }
+        .role-seller { background: rgba(2, 195, 154, 0.15); color: var(--success-glow); }
+        .role-buyer { background: rgba(91, 192, 190, 0.15); color: var(--accent-glow); }
 
         .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
         .stat-item {
@@ -200,29 +199,25 @@
             text-align: center;
             border: 1px solid var(--border-glow);
         }
-        .stat-item h4 { margin: 0; color: var(--accent-glow); font-size: 20px; font-weight: 600; }
-        .stat-item p { margin: 6px 0 0 0; color: var(--text-secondary); font-size: 0.78rem; }
+        .stat-item h4 { margin: 0; color: var(--accent-glow); font-size: 22px; font-weight: 600; }
+        .stat-item p { margin: 6px 0 0 0; color: var(--text-secondary); font-size: 0.8rem; font-weight: 400; }
 
         #auth-panel {
-            max-width: 400px;
-            width: 90%;
-            margin: 100px auto;
+            max-width: 420px;
+            margin: 120px auto;
+            box-sizing: border-box;
         }
-        #auth-panel .brand { justify-content: center; margin-bottom: 10px; }
         #main-dashboard { display: none; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin: -4px 0 6px 2px;
+        }
 
         @media (max-width: 992px) {
             .container { grid-template-columns: 1fr; padding: 0 20px; }
-        }
-
-        @media (max-width: 600px) {
-            header { padding: 14px 18px; flex-direction: column; align-items: flex-start; }
-            .container { margin: 24px auto; padding: 0 14px; gap: 20px; }
-            .card { padding: 18px; }
-            #auth-panel { margin: 50px auto; width: 92%; padding: 22px; }
-            h3 { font-size: 1rem; }
-            th, td { padding: 10px 12px; font-size: 0.8rem; }
-            .stat-item h4 { font-size: 17px; }
+            header { padding: 20px; }
         }
     </style>
 </head>
@@ -230,17 +225,18 @@
 
     <!-- Authentication Area -->
     <div id="auth-panel" class="card">
-        <div class="brand">
-            <svg class="logo-mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <rect x="4" y="16" width="40" height="26" rx="4" fill="#1c2541" stroke="#5bc0be" stroke-width="2"/>
-                <path d="M14 16 L14 11 A10 10 0 0 1 34 11 L34 16" fill="none" stroke="#5bc0be" stroke-width="2.5" stroke-linecap="round"/>
-                <circle cx="24" cy="27" r="5" fill="#5bc0be"/>
-                <path d="M20.5 27 L23 29.5 L28 24" stroke="#0b1329" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <h3 id="auth-title" style="border:none; margin:0; padding:0;">Blue Mart</h3>
-        </div>
+        <h3 id="auth-title">Blue Mart Security Portal</h3>
         <input type="text" id="auth-user" placeholder="Username">
         <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
+
+        <!-- Role only matters when creating a new account -->
+        <select id="auth-role" onchange="toggleSellerCodeField()">
+            <option value="buyer">Sign Up as Buyer (View & Purchase)</option>
+            <option value="seller">Sign Up as Seller (Manage Inventory)</option>
+        </select>
+
+        <input type="password" id="auth-seller-code" placeholder="Seller Access Code" style="display:none;">
+        <div class="hint" id="seller-code-hint" style="display:none;">Only used when signing up as a seller.</div>
 
         <button onclick="handleAuth('login')">Sign In</button>
         <button class="btn-secondary" onclick="handleAuth('register')">Create New Account</button>
@@ -249,18 +245,14 @@
     <!-- Main Application Interface -->
     <div id="main-dashboard">
         <header>
-            <div class="brand">
-                <svg class="logo-mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="16" width="40" height="26" rx="4" fill="#1c2541" stroke="#5bc0be" stroke-width="2"/>
-                    <path d="M14 16 L14 11 A10 10 0 0 1 34 11 L34 16" fill="none" stroke="#5bc0be" stroke-width="2.5" stroke-linecap="round"/>
-                    <circle cx="24" cy="27" r="5" fill="#5bc0be"/>
-                    <path d="M20.5 27 L23 29.5 L28 24" stroke="#0b1329" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <h2>Blue Mart</h2>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <img src="/static/logo.svg" alt="Blue Mart" style="height:40px; width:40px; display:inline-block;">
+                <h2>Blue Mart Management Studio</h2>
             </div>
-            <div class="user-info">
-                <span>Signed in as <strong id="current-user">None</strong></span>
-                <a href="#" onclick="handleLogout()" style="color:var(--danger-glow); text-decoration:none; font-weight:600;">Logout</a>
+            <div>
+                Logged in as: <strong id="current-user">None</strong>
+                <span id="user-role-badge" class="role-badge"></span> |
+                <a href="#" onclick="handleLogout()" style="color:var(--danger-glow); text-decoration:none; font-weight:600; margin-left:10px;">Logout</a>
             </div>
         </header>
 
@@ -269,16 +261,13 @@
             <!-- Action Forms -->
             <div>
                 <div class="card" id="control-card">
-                    <h3>Buy or Sell</h3>
-                    <p style="color:var(--text-secondary); font-size:0.8rem; margin-top:-14px;">
-                        Any account can list products and buy from other sellers. You just can't buy your own listing.
-                    </p>
+                    <h3 id="control-title">Inventory Controls</h3>
                     <select id="action-type" onchange="toggleFormFields()">
-                        <option value="sell">Buy an Item</option>
-                        <option value="add">List a New Product</option>
-                        <option value="restock">Restock My Item</option>
-                        <option value="edit">Edit My Item</option>
-                        <option value="delete">Remove My Item</option>
+                        <option value="sell">Purchase Stock (Buyer view)</option>
+                        <option value="add" id="opt-add" style="display:none;">Add / Match Product</option>
+                        <option value="restock" id="opt-restock" style="display:none;">Restock Item</option>
+                        <option value="edit" id="opt-edit" style="display:none;">Modify Fields</option>
+                        <option value="delete" id="opt-delete" style="display:none;">Remove Product</option>
                     </select>
 
                     <input type="text" id="prod-name" placeholder="Product Name">
@@ -286,7 +275,7 @@
                     <input type="text" id="prod-cat" placeholder="Category">
                     <input type="number" id="prod-qty" placeholder="Quantity">
 
-                    <button id="action-btn" onclick="executeInventoryAction()">Submit</button>
+                    <button id="action-btn" onclick="executeInventoryAction()">Submit Action</button>
                 </div>
 
                 <div class="card">
@@ -327,7 +316,7 @@
     </div>
 
     <script>
-        let currentUsername = '';
+        let currentUserRole = 'buyer';
 
         async function defAPI(url, data) {
             const res = await fetch(url, {
@@ -338,29 +327,48 @@
             return res.json();
         }
 
+        function toggleSellerCodeField() {
+            const isSellerChoice = document.getElementById('auth-role').value === 'seller';
+            document.getElementById('auth-seller-code').style.display = isSellerChoice ? 'block' : 'none';
+            document.getElementById('seller-code-hint').style.display = isSellerChoice ? 'block' : 'none';
+        }
+
         async function handleAuth(mode) {
             const username = document.getElementById('auth-user').value;
             const password = document.getElementById('auth-pass').value;
+            const role = document.getElementById('auth-role').value;
+            const sellerCode = document.getElementById('auth-seller-code').value;
 
             if (!username || !password) return alert('Fill in all fields');
 
-            const res = await defAPI(`/api/${mode}`, {username, password});
+            // Role/seller code only matter for registration; login ignores them.
+            const payload = mode === 'register'
+                ? {username, password, role, seller_code: sellerCode}
+                : {username, password};
+
+            const res = await defAPI(`/api/${mode}`, payload);
             alert(res.message);
 
             if (res.success) {
                 if (mode === 'register') {
-                    return; // let them sign in explicitly
+                    // Don't auto-login on register; let them sign in explicitly.
+                    return;
                 }
+                currentUserRole = res.role || 'buyer';
                 enterDashboard(username);
             }
         }
 
         function enterDashboard(username) {
-            currentUsername = username;
             document.getElementById('auth-panel').style.display = 'none';
             document.getElementById('main-dashboard').style.display = 'block';
             document.getElementById('current-user').innerText = username;
-            toggleFormFields();
+
+            const badge = document.getElementById('user-role-badge');
+            badge.innerText = currentUserRole;
+            badge.className = `role-badge role-${currentUserRole}`;
+
+            setupInterfacePermissions();
             refreshDashboard();
         }
 
@@ -369,16 +377,31 @@
             location.reload();
         }
 
+        // Re-enter the dashboard automatically if the session cookie is still valid
+        // (e.g. after a page refresh), instead of always showing the login screen.
         async function checkExistingSession() {
             try {
                 const res = await fetch('/api/session');
                 const data = await res.json();
                 if (data.logged_in) {
+                    currentUserRole = data.role;
                     enterDashboard(data.username);
                 }
             } catch (e) {
                 console.error('Session check failed:', e);
             }
+        }
+
+        function setupInterfacePermissions() {
+            const isSeller = (currentUserRole === 'seller');
+
+            document.getElementById('opt-add').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-restock').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-edit').style.display = isSeller ? 'block' : 'none';
+            document.getElementById('opt-delete').style.display = isSeller ? 'block' : 'none';
+
+            document.getElementById('action-type').value = isSeller ? 'add' : 'sell';
+            toggleFormFields();
         }
 
         function toggleFormFields() {
@@ -397,20 +420,20 @@
                 p.style.display = 'none';
                 c.style.display = 'none';
                 q.style.display = 'none';
-                btn.innerText = 'DELETE MY LISTING';
+                btn.innerText = 'DELETE PRODUCT FROM REGISTRY';
                 btn.className = 'btn-danger';
             } else if (action === 'sell') {
                 p.style.display = 'none';
                 c.style.display = 'none';
-                btn.innerText = 'BUY THIS ITEM';
+                btn.innerText = 'PURCHASE UNITS FROM VENDOR';
             } else if (action === 'restock') {
                 p.style.display = 'none';
                 c.style.display = 'none';
-                btn.innerText = 'ADD MORE STOCK';
+                btn.innerText = 'ADD ADDITIONAL BATCH STOCK';
             } else if (action === 'edit') {
-                btn.innerText = 'SAVE CHANGES';
+                btn.innerText = 'UPDATE PRODUCT SPECIFICATIONS';
             } else {
-                btn.innerText = 'LIST PRODUCT';
+                btn.innerText = 'REGISTER PRODUCT TO MARKETPLACE';
             }
         }
 
@@ -439,14 +462,13 @@
             tbody.innerHTML = '';
 
             products.forEach(p => {
-                const isOwn = p['Seller'] === currentUsername;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${p['Product Name']}</strong></td>
                     <td>${p['Category'] || 'General'}</td>
                     <td>$${parseFloat(p['Price']).toFixed(2)}</td>
                     <td>${p['Quantity']} units</td>
-                    <td><span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}</span></td>
+                    <td><span class="role-badge role-seller">${p['Seller'] || 'System Drop'}</span></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -467,6 +489,7 @@
             });
         }
 
+        // Run on page load
         checkExistingSession();
     </script>
 </body>
