@@ -25,7 +25,6 @@ ALLOWED_PRODUCT_CATEGORIES = [
     "Electronics", "Clothing", "Food", "Books", "Furniture", "Other"
 ]
 
-# --- DATABASE CONFIGURATION ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -49,8 +48,10 @@ def init_connection_pool():
 @contextmanager
 def get_db_connection():
     """Context manager for database connections from the pool."""
+    global db_pool
     if not db_pool:
-        raise ValueError("Database pool not initialized.")
+        # Automatically attempt initialization if a route hits it before setup
+        init_connection_pool()
     conn = db_pool.getconn()
     try:
         yield conn
@@ -68,6 +69,10 @@ def init_db():
         return
 
     try:
+        # 1. INITIALIZE THE POOL FIRST!
+        init_connection_pool()
+
+        # 2. Open connection using the verified pool
         with get_db_connection() as conn:
             cur = conn.cursor()
 
