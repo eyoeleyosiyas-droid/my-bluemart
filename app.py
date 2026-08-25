@@ -6,11 +6,6 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__, template_folder='.')
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
 
-# --- SELLER AUTHORIZATION ---
-# Anyone who knows this code can register as a seller.
-# Change it via the SELLER_ACCESS_CODE environment variable on Render.
-SELLER_ACCESS_CODE = os.environ.get("SELLER_ACCESS_CODE", "bluemart-seller-2026")
-
 # --- DATABASE CONFIGURATION ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -23,6 +18,8 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
 def init_db():
+    # Every account can now both buy and sell, so there is no "role" column
+    # anymore - permissions are based purely on who owns a given product.
     if not DATABASE_URL:
         print("DATABASE_URL is missing.")
         return
@@ -41,23 +38,14 @@ def init_db():
         """)
 
         cur.execute("""
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'buyer';
-        """)
-
-        cur.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 product_name VARCHAR(255) UNIQUE NOT NULL,
                 price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 category VARCHAR(100),
-                quantity INT NOT NULL DEFAULT 0
+                quantity INT NOT NULL DEFAULT 0,
+                seller_username VARCHAR(100)
             );
-        """)
-
-        cur.execute("""
-            ALTER TABLE products
-            ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100);
         """)
 
         cur.execute("""
@@ -78,12 +66,6 @@ def init_db():
             $$;
         """)
 
-        cur.execute("""
-            UPDATE users
-            SET role = 'buyer'
-            WHERE role IS NULL;
-        """)
-
         conn.commit()
         cur.close()
         conn.close()
@@ -99,43 +81,38 @@ class Useraccount:
     def __init__(self, user_name):
         self.user_name = user_name
         self.password = None
-        self.role = 'buyer'
         self.is_new = True
 
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT password, role FROM users WHERE username = %s;", (self.user_name,))
+            cur.execute("SELECT password FROM users WHERE username = %s;", (self.user_name,))
             row = cur.fetchone()
             if row:
                 self.password = row[0]
-                self.role = row[1]
                 self.is_new = False
             cur.close()
             conn.close()
         except Exception as e:
             print("Error retrieving user profile account data:", e)
 
-    def set_password(self, password_input, role_input='buyer'):
+    def set_password(self, password_input):
         if not self.is_new:
             return False, "User already exists."
         if len(password_input) < 6:
             return False, "Password must be at least 6 characters."
-        if role_input not in ['buyer', 'seller']:
-            role_input = 'buyer'
 
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (username, password, role) VALUES (%s, %s, %s);",
-                (self.user_name, password_input, role_input)
+                "INSERT INTO users (username, password) VALUES (%s, %s);",
+                (self.user_name, password_input)
             )
             conn.commit()
             cur.close()
             conn.close()
             self.password = password_input
-            self.role = role_input
             self.is_new = False
             return True, "Account created successfully."
         except Exception as e:
@@ -150,39 +127,48 @@ class Useraccount:
 
 
 class ProductManager:
-    def add_product(self, product_name, price, category, quantity):
+    def add_product(self, product_name, price, category, quantity, seller_username):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
 
-            cur.execute("SELECT quantity FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
+            cur.execute(
+                "SELECT quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);",
+                (product_name,)
+            )
             row = cur.fetchone()
 
             if row:
-                new_qty = row[0] + int(quantity)
+                existing_qty, existing_seller = row
+                if existing_seller != seller_username:
+                    cur.close()
+                    conn.close()
+                    return "A product with this name is already listed by another seller. Try a different name."
+
+                new_qty = existing_qty + int(quantity)
                 cur.execute("UPDATE products SET quantity = %s WHERE LOWER(product_name) = LOWER(%s);", (new_qty, product_name))
                 conn.commit()
                 cur.close()
                 conn.close()
-                return f"Product existed. Increased quantity to {new_qty}."
+                return f"You already listed this product. Increased quantity to {new_qty}."
 
             cur.execute(
-                "INSERT INTO products (product_name, price, category, quantity) VALUES (%s, %s, %s, %s);",
-                (product_name, float(price), category, int(quantity))
+                "INSERT INTO products (product_name, price, category, quantity, seller_username) VALUES (%s, %s, %s, %s, %s);",
+                (product_name, float(price), category, int(quantity), seller_username)
             )
             conn.commit()
             cur.close()
             conn.close()
-            return "Product added successfully."
+            return "Product listed successfully."
         except Exception as e:
             return f"Error executing asset registration database entry: {str(e)}"
 
-       def sell_product(self, product_name, quantity, buyer_username):
+    def sell_product(self, product_name, quantity, buyer_username):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            
-            # Fetch the current quantity AND the owner of the product
+
+            # Fetch current quantity AND owner profile details
             cur.execute("SELECT quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
             row = cur.fetchone()
 
@@ -214,31 +200,56 @@ class ProductManager:
         except Exception as e:
             return False, f"Transaction calculation trace failed: {str(e)}"
 
-
-    def restock_product(self, product_name, quantity):
+    def restock_product(self, product_name, quantity, seller_username):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT quantity FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
+            
+            cur.execute("SELECT quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
             row = cur.fetchone()
 
             if row:
-                new_qty = row[0] + int(quantity)
+                existing_qty, existing_seller = row
+                
+                # Check ownership authority
+                if existing_seller != seller_username:
+                    cur.close()
+                    conn.close()
+                    return False, "Permission denied: You do not own this product listing."
+
+                new_qty = existing_qty + int(quantity)
                 cur.execute("UPDATE products SET quantity = %s WHERE LOWER(product_name) = LOWER(%s);", (new_qty, product_name))
                 conn.commit()
                 cur.close()
                 conn.close()
                 return True, f"Restocked {quantity} units of {product_name}."
 
+            cur.close()
+            conn.close()
             return False, "Product not found."
         except Exception as e:
             return False, f"Stock trace update writing task failed: {str(e)}"
 
-    def edit_product(self, product_name, new_price=None, new_category=None, new_quantity=None):
+    def edit_product(self, product_name, seller_username, new_price=None, new_category=None, new_quantity=None):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
 
+            # First verify that this user actually owns the product they are editing
+            cur.execute("SELECT seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
+            row = cur.fetchone()
+
+            if not row:
+                cur.close()
+                conn.close()
+                return False, "Product not found."
+
+            if row[0] != seller_username:
+                cur.close()
+                conn.close()
+                return False, "Permission denied: You cannot edit another seller's product."
+
+            # Construct dynamic UPDATE query updates block safely
             updates = []
             params = []
 
@@ -253,217 +264,18 @@ class ProductManager:
                 params.append(int(new_quantity))
 
             if not updates:
-                return False, "No modifications specified."
+                cur.close()
+                conn.close()
+                return True, "No changes specified."
 
-            query = f"UPDATE products SET {', '.join(updates)} WHERE LOWER(product_name) = LOWER(%s);"
+           
             params.append(product_name)
-
+            query = f"UPDATE products SET {', '.join(updates)} WHERE LOWER(product_name) = LOWER(%s);"
+            
             cur.execute(query, tuple(params))
             conn.commit()
-            row_count = cur.rowcount
             cur.close()
             conn.close()
-
-            if row_count > 0:
-                return True, "Product updated successfully."
-            return False, "Product not found."
+            return True, "Product updated successfully."
         except Exception as e:
-            return False, f"Target update validation execution error: {str(e)}"
-
-    def delete_product(self, product_name):
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-
-            query = "DELETE FROM products WHERE TRIM(LOWER(product_name)) = TRIM(LOWER(%s));"
-            cleaned_name = product_name.strip()
-
-            cur.execute(query, (cleaned_name,))
-            conn.commit()
-            row_count = cur.rowcount
-            cur.close()
-            conn.close()
-
-            if row_count > 0:
-                return True, f"Product {product_name} deleted."
-            return False, "Product not found."
-        except Exception as e:
-            return False, f"Target purge row compilation sequence dropped: {str(e)}"
-
-    def get_statistics(self):
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT product_name AS \"Product Name\", price AS \"Price\", category AS \"Category\", quantity AS \"Quantity\" FROM products;")
-            products = cur.fetchall()
-            cur.close()
-            conn.close()
-
-            if not products:
-                return {"total_products": 0, "total_quantity": 0, "expensive": "N/A", "cheapest": "N/A", "avg_price": "$0.00"}
-
-            total_products = len(products)
-            total_quantity = sum(p["Quantity"] for p in products)
-            expensive = max(products, key=lambda x: float(x["Price"]))
-            cheapest = min(products, key=lambda x: float(x["Price"]))
-            avg_price = sum(float(p["Price"]) for p in products) / total_products
-
-            return {
-                "total_products": total_products,
-                "total_quantity": total_quantity,
-                "expensive": f"{expensive['Product Name']} (${float(expensive['Price']):.2f})",
-                "cheapest": f"{cheapest['Product Name']} (${float(cheapest['Price']):.2f})",
-                "avg_price": f"${avg_price:.2f}"
-            }
-        except Exception as e:
-            print("System Metrics generation failed:", e)
-            return {"total_products": 0, "total_quantity": 0, "expensive": "Error", "cheapest": "Error", "avg_price": "$0.00"}
-
-
-# --- ROUTING ENDPOINTS ---
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/api/register', methods=['POST'])
-def register():
-    req = request.json
-    username = req.get('username')
-    password = req.get('password')
-    role = req.get('role', 'buyer')
-    seller_code = req.get('seller_code', '')
-
-    # AUTHORIZATION CHECK: registering as a seller requires the correct access code.
-    if role == 'seller' and seller_code != SELLER_ACCESS_CODE:
-        return jsonify({
-            "success": False,
-            "message": "Invalid seller access code. Ask the store admin for the current code, or sign up as a buyer."
-        })
-
-    user = Useraccount(username)
-    success, msg = user.set_password(password, role)
-    return jsonify({"success": success, "message": msg})
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    req = request.json
-    username = req.get('username')
-    password = req.get('password')
-
-    user = Useraccount(username)
-    success, msg = user.verify_password(password)
-
-    if success:
-        session['username'] = user.user_name
-        session['role'] = user.role
-        return jsonify({"success": True, "message": msg, "role": user.role, "username": user.user_name})
-
-    return jsonify({"success": False, "message": msg})
-
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    session.clear()
-    return jsonify({"success": True, "message": "Logged out safely."})
-
-@app.route('/api/session', methods=['GET'])
-def check_session():
-    # Lets the frontend know who's logged in after a page refresh.
-    if 'username' in session:
-        return jsonify({"logged_in": True, "username": session['username'], "role": session.get('role', 'buyer')})
-    return jsonify({"logged_in": False})
-
-@app.route('/api/products', methods=['GET'])
-def get_products():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT product_name AS \"Product Name\", price AS \"Price\", category AS \"Category\", quantity AS \"Quantity\", seller_username AS \"Seller\" FROM products;")
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-        return jsonify(rows)
-    except Exception as e:
-        return jsonify([])
-
-@app.route('/api/products/add', methods=['POST'])
-def add_product():
-    if 'username' not in session or session.get('role') != 'seller':
-        return jsonify({"success": False, "message": "Unauthorized. Only verified store sellers can add stock."}), 403
-
-    req = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO products (product_name, price, category, quantity, seller_username) VALUES (%s, %s, %s, %s, %s);",
-            (req['name'], float(req['price']), req['category'], int(req['quantity']), session['username'])
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-        msg = "Product listed successfully under your vendor profile."
-    except Exception as e:
-        msg = f"Failed to list item: {str(e)}"
-
-    return jsonify({"success": True, "message": msg})
-
-@app.route('/api/products/delete', methods=['POST'])
-def delete_product():
-    if 'username' not in session or session.get('role') != 'seller':
-        return jsonify({"success": False, "message": "Access Denied."}), 403
-
-    req = request.json
-    p = ProductManager()
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT seller_username FROM products WHERE TRIM(LOWER(product_name)) = TRIM(LOWER(%s));", (req['name'],))
-        row = cur.fetchone()
-
-        if not row:
-            return jsonify({"success": False, "message": "Product not found."})
-
-        if row[0] != session['username']:
-            return jsonify({"success": False, "message": "Unauthorized. You do not own this store item layout."}), 401
-
-        success, msg = p.delete_product(req['name'])
-        return jsonify({"success": success, "message": msg})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
-
-@app.route('/api/products/sell', methods=['POST'])
-def sell_product():
-    req = request.json
-    p = ProductManager()
-    success, msg = p.sell_product(req['name'], req['quantity'])
-    return jsonify({"success": success, "message": msg})
-
-@app.route('/api/products/restock', methods=['POST'])
-def restock_product():
-    if 'username' not in session or session.get('role') != 'seller':
-        return jsonify({"success": False, "message": "Unauthorized."}), 403
-    req = request.json
-    p = ProductManager()
-    success, msg = p.restock_product(req['name'], req['quantity'])
-    return jsonify({"success": success, "message": msg})
-
-@app.route('/api/products/edit', methods=['POST'])
-def edit_product():
-    if 'username' not in session or session.get('role') != 'seller':
-        return jsonify({"success": False, "message": "Unauthorized."}), 403
-    req = request.json
-    p = ProductManager()
-    success, msg = p.edit_product(req['name'], req.get('price'), req.get('category'), req.get('quantity'))
-    return jsonify({"success": success, "message": msg})
-
-@app.route('/api/statistics', methods=['GET'])
-def get_stats():
-    p = ProductManager()
-    return jsonify(p.get_statistics())
-
-init_db()
-
-if __name__ == '__main__':
-    app.run(debug=True)
+            return False, f"Product update failed: {str(e)}"
