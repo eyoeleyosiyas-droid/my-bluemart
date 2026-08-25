@@ -268,7 +268,6 @@ class ProductManager:
                 return False, "No modifications specified."
 
             params.append(product_name)
-                        params.append(product_name)
             query = f"UPDATE products SET {', '.join(updates)} WHERE LOWER(product_name) = LOWER(%s);"
 
             cur.execute(query, tuple(params))
@@ -468,4 +467,3 @@ init_db()
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
