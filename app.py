@@ -647,12 +647,19 @@ def internal_error(error):
     return jsonify({"success": False, "message": "Internal server error."}), 500
 
 
+# Run this at import time (module level), not just inside __main__ below.
+# Render/production typically starts this app with a WSGI server like
+# `gunicorn app:app`, which imports this file rather than executing it
+# directly - so __name__ never equals "__main__" and that block never runs.
+# Without this, a fresh database never gets its tables created, which is
+# exactly what produced the "Internal server error" / "Login failed"
+# messages after switching to a new database.
+try:
+    init_connection_pool()
+    init_db()
+except Exception as e:
+    logger.error(f"Failed to initialize database on startup: {e}")
+
 if __name__ == '__main__':
-    try:
-        init_connection_pool()
-        init_db()
-        debug_mode = os.environ.get('FLASK_ENV') == 'development'
-        app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    except Exception as e:
-        logger.error(f"Failed to start application: {e}")
-        raise
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
