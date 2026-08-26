@@ -10,14 +10,12 @@ from psycopg2 import pool
 from werkzeug.security import generate_password_hash, check_password_hash
 from marshmallow import Schema, fields, ValidationError, validate
 
-# --- LOGGING CONFIGURATION ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
 
-# --- CONSTANTS ---
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
 MAX_PRODUCT_NAME_LENGTH = 255
@@ -30,11 +28,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Connection pool for better performance
 db_pool = None
 
 def init_connection_pool():
-    """Initialize a connection pool for the database."""
     global db_pool
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable is missing.")
@@ -47,10 +43,8 @@ def init_connection_pool():
 
 @contextmanager
 def get_db_connection():
-    """Context manager for database connections from the pool."""
     global db_pool
     if not db_pool:
-        # Automatically attempt initialization if a route hits it before setup
         init_connection_pool()
     conn = db_pool.getconn()
     try:
@@ -63,16 +57,13 @@ def get_db_connection():
         db_pool.putconn(conn)
 
 def init_db():
-    """Initialize database schema."""
     if not DATABASE_URL:
         logger.error("DATABASE_URL is missing.")
         return
 
     try:
-        # 1. INITIALIZE THE POOL FIRST!
         init_connection_pool()
 
-        # 2. Open connection using the verified pool
         with get_db_connection() as conn:
             cur = conn.cursor()
 
@@ -119,78 +110,39 @@ def init_db():
         raise
 
 
-# --- VALIDATION SCHEMAS ---
 class RegisterSchema(Schema):
-    username = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH)
-    )
-    password = fields.Str(
-        required=True,
-        validate=validate.Length(min=MIN_PASSWORD_LENGTH)
-    )
+    username = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH))
+    password = fields.Str(required=True, validate=validate.Length(min=MIN_PASSWORD_LENGTH))
 
 class LoginSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True)
 
 class ProductSchema(Schema):
-    name = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH)
-    )
-    price = fields.Float(
-        required=True,
-        validate=validate.Range(min=0)
-    )
-    category = fields.Str(
-        required=True,
-        validate=validate.OneOf(ALLOWED_PRODUCT_CATEGORIES)
-    )
-    quantity = fields.Int(
-        required=True,
-        validate=validate.Range(min=0)
-    )
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH))
+    price = fields.Float(required=True, validate=validate.Range(min=0))
+    category = fields.Str(required=True, validate=validate.OneOf(ALLOWED_PRODUCT_CATEGORIES))
+    quantity = fields.Int(required=True, validate=validate.Range(min=0))
 
 class EditProductSchema(Schema):
-    name = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH)
-    )
-    price = fields.Float(
-        allow_none=True,
-        validate=validate.Range(min=0)
-    )
-    category = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(ALLOWED_PRODUCT_CATEGORIES)
-    )
-    quantity = fields.Int(
-        allow_none=True,
-        validate=validate.Range(min=0)
-    )
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH))
+    price = fields.Float(allow_none=True, validate=validate.Range(min=0))
+    category = fields.Str(allow_none=True, validate=validate.OneOf(ALLOWED_PRODUCT_CATEGORIES))
+    quantity = fields.Int(allow_none=True, validate=validate.Range(min=0))
 
 class SellProductSchema(Schema):
     name = fields.Str(required=True)
-    quantity = fields.Int(
-        required=True,
-        validate=validate.Range(min=1)
-    )
+    quantity = fields.Int(required=True, validate=validate.Range(min=1))
 
 class RestockProductSchema(Schema):
     name = fields.Str(required=True)
-    quantity = fields.Int(
-        required=True,
-        validate=validate.Range(min=1)
-    )
+    quantity = fields.Int(required=True, validate=validate.Range(min=1))
 
 class DeleteProductSchema(Schema):
     name = fields.Str(required=True)
 
 
-# --- DECORATORS ---
 def validate_json(schema_class):
-    """Decorator to validate JSON request body against a schema."""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -212,7 +164,6 @@ def validate_json(schema_class):
     return decorator
 
 def require_login(f):
-    """Decorator to require an authenticated session."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'username' not in session:
@@ -221,7 +172,6 @@ def require_login(f):
     return decorated_function
 
 
-# --- BACKEND BUSINESS LOGIC ---
 class Useraccount:
     def __init__(self, username):
         self.username = username
@@ -231,10 +181,7 @@ class Useraccount:
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute(
-                    "SELECT password_hash FROM users WHERE username = %s;",
-                    (self.username,)
-                )
+                cur.execute("SELECT password_hash FROM users WHERE username = %s;", (self.username,))
                 row = cur.fetchone()
                 if row:
                     self.password_hash = row[0]
@@ -245,7 +192,6 @@ class Useraccount:
             raise
 
     def set_password(self, password_input):
-        """Create a new user account with a hashed password."""
         if not self.is_new:
             return False, "User already exists."
         if len(password_input) < MIN_PASSWORD_LENGTH:
@@ -255,10 +201,7 @@ class Useraccount:
             password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO users (username, password_hash) VALUES (%s, %s);",
-                    (self.username, password_hash)
-                )
+                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s);", (self.username, password_hash))
                 conn.commit()
                 cur.close()
             self.password_hash = password_hash
@@ -273,7 +216,6 @@ class Useraccount:
             return False, "Account creation failed."
 
     def verify_password(self, password_input):
-        """Verify a user's password."""
         if self.password_hash is None:
             return False, "User does not exist. Register first."
         if check_password_hash(self.password_hash, password_input):
@@ -284,15 +226,11 @@ class Useraccount:
 
 
 class ProductManager:
-    """Manages product CRUD operations and inventory."""
-
     def add_product(self, product_name, price, category, quantity, seller_username):
-        """Add a new product or increase quantity of existing product by same seller."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
 
-                # Check if product exists with this name (case-insensitive)
                 cur.execute(
                     "SELECT id, quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);",
                     (product_name,)
@@ -301,22 +239,16 @@ class ProductManager:
 
                 if row:
                     _, existing_qty, existing_seller = row
-                    # Only allow restock if seller is the same
                     if existing_seller != seller_username:
                         return False, "A product with this name is already listed by another seller."
 
-                    # Update quantity
                     new_qty = existing_qty + int(quantity)
-                    cur.execute(
-                        "UPDATE products SET quantity = %s WHERE LOWER(product_name) = LOWER(%s);",
-                        (new_qty, product_name)
-                    )
+                    cur.execute("UPDATE products SET quantity = %s WHERE LOWER(product_name) = LOWER(%s);", (new_qty, product_name))
                     conn.commit()
                     cur.close()
                     logger.info(f"Product {product_name} restocked by {seller_username}. New qty: {new_qty}")
                     return True, f"Product already listed. Quantity increased to {new_qty}."
 
-                # Insert new product
                 cur.execute(
                     """INSERT INTO products (product_name, price, category, quantity, seller_username)
                        VALUES (%s, %s, %s, %s, %s);""",
@@ -334,7 +266,6 @@ class ProductManager:
             return False, "Failed to add product."
 
     def sell_product(self, product_name, quantity, buyer_username):
-        """Process a purchase of a product."""
         try:
             quantity = int(quantity)
             if quantity <= 0:
@@ -343,7 +274,6 @@ class ProductManager:
             with get_db_connection() as conn:
                 cur = conn.cursor()
 
-                # Fetch product details
                 cur.execute(
                     "SELECT id, quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);",
                     (product_name,)
@@ -356,23 +286,17 @@ class ProductManager:
 
                 product_id, current_qty, seller_username = row
 
-                # Prevent self-purchase
                 if seller_username == buyer_username:
                     cur.close()
                     logger.warning(f"Self-purchase attempt by {buyer_username} for {product_name}")
                     return False, "You cannot purchase your own product."
 
-                # Check inventory
                 if current_qty < quantity:
                     cur.close()
                     return False, f"Insufficient quantity. Available: {current_qty}, Requested: {quantity}"
 
-                # Update inventory
                 new_qty = current_qty - quantity
-                cur.execute(
-                    "UPDATE products SET quantity = %s WHERE id = %s;",
-                    (new_qty, product_id)
-                )
+                cur.execute("UPDATE products SET quantity = %s WHERE id = %s;", (new_qty, product_id))
                 conn.commit()
                 cur.close()
                 logger.info(f"Sale: {buyer_username} purchased {quantity} units of {product_name}")
@@ -384,7 +308,6 @@ class ProductManager:
             return False, "Purchase failed."
 
     def restock_product(self, product_name, quantity, seller_username):
-        """Increase inventory for a product owned by the seller."""
         try:
             quantity = int(quantity)
             if quantity <= 0:
@@ -405,17 +328,13 @@ class ProductManager:
 
                 product_id, existing_qty, existing_seller = row
 
-                # Verify ownership
                 if existing_seller != seller_username:
                     cur.close()
                     logger.warning(f"Unauthorized restock attempt by {seller_username} for {product_name}")
                     return False, "You do not own this product."
 
                 new_qty = existing_qty + quantity
-                cur.execute(
-                    "UPDATE products SET quantity = %s WHERE id = %s;",
-                    (new_qty, product_id)
-                )
+                cur.execute("UPDATE products SET quantity = %s WHERE id = %s;", (new_qty, product_id))
                 conn.commit()
                 cur.close()
                 logger.info(f"Product {product_name} restocked by {seller_username}. New qty: {new_qty}")
@@ -427,12 +346,10 @@ class ProductManager:
             return False, "Restock failed."
 
     def edit_product(self, product_name, seller_username, new_price=None, new_category=None, new_quantity=None):
-        """Edit product details (price, category, quantity)."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
 
-                # Verify ownership
                 cur.execute(
                     "SELECT id FROM products WHERE LOWER(product_name) = LOWER(%s) AND seller_username = %s;",
                     (product_name, seller_username)
@@ -446,7 +363,6 @@ class ProductManager:
 
                 product_id = row[0]
 
-                # Build update query safely using a whitelist
                 updates = []
                 params = []
 
@@ -480,7 +396,6 @@ class ProductManager:
                     cur.close()
                     return False, "No modifications specified."
 
-                # Use product ID instead of name to avoid case-sensitivity issues
                 params.append(product_id)
                 query = f"UPDATE products SET {', '.join(updates)} WHERE id = %s;"
 
@@ -498,12 +413,10 @@ class ProductManager:
             return False, "Product update failed."
 
     def delete_product(self, product_name, seller_username):
-        """Delete a product (only by its owner)."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
 
-                # Verify ownership before deletion
                 cur.execute(
                     "SELECT id FROM products WHERE LOWER(product_name) = LOWER(%s) AND seller_username = %s;",
                     (product_name, seller_username)
@@ -531,24 +444,15 @@ class ProductManager:
             return False, "Product deletion failed."
 
     def get_statistics(self):
-        """Retrieve marketplace statistics."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
-                cur.execute(
-                    'SELECT product_name, price, category, quantity FROM products ORDER BY price DESC;'
-                )
+                cur.execute('SELECT product_name, price, category, quantity FROM products ORDER BY price DESC;')
                 products = cur.fetchall()
                 cur.close()
 
                 if not products:
-                    return {
-                        "total_products": 0,
-                        "total_quantity": 0,
-                        "expensive": "N/A",
-                        "cheapest": "N/A",
-                        "avg_price": "$0.00"
-                    }
+                    return {"total_products": 0, "total_quantity": 0, "expensive": "N/A", "cheapest": "N/A", "avg_price": "$0.00"}
 
                 total_products = len(products)
                 total_quantity = sum(int(p["quantity"]) for p in products)
@@ -565,24 +469,14 @@ class ProductManager:
                 }
         except Exception as e:
             logger.error(f"Error retrieving statistics: {e}")
-            return {
-                "total_products": 0,
-                "total_quantity": 0,
-                "expensive": "Error",
-                "cheapest": "Error",
-                "avg_price": "$0.00"
-            }
+            return {"total_products": 0, "total_quantity": 0, "expensive": "Error", "cheapest": "Error", "avg_price": "$0.00"}
 
 
 def get_product_owner(product_name):
-    """Helper: Look up the owner of a product listing."""
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute(
-                "SELECT seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);",
-                (product_name,)
-            )
+            cur.execute("SELECT seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);", (product_name,))
             row = cur.fetchone()
             cur.close()
             return row[0] if row else None
@@ -590,8 +484,6 @@ def get_product_owner(product_name):
         logger.error(f"Error retrieving product owner for {product_name}: {e}")
         return None
 
-
-# --- ROUTING ENDPOINTS ---
 
 @app.route('/')
 def index():
@@ -618,8 +510,9 @@ def login():
         user = Useraccount(username)
         success, msg = user.verify_password(password)
         if success:
+            # Flask's session object has no regenerate() method - that call
+            # was crashing every successful login with a 500 error.
             session.clear()
-            session.regenerate()
             session['username'] = user.username
             return jsonify({"success": True, "message": msg, "username": user.username}), 200
         return jsonify({"success": False, "message": msg}), 401
@@ -754,7 +647,6 @@ def internal_error(error):
     return jsonify({"success": False, "message": "Internal server error."}), 500
 
 
-# --- INITIALIZATION ---
 if __name__ == '__main__':
     try:
         init_connection_pool()
