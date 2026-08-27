@@ -1,3 +1,5 @@
+import cloudinary
+import cloudinary.uploader
 import os
 import logging
 from contextlib import contextmanager
@@ -9,6 +11,11 @@ from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
 from werkzeug.security import generate_password_hash, check_password_hash
 from marshmallow import Schema, fields, ValidationError, validate
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
