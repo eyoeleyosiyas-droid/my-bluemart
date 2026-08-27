@@ -506,12 +506,25 @@
                 const isOwn = p['Seller'] === currentUsername;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${p['Product Name']}</strong></td>
-                    <td>${p['Category'] || 'General'}</td>
-                    <td>$${parseFloat(p['Price']).toFixed(2)}</td>
-                    <td>${p['Quantity']} units</td>
-                    <td><span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}</span></td>
-                `;
+    <td>
+        <div class="product-cell">
+            ${
+                p['image_url']
+                    ? `<img src="${p['image_url']}" alt="${p['Product Name']}" class="product-image">`
+                    : `<div class="no-image">No Image</div>`
+            }
+            <strong>${p['Product Name']}</strong>
+        </div>
+    </td>
+    <td>${p['Category'] || 'General'}</td>
+    <td>$${parseFloat(p['Price']).toFixed(2)}</td>
+    <td>${p['Quantity']} units</td>
+    <td>
+        <span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">
+            ${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}
+        </span>
+    </td>
+`;
                 tbody.appendChild(tr);
             });
 
