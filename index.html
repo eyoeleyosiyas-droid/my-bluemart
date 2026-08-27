@@ -213,6 +213,35 @@
             th, td { padding: 10px 12px; font-size: 0.8rem; }
             .stat-item h4 { font-size: 17px; }
         }
+        .product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.product-image {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border-glow);
+    flex-shrink: 0;
+}
+
+.no-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+    background: rgba(11, 19, 41, 0.5);
+    border: 1px solid var(--border-glow);
+    flex-shrink: 0;
+}
     </style>
 </head>
 <body>
