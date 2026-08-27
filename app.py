@@ -233,7 +233,7 @@ class Useraccount:
 
 
 class ProductManager:
-    def add_product(self, product_name, price, category, quantity, seller_username):
+    def add_product(self, product_name, price, category, quantity, seller_username, image_url=None):
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
