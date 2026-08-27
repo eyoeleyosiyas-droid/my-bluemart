@@ -552,10 +552,15 @@ def get_products():
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute(
-                """SELECT product_name AS "Product Name", price AS "Price", category AS "Category",
-                   quantity AS "Quantity", seller_username AS "Seller" FROM products
-                   ORDER BY product_name ASC;"""
-            )
+                 """SELECT product_name AS "Product Name",
+                 price AS "Price",
+                 category AS "Category",
+                 quantity AS "Quantity",
+                 seller_username AS "Seller",
+                 image_url AS "image_url"
+                 FROM products
+                 ORDER BY product_name ASC;"""
+                )
             rows = cur.fetchall()
             cur.close()
         return jsonify(rows), 200
