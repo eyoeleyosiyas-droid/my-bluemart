@@ -459,8 +459,9 @@
     if (action === 'add') {
         if (!price || !category || !quantity) {
             return alert('Price, category, and quantity are all required to list a product');
-        }
-
+    }
+    payload = { name, price: parseFloat(price), category, quantity: parseInt(quantity, 10) };
+}
         const imageInput = document.getElementById('prod-image');
 
         const formData = new FormData();
