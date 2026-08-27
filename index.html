@@ -358,13 +358,20 @@
         let currentUsername = '';
 
         async function defAPI(url, data) {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            return res.json();
-        }
+    const options = {
+        method: 'POST'
+    };
+
+    if (data instanceof FormData) {
+        options.body = data;
+    } else {
+        options.headers = {'Content-Type': 'application/json'};
+        options.body = JSON.stringify(data);
+    }
+
+    const res = await fetch(url, options);
+    return res.json();
+}
 
         async function handleAuth(mode) {
             const username = document.getElementById('auth-user').value;
