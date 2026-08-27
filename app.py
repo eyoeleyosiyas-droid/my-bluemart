@@ -563,9 +563,7 @@ def get_products():
         logger.error(f"Error retrieving products: {e}")
         return jsonify({"success": False, "message": "Failed to retrieve products."}), 500
 
-@app.route('/api/products/add', methods=['POST'])
-@require_login
-@validate_json(ProductSchema)
+
 @app.route('/api/products/add', methods=['POST'])
 @require_login
 def add_product():
