@@ -558,17 +558,64 @@ def get_products():
 @app.route('/api/products/add', methods=['POST'])
 @require_login
 @validate_json(ProductSchema)
+@app.route('/api/products/add', methods=['POST'])
+@require_login
 def add_product():
-    name = request.validated_data['name'].strip()
-    price = request.validated_data['price']
-    category = request.validated_data['category']
-    quantity = request.validated_data['quantity']
+    try:
+        # Get product information from the form
+        name = request.form.get('name', '').strip()
+        price = request.form.get('price')
+        category = request.form.get('category', '').strip()
+        quantity = request.form.get('quantity')
 
-    pm = ProductManager()
-    success, msg = pm.add_product(name, price, category, quantity, session['username'])
-    status_code = 201 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+        # Get uploaded image
+        image = request.files.get('image')
 
+        # Basic validation
+        if not name:
+            return jsonify({"success": False, "message": "Product Name is required."}), 400
+
+        if not price or not category or not quantity:
+            return jsonify({
+                "success": False,
+                "message": "Price, category, and quantity are all required."
+            }), 400
+
+        # Upload image to Cloudinary if one was provided
+        image_url = None
+
+        if image:
+            upload_result = cloudinary.uploader.upload(
+                image,
+                folder="bluemart/products"
+            )
+            image_url = upload_result.get("secure_url")
+
+        pm = ProductManager()
+
+        success, msg = pm.add_product(
+            name,
+            float(price),
+            category,
+            int(quantity),
+            session['username'],
+            image_url
+        )
+
+        status_code = 201 if success else 400
+
+        return jsonify({
+            "success": success,
+            "message": msg,
+            "image_url": image_url
+        }), status_code
+
+    except Exception as e:
+        logger.error(f"Error adding product: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Failed to add product."
+        }), 500
 @app.route('/api/products/delete', methods=['POST'])
 @require_login
 @validate_json(DeleteProductSchema)
