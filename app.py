@@ -11,6 +11,7 @@ from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
 from werkzeug.security import generate_password_hash, check_password_hash
 from marshmallow import Schema, fields, ValidationError, validate
+
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -91,10 +92,19 @@ def init_db():
                     category VARCHAR(100),
                     quantity INT NOT NULL DEFAULT 0,
                     seller_username VARCHAR(100),
+                    image_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(product_name, seller_username),
                     FOREIGN KEY (seller_username) REFERENCES users(username) ON DELETE CASCADE
                 );
+            """)
+
+            # Covers the case where the table already existed from a deploy
+            # before image_url was added - CREATE TABLE IF NOT EXISTS alone
+            # won't add a column to an existing table.
+            cur.execute("""
+                ALTER TABLE products
+                ADD COLUMN IF NOT EXISTS image_url TEXT;
             """)
 
             cur.execute("""
@@ -525,8 +535,6 @@ def login():
         user = Useraccount(username)
         success, msg = user.verify_password(password)
         if success:
-            # Flask's session object has no regenerate() method - that call
-            # was crashing every successful login with a 500 error.
             session.clear()
             session['username'] = user.username
             return jsonify({"success": True, "message": msg, "username": user.username}), 200
@@ -573,16 +581,13 @@ def get_products():
 @require_login
 def add_product():
     try:
-        # Get product information from the form
         name = request.form.get('name', '').strip()
         price = request.form.get('price')
         category = request.form.get('category', '').strip()
         quantity = request.form.get('quantity')
 
-        # Get uploaded image
         image = request.files.get('image')
 
-        # Basic validation
         if not name:
             return jsonify({"success": False, "message": "Product Name is required."}), 400
 
@@ -592,7 +597,12 @@ def add_product():
                 "message": "Price, category, and quantity are all required."
             }), 400
 
-        # Upload image to Cloudinary if one was provided
+        if category not in ALLOWED_PRODUCT_CATEGORIES:
+            return jsonify({
+                "success": False,
+                "message": f"Invalid category. Allowed: {', '.join(ALLOWED_PRODUCT_CATEGORIES)}"
+            }), 400
+
         image_url = None
 
         if image:
@@ -627,6 +637,7 @@ def add_product():
             "success": False,
             "message": "Failed to add product."
         }), 500
+
 @app.route('/api/products/delete', methods=['POST'])
 @require_login
 @validate_json(DeleteProductSchema)
@@ -712,13 +723,6 @@ def internal_error(error):
     return jsonify({"success": False, "message": "Internal server error."}), 500
 
 
-# Run this at import time (module level), not just inside __main__ below.
-# Render/production typically starts this app with a WSGI server like
-# `gunicorn app:app`, which imports this file rather than executing it
-# directly - so __name__ never equals "__main__" and that block never runs.
-# Without this, a fresh database never gets its tables created, which is
-# exactly what produced the "Internal server error" / "Login failed"
-# messages after switching to a new database.
 try:
     init_connection_pool()
     init_db()
