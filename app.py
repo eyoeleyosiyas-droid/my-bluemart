@@ -257,9 +257,17 @@ class ProductManager:
                     return True, f"Product already listed. Quantity increased to {new_qty}."
 
                 cur.execute(
-                    """INSERT INTO products (product_name, price, category, quantity, seller_username)
-                       VALUES (%s, %s, %s, %s, %s);""",
-                    (product_name, float(price), category, int(quantity), seller_username)
+                    """INSERT INTO products
+                    (product_name, price, category, quantity, seller_username, image_url)
+                     VALUES (%s, %s, %s, %s, %s, %s);""",
+                  (
+                     product_name,
+                     float(price),
+                     category,
+                     int(quantity),
+                     seller_username,
+                     image_url
+                  )
                 )
                 conn.commit()
                 cur.close()
