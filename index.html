@@ -358,20 +358,18 @@
         let currentUsername = '';
 
         async function defAPI(url, data) {
-    const options = {
-        method: 'POST'
-    };
+            const options = { method: 'POST' };
 
-    if (data instanceof FormData) {
-        options.body = data;
-    } else {
-        options.headers = {'Content-Type': 'application/json'};
-        options.body = JSON.stringify(data);
-    }
+            if (data instanceof FormData) {
+                options.body = data;
+            } else {
+                options.headers = {'Content-Type': 'application/json'};
+                options.body = JSON.stringify(data);
+            }
 
-    const res = await fetch(url, options);
-    return res.json();
-}
+            const res = await fetch(url, options);
+            return res.json();
+        }
 
         async function handleAuth(mode) {
             const username = document.getElementById('auth-user').value;
@@ -379,13 +377,12 @@
 
             if (!username || !password) return alert('Fill in all fields');
 
-            // Register/Login schemas only accept username + password - nothing else.
             const res = await defAPI(`/api/${mode}`, { username, password });
             alert(res.message);
 
             if (res.success) {
                 if (mode === 'register') {
-                    return; // let them sign in explicitly
+                    return;
                 }
                 enterDashboard(username);
             }
@@ -422,11 +419,13 @@
             const p = document.getElementById('prod-price');
             const c = document.getElementById('prod-cat');
             const q = document.getElementById('prod-qty');
+            const img = document.getElementById('prod-image');
             const btn = document.getElementById('action-btn');
 
             p.style.display = 'block';
             c.style.display = 'block';
             q.style.display = 'block';
+            img.style.display = 'none';
             btn.className = '';
 
             if (action === 'delete') {
@@ -446,102 +445,82 @@
             } else if (action === 'edit') {
                 btn.innerText = 'SAVE CHANGES (leave a field blank to keep it unchanged)';
             } else {
+                img.style.display = 'block';
                 btn.innerText = 'LIST PRODUCT';
             }
         }
 
         // Each backend schema only accepts specific fields - sending extras
         // (like price/category on a delete request) gets rejected as an
-        // "unknown field" validation error. Build the payload per-action.
+        // "unknown field" validation error. Build the payload per-action,
+        // and route each action to its own endpoint.
         async function executeInventoryAction() {
-        const action = document.getElementById('action-type').value;
-        const name = document.getElementById('prod-name').value.trim();
-        const price = document.getElementById('prod-price').value;
-    const category = document.getElementById('prod-cat').value;
-    const quantity = document.getElementById('prod-qty').value;
+            const action = document.getElementById('action-type').value;
+            const name = document.getElementById('prod-name').value.trim();
+            const price = document.getElementById('prod-price').value;
+            const category = document.getElementById('prod-cat').value;
+            const quantity = document.getElementById('prod-qty').value;
 
-    if (!name) return alert('Product Name is required');
+            if (!name) return alert('Product Name is required');
 
-    // NEW PRODUCT
-    if (action === 'add') {
-       if (!price || !category || !quantity) {
-           return alert('Price, category, and quantity are all required to list a product');
-    }
+            // NEW PRODUCT — uses multipart/form-data so an image can be attached.
+            // Everything for this action lives inside this block and ends in
+            // `return`, so it never falls through into the other actions below.
+            if (action === 'add') {
+                if (!price || !category || !quantity) {
+                    return alert('Price, category, and quantity are all required to list a product');
+                }
 
-        const imageInput = document.getElementById('prod-image');
+                const imageInput = document.getElementById('prod-image');
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('price', price);
+                formData.append('category', category);
+                formData.append('quantity', quantity);
 
-         payload = new FormData();
-         payload.append('name', name);
-         payload.append('price', parseFloat(price));
-         payload.append('category', category);
-         payload.append('quantity', parseInt(quantity, 10));
+                if (imageInput.files.length > 0) {
+                    formData.append('image', imageInput.files[0]);
+                }
 
-         if (imageInput.files.length > 0) {
-             payload.append('image', imageInput.files[0]);
-         }
-       }
-        const imageInput = document.getElementById('prod-image');
+                try {
+                    const res = await fetch('/api/products/add', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    alert(data.message);
+                    if (data.success) {
+                        refreshDashboard();
+                    }
+                } catch (e) {
+                    console.error('Product upload failed:', e);
+                    alert('Failed to add product.');
+                }
 
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('price', price);
-        formData.append('category', category);
-        formData.append('quantity', quantity);
-
-        // Add image only if the user selected one
-        if (imageInput.files.length > 0) {
-            formData.append('image', imageInput.files[0]);
-        }
-
-        try {
-            const res = await fetch('/api/products/add', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await res.json();
-
-            alert(data.message);
-
-            if (data.success) {
-                refreshDashboard();
+                return;
             }
 
-        } catch (e) {
-            console.error('Product upload failed:', e);
-            alert('Failed to add product.');
+            // OTHER ACTIONS — plain JSON, only the fields each endpoint expects.
+            let payload;
+
+            if (action === 'edit') {
+                payload = { name };
+                if (price !== '') payload.price = parseFloat(price);
+                if (category !== '') payload.category = category;
+                if (quantity !== '') payload.quantity = parseInt(quantity, 10);
+
+            } else if (action === 'sell' || action === 'restock') {
+                if (!quantity) return alert('Quantity is required');
+                payload = { name, quantity: parseInt(quantity, 10) };
+
+            } else if (action === 'delete') {
+                payload = { name };
+            }
+
+            const res = await defAPI(`/api/products/${action}`, payload);
+            alert(res.message);
+            refreshDashboard();
         }
-
-        return;
-    }
-
-    // OTHER ACTIONS — continue using JSON
-    let payload;
-
-    if (action === 'edit') {
-        payload = { name };
-
-        if (price !== '') payload.price = parseFloat(price);
-        if (category !== '') payload.category = category;
-        if (quantity !== '') payload.quantity = parseInt(quantity, 10);
-
-    } else if (action === 'sell' || action === 'restock') {
-        if (!quantity) return alert('Quantity is required');
-
-        payload = {
-            name,
-            quantity: parseInt(quantity, 10)
-        };
-
-    } else if (action === 'delete') {
-        payload = { name };
-    }
-
-    const res = await defAPI(`/api/products/${action}`, payload);
-
-    alert(res.message);
-    refreshDashboard();
-}
 
         async function refreshDashboard() {
             const res = await fetch('/api/products');
