@@ -632,10 +632,10 @@ def add_product():
         }), status_code
 
     except Exception as e:
-        logger.exception("Error adding product")
+        logger.error(f"Error adding product: {e}")
         return jsonify({
            "success": False,
-           "message": str(e)
+           "message": "Failed to add product."
         }), 500
 
 @app.route('/api/products/delete', methods=['POST'])
