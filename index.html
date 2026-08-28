@@ -282,6 +282,58 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     border: 1px solid var(--border-glow);
     flex-shrink: 0;
 }
+.image-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    padding: 25px;
+}
+
+.image-modal.show {
+    display: flex;
+}
+
+.image-modal-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+#modal-image {
+    display: block;
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 14px;
+    border: 1px solid var(--border-glow);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+}
+
+.image-modal-close {
+    position: absolute;
+    top: -45px;
+    right: 0;
+    width: 38px;
+    height: 38px;
+    margin: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--danger-glow);
+    color: white;
+    font-size: 25px;
+    line-height: 38px;
+    cursor: pointer;
+}
+
+.image-modal-close:hover {
+    background: var(--danger-hover);
+    transform: none;
+}        
     </style>
 </head>
 <body>
