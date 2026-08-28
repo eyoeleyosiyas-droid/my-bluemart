@@ -632,7 +632,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
                     ? `<img src="${p['image_url']}" 
                         alt="${p['Product Name']}" 
                         class="product-image"
-                        onclick="window.open('${p['image_url']}', '_blank')">`
+                        onclick="openImageModal('${p['image_url']}')"`
                     : `<div class="no-image">No Image</div>`
             }
             <strong>${p['Product Name']}</strong>
