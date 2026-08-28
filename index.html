@@ -537,7 +537,10 @@
         <div class="product-cell">
             ${
                 p['image_url']
-                    ? `<img src="${p['image_url']}" alt="${p['Product Name']}" class="product-image">`
+                    ? `<img src="${p['image_url']}" 
+                        alt="${p['Product Name']}" 
+                        class="product-image"
+                        onclick="window.open('${p['image_url']}', '_blank')">`
                     : `<div class="no-image">No Image</div>`
             }
             <strong>${p['Product Name']}</strong>
