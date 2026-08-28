@@ -665,7 +665,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
                 row.style.display = text.includes(query) ? '' : 'none';
             });
         }
+        function openImageModal(imageUrl) {
+            document.getElementById('modal-image').src = imageUrl;
+            document.getElementById('image-modal').classList.add('show');
+       }
 
+       function closeImageModal() {
+           document.getElementById('image-modal').classList.remove('show');
+           document.getElementById('modal-image').src = '';
+      }
         checkExistingSession();
     </script>
 </body>
