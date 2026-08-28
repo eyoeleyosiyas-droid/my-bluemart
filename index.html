@@ -6,7 +6,7 @@
     <title>Blue Mart Marketplace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-canvas: #0b1329;
@@ -139,85 +139,158 @@
         .btn-danger { background: var(--danger-glow); color: white; }
         .btn-danger:hover { background: var(--danger-hover); }
 
-        .table-container {
-            overflow-x: auto;
-            border-radius: 8px;
-            border: 1px solid var(--border-glow);
-            -webkit-overflow-scrolling: touch;
+        /* ---------- Product grid (storefront cards) ---------- */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 18px;
         }
 
-        table { width: 100%; border-collapse: collapse; min-width: 480px; }
+        .product-card {
+            background: rgba(11, 19, 41, 0.4);
+            border: 1px solid var(--border-glow);
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
 
-        th, td {
-            padding: 14px 16px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-glow);
-            font-size: 0.88rem;
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+        }
+
+        .product-media {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: rgba(11, 19, 41, 0.6);
+            overflow: hidden;
+        }
+
+        .product-image-large {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .product-image-large:hover { transform: scale(1.06); }
+
+        .no-image-large {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .product-info {
+            padding: 14px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .product-info-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .product-name {
+            margin: 0;
+            font-size: 0.92rem;
+            font-weight: 600;
+            line-height: 1.3;
+            color: var(--text-primary);
+        }
+
+        .price-tag {
+            color: var(--accent-glow);
+            font-weight: 700;
+            font-size: 0.92rem;
             white-space: nowrap;
         }
 
-        th {
-            background: rgba(11, 19, 41, 0.4);
-            color: var(--text-secondary);
-            font-weight: 500;
-            text-transform: uppercase;
+        .product-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
             font-size: 0.72rem;
-            letter-spacing: 0.5px;
+            color: var(--text-secondary);
         }
 
-        td { color: var(--text-primary); }
-tr:hover td { background: rgba(255,255,255,0.02); }
+        .category-chip, .stock-chip {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
 
-
-.product-cell {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-width: 220px;
-}
-
-.product-image,
-.no-image {
-    width: 58px;
-    height: 58px;
-    flex-shrink: 0;
-    border-radius: 10px;
-    border: 1px solid var(--border-glow);
-}
-
-.product-image {
-    display: block;
-    object-fit: cover;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.product-image:hover {
-    transform: scale(1.08);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
-}
-
-.no-image {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(11, 19, 41, 0.6);
-    color: var(--text-secondary);
-    font-size: 0.65rem;
-    text-align: center;
-}
-
-
-.role-badge {
+        .role-badge {
             display: inline-block;
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
         }
         .role-seller { background: rgba(91, 192, 190, 0.15); color: var(--accent-glow); }
         .role-you { background: rgba(2, 195, 154, 0.18); color: var(--success-glow); }
+
+        /* ---------- Lightbox modal ---------- */
+        .image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            padding: 25px;
+        }
+
+        .image-modal.show { display: flex; }
+
+        .image-modal-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+
+        #modal-image {
+            display: block;
+            max-width: 90vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 14px;
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: -45px;
+            right: 0;
+            width: 38px;
+            height: 38px;
+            margin: 0;
+            padding: 0;
+            border-radius: 50%;
+            background: var(--danger-glow);
+            color: white;
+            font-size: 22px;
+            line-height: 38px;
+            cursor: pointer;
+        }
+
+        .image-modal-close:hover { background: var(--danger-hover); }
 
         .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
         .stat-item {
@@ -247,93 +320,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         @media (max-width: 600px) {
             header { padding: 14px 18px; flex-direction: column; align-items: flex-start; }
             .container { margin: 24px auto; padding: 0 14px; gap: 20px; }
-            .card { padding: 18px; }
+            .card { padding: 16px; }
             #auth-panel { margin: 50px auto; width: 92%; padding: 22px; }
             h3 { font-size: 1rem; }
-            th, td { padding: 10px 12px; font-size: 0.8rem; }
             .stat-item h4 { font-size: 17px; }
+
+            .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .product-info { padding: 10px 12px 12px; gap: 6px; }
+            .product-name { font-size: 0.82rem; }
+            .price-tag { font-size: 0.82rem; }
+            .product-meta { font-size: 0.66rem; }
         }
-        .product-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.product-image {
-    width: 50px;
-    height: 50px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid var(--border-glow);
-    flex-shrink: 0;
-}
-
-.no-image {
-    width: 50px;
-    height: 50px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    font-size: 10px;
-    color: var(--text-secondary);
-    background: rgba(11, 19, 41, 0.5);
-    border: 1px solid var(--border-glow);
-    flex-shrink: 0;
-}
-.image-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: rgba(0, 0, 0, 0.82);
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    padding: 25px;
-}
-
-.image-modal.show {
-    display: flex;
-}
-
-.image-modal-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-}
-
-#modal-image {
-    display: block;
-    max-width: 90vw;
-    max-height: 85vh;
-    object-fit: contain;
-    border-radius: 14px;
-    border: 1px solid var(--border-glow);
-    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
-}
-
-.image-modal-close {
-    position: absolute;
-    top: -45px;
-    right: 0;
-    width: 38px;
-    height: 38px;
-    margin: 0;
-    padding: 0;
-    border-radius: 50%;
-    background: var(--danger-glow);
-    color: white;
-    font-size: 25px;
-    line-height: 38px;
-    cursor: pointer;
-}
-
-.image-modal-close:hover {
-    background: var(--danger-hover);
-    transform: none;
-}        
     </style>
 </head>
 <body>
@@ -425,24 +422,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
                 <input type="text" id="search-bar" placeholder="Search products..." onkeyup="filterInventoryTable()">
 
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Stock</th>
-                                <th>Seller</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-body">
-                            <!-- rows injected by refreshDashboard() -->
-                        </tbody>
-                    </table>
+                <div class="product-grid" id="inventory-grid">
+                    <!-- cards injected by refreshDashboard() -->
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- Image lightbox -->
+    <div id="image-modal" class="image-modal" onclick="closeImageModal()">
+        <div class="image-modal-content" onclick="event.stopPropagation()">
+            <button class="image-modal-close" onclick="closeImageModal()">&times;</button>
+            <img id="modal-image" src="" alt="Product image">
         </div>
     </div>
 
@@ -556,8 +548,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             if (!name) return alert('Product Name is required');
 
             // NEW PRODUCT — uses multipart/form-data so an image can be attached.
-            // Everything for this action lives inside this block and ends in
-            // `return`, so it never falls through into the other actions below.
             if (action === 'add') {
                 if (!price || !category || !quantity) {
                     return alert('Price, category, and quantity are all required to list a product');
@@ -618,36 +608,40 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             const res = await fetch('/api/products');
             const products = await res.json();
 
-            const tbody = document.getElementById('inventory-body');
-            tbody.innerHTML = '';
+            const grid = document.getElementById('inventory-grid');
+            grid.innerHTML = '';
 
             products.forEach(p => {
                 const isOwn = p['Seller'] === currentUsername;
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-    <td>
-        <div class="product-cell">
-            ${
-                p['image_url']
-                    ? `<img src="${p['image_url']}" 
-                        alt="${p['Product Name']}" 
-                        class="product-image"
-                        onclick="openImageModal('${p['image_url']}')"`
-                    : `<div class="no-image">No Image</div>`
-            }
-            <strong>${p['Product Name']}</strong>
-        </div>
-    </td>
-    <td>${p['Category'] || 'General'}</td>
-    <td>$${parseFloat(p['Price']).toFixed(2)}</td>
-    <td>${p['Quantity']} units</td>
-    <td>
-        <span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">
-            ${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}
-        </span>
-    </td>
-`;
-                tbody.appendChild(tr);
+                const imageUrl = p['image_url'];
+                const name = p['Product Name'];
+
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.dataset.name = name.toLowerCase();
+
+                card.innerHTML = `
+                    <div class="product-media">
+                        ${imageUrl
+                            ? `<img src="${imageUrl}" alt="${name}" class="product-image-large" onclick="openImageModal('${imageUrl}')">`
+                            : `<div class="no-image-large">No Image</div>`
+                        }
+                    </div>
+                    <div class="product-info">
+                        <div class="product-info-top">
+                            <h4 class="product-name">${name}</h4>
+                            <span class="price-tag">$${parseFloat(p['Price']).toFixed(2)}</span>
+                        </div>
+                        <div class="product-meta">
+                            <span class="category-chip">${p['Category'] || 'General'}</span>
+                            <span class="stock-chip">${p['Quantity']} in stock</span>
+                        </div>
+                        <div>
+                            <span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
             });
 
             const statsRes = await fetch('/api/statistics');
@@ -659,21 +653,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
         function filterInventoryTable() {
             const query = document.getElementById('search-bar').value.toLowerCase();
-            const rows = document.querySelectorAll('#inventory-body tr');
-            rows.forEach(row => {
-                const text = row.querySelector('td').innerText.toLowerCase();
-                row.style.display = text.includes(query) ? '' : 'none';
+            const cards = document.querySelectorAll('#inventory-grid .product-card');
+            cards.forEach(card => {
+                card.style.display = card.dataset.name.includes(query) ? '' : 'none';
             });
         }
+
         function openImageModal(imageUrl) {
             document.getElementById('modal-image').src = imageUrl;
             document.getElementById('image-modal').classList.add('show');
-       }
+        }
 
-       function closeImageModal() {
-           document.getElementById('image-modal').classList.remove('show');
-           document.getElementById('modal-image').src = '';
-      }
+        function closeImageModal() {
+            document.getElementById('image-modal').classList.remove('show');
+            document.getElementById('modal-image').src = '';
+        }
+
         checkExistingSession();
     </script>
 </body>
