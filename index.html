@@ -166,9 +166,49 @@
         }
 
         td { color: var(--text-primary); }
-        tr:hover td { background: rgba(255,255,255,0.02); }
+tr:hover td { background: rgba(255,255,255,0.02); }
 
-        .role-badge {
+
+.product-cell {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 220px;
+}
+
+.product-image,
+.no-image {
+    width: 58px;
+    height: 58px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    border: 1px solid var(--border-glow);
+}
+
+.product-image {
+    display: block;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-image:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+}
+
+.no-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(11, 19, 41, 0.6);
+    color: var(--text-secondary);
+    font-size: 0.65rem;
+    text-align: center;
+}
+
+
+.role-badge {
             display: inline-block;
             padding: 4px 8px;
             border-radius: 4px;
