@@ -1,3 +1,4 @@
+import secrets
 import cloudinary
 import cloudinary.uploader
 import os
@@ -214,7 +215,7 @@ class Useraccount:
             logger.error(f"Error retrieving user {self.username}: {e}")
             raise
 
-    def set_password(self, password_input):
+    def set_password(self, password_input, email):
         if not self.is_new:
             return False, "User already exists."
         if len(password_input) < MIN_PASSWORD_LENGTH:
@@ -224,7 +225,7 @@ class Useraccount:
             password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s);", (self.username, password_hash))
+                cur.execute("""INSERT INTO users(username, password_hash, email)VALUES (%s, %s, %s);""",(self.username, password_hash, email))
                 conn.commit()
                 cur.close()
             self.password_hash = password_hash
@@ -528,7 +529,7 @@ def register():
     email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
-    success, msg = user.set_password(password)
+    success, msg = user.set_password(password, email)
     status_code = 201 if success else 400
     return jsonify({"success": success, "message": msg}), status_code
 
