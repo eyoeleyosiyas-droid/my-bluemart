@@ -525,6 +525,7 @@ def index():
 def register():
     username = request.validated_data['username'].strip()
     password = request.validated_data['password']
+    email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
     success, msg = user.set_password(password)
