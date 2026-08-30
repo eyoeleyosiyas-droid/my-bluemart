@@ -216,23 +216,46 @@ class Useraccount:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-            password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
-            with get_db_connection() as conn:
-                cur = conn.cursor()
-                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s);", (self.username, password_hash))
-                conn.commit()
-                cur.close()
-            self.password_hash = password_hash
-            self.is_new = False
-            logger.info(f"Account created for user: {self.username}")
-            return True, "Account created successfully."
-        except psycopg2.IntegrityError:
-            logger.warning(f"Duplicate username attempt: {self.username}")
-            return False, "Username already taken."
-        except Exception as e:
-            logger.error(f"Error creating account for {self.username}: {e}")
-            return False, "Account creation failed."
+    password_hash = generate_password_hash(
+        password_input,
+        method='pbkdf2:sha256'
+    )
 
+    verification_token = secrets.token_urlsafe(32)
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+
+        cur.execute(
+            """INSERT INTO users
+               (username, password_hash, email, email_verified, verification_token)
+               VALUES (%s, %s, %s, %s, %s);""",
+            (
+                self.username,
+                password_hash,
+                email,
+                False,
+                verification_token
+            )
+        )
+
+        conn.commit()
+        cur.close()
+
+    self.password_hash = password_hash
+    self.is_new = False
+
+    logger.info(f"Account created for user: {self.username}")
+
+    return True, "Account created successfully."
+
+except psycopg2.IntegrityError:
+    logger.warning(f"Duplicate username attempt: {self.username}")
+    return False, "Username already taken."
+
+except Exception as e:
+    logger.error(f"Error creating account for {self.username}: {e}")
+    return False, "Account creation failed."
     def verify_password(self, password_input):
         if self.password_hash is None:
             return False, "User does not exist. Register first."
