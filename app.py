@@ -210,52 +210,34 @@ class Useraccount:
             raise
 
     def set_password(self, password_input):
+        """Create a new user with a hashed password.
+
+        Returns (success: bool, message: str).
+        """
         if not self.is_new:
             return False, "User already exists."
+
         if len(password_input) < MIN_PASSWORD_LENGTH:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-    password_hash = generate_password_hash(
-        password_input,
-        method='pbkdf2:sha256'
-    )
+            password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s);", (self.username, password_hash))
+                conn.commit()
+                cur.close()
+            self.password_hash = password_hash
+            self.is_new = False
+            logger.info(f"Account created for user: {self.username}")
+            return True, "Account created successfully."
+        except psycopg2.IntegrityError:
+            logger.warning(f"Duplicate username attempt: {self.username}")
+            return False, "Username already taken."
+        except Exception as e:
+            logger.error(f"Error creating account for {self.username}: {e}")
+            return False, "Account creation failed."
 
-    verification_token = secrets.token_urlsafe(32)
-
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-
-        cur.execute(
-            """INSERT INTO users
-               (username, password_hash, email, email_verified, verification_token)
-               VALUES (%s, %s, %s, %s, %s);""",
-            (
-                self.username,
-                password_hash,
-                email,
-                False,
-                verification_token
-            )
-        )
-
-        conn.commit()
-        cur.close()
-
-    self.password_hash = password_hash
-    self.is_new = False
-
-    logger.info(f"Account created for user: {self.username}")
-
-    return True, "Account created successfully."
-
-except psycopg2.IntegrityError:
-    logger.warning(f"Duplicate username attempt: {self.username}")
-    return False, "Username already taken."
-
-except Exception as e:
-    logger.error(f"Error creating account for {self.username}: {e}")
-    return False, "Account creation failed."
     def verify_password(self, password_input):
         if self.password_hash is None:
             return False, "User does not exist. Register first."
@@ -534,6 +516,7 @@ def get_product_owner(product_name):
         return None
 
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -599,6 +582,7 @@ def get_products():
     except Exception as e:
         logger.error(f"Error retrieving products: {e}")
         return jsonify({"success": False, "message": "Failed to retrieve products."}), 500
+
 
 
 @app.route('/api/products/add', methods=['POST'])
