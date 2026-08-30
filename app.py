@@ -128,9 +128,15 @@ def init_db():
 
 
 class RegisterSchema(Schema):
-    username = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH))
-    password = fields.Str(required=True, validate=validate.Length(min=MIN_PASSWORD_LENGTH))
-
+    username = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH)
+    )
+    password = fields.Str(
+        required=True,
+        validate=validate.Length(min=MIN_PASSWORD_LENGTH)
+    )
+    email = fields.Email(required=True)
 class LoginSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True)
