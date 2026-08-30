@@ -6,7 +6,7 @@
     <title>Blue Mart Marketplace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-canvas: #0b1329;
@@ -40,7 +40,7 @@
         .brand { display: flex; align-items: center; gap: 10px; }
 
         header {
-            background: rgba(11, 19, 41, 0.8);
+            background: rgba(11, 19, 41, 0.85);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-glow);
             color: white;
@@ -56,7 +56,7 @@
         }
 
         header h2 {
-            font-weight: 600;
+            font-weight: 700;
             font-size: 1.3rem;
             margin: 0;
             letter-spacing: -0.5px;
@@ -73,41 +73,100 @@
             flex-wrap: wrap;
         }
 
-        .container {
+        /* ---------- Navigation tabs ---------- */
+        .main-nav {
+            background: rgba(11, 19, 41, 0.6);
+            border-bottom: 1px solid var(--border-glow);
+            display: flex;
+            gap: 4px;
+            padding: 0 40px;
+            position: sticky;
+            top: 65px;
+            z-index: 90;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            width: auto;
+            margin: 0;
+            padding: 14px 18px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .nav-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        .nav-tab:hover { color: var(--text-primary); background: transparent; }
+
+        .nav-tab.active {
+            color: var(--accent-glow);
+            border-bottom-color: var(--accent-glow);
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .page-wrap {
             max-width: 1400px;
-            margin: 40px auto;
+            margin: 32px auto;
             padding: 0 30px;
+            width: 100%;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin: 0 0 24px 0;
+        }
+
+        .layout-split {
             display: grid;
             grid-template-columns: 380px 1fr;
-            gap: 35px;
-            width: 100%;
+            gap: 30px;
         }
 
         .card {
             background: var(--surface-panel);
             backdrop-filter: blur(16px);
-            padding: 28px;
+            padding: 26px;
             border-radius: var(--card-radius);
             border: 1px solid var(--border-glow);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            margin-bottom: 25px;
+            margin-bottom: 24px;
         }
 
         h3 {
             margin-top: 0;
             color: var(--text-primary);
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             letter-spacing: -0.3px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border-glow);
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         input, select, button {
             width: 100%;
             padding: 12px 16px;
-            margin: 10px 0;
+            margin: 8px 0;
             border: 1px solid var(--border-glow);
             border-radius: 8px;
             background: rgba(11, 19, 41, 0.5);
@@ -128,7 +187,7 @@
             border: none;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 12px;
         }
 
         button:hover { background: var(--accent-hover); }
@@ -139,10 +198,41 @@
         .btn-danger { background: var(--danger-glow); color: white; }
         .btn-danger:hover { background: var(--danger-hover); }
 
+        .btn-small {
+            width: auto;
+            padding: 8px 14px;
+            margin: 0;
+            font-size: 0.78rem;
+        }
+
+        .edit-banner {
+            display: none;
+            background: rgba(91, 192, 190, 0.12);
+            border: 1px solid var(--accent-glow);
+            color: var(--accent-glow);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .edit-banner.show { display: flex; }
+        .edit-banner button {
+            width: auto;
+            margin: 0;
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            background: transparent;
+            border: 1px solid var(--accent-glow);
+            color: var(--accent-glow);
+        }
+
         /* ---------- Product grid (storefront cards) ---------- */
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
             gap: 18px;
         }
 
@@ -236,12 +326,53 @@
             display: inline-block;
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
             text-transform: uppercase;
         }
         .role-seller { background: rgba(91, 192, 190, 0.15); color: var(--accent-glow); }
         .role-you { background: rgba(2, 195, 154, 0.18); color: var(--success-glow); }
+
+        .product-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .qty-input {
+            width: 60px;
+            flex-shrink: 0;
+            padding: 8px 10px;
+            margin: 0;
+            font-size: 0.82rem;
+            text-align: center;
+        }
+
+        .buy-btn, .restock-btn {
+            flex: 1;
+            width: auto;
+            margin: 0;
+            padding: 8px 10px;
+            font-size: 0.78rem;
+        }
+
+        .own-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .own-actions button {
+            flex: 1;
+            min-width: 60px;
+        }
+
+        .empty-state {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            padding: 20px 0;
+            text-align: center;
+        }
 
         /* ---------- Lightbox modal ---------- */
         .image-modal {
@@ -292,16 +423,48 @@
 
         .image-modal-close:hover { background: var(--danger-hover); }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .stat-item {
-            background: rgba(11, 19, 41, 0.3);
-            padding: 18px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid var(--border-glow);
+        /* ---------- Dashboard metrics ---------- */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
         }
-        .stat-item h4 { margin: 0; color: var(--accent-glow); font-size: 20px; font-weight: 600; }
-        .stat-item p { margin: 6px 0 0 0; color: var(--text-secondary); font-size: 0.78rem; }
+
+        .metric-card {
+            background: var(--surface-panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--card-radius);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .metric-icon {
+            width: 46px;
+            height: 46px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            background: rgba(91, 192, 190, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .metric-icon svg { width: 22px; height: 22px; color: var(--accent-glow); }
+
+        .metric-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            margin-top: 2px;
+        }
 
         #auth-panel { max-width: 400px; width: 90%; margin: 100px auto; }
         #auth-panel .brand { justify-content: center; margin-bottom: 10px; }
@@ -310,26 +473,33 @@
         .hint {
             font-size: 0.75rem;
             color: var(--text-secondary);
-            margin: -4px 0 6px 2px;
+            margin: -2px 0 6px 2px;
         }
 
         @media (max-width: 992px) {
-            .container { grid-template-columns: 1fr; padding: 0 20px; }
+            .layout-split { grid-template-columns: 1fr; }
+            .page-wrap { padding: 0 20px; }
         }
 
         @media (max-width: 600px) {
             header { padding: 14px 18px; flex-direction: column; align-items: flex-start; }
-            .container { margin: 24px auto; padding: 0 14px; gap: 20px; }
+            .main-nav { padding: 0 14px; top: 96px; }
+            .nav-tab { padding: 12px 12px; font-size: 0.78rem; }
+            .page-wrap { margin: 20px auto; padding: 0 14px; }
             .card { padding: 16px; }
             #auth-panel { margin: 50px auto; width: 92%; padding: 22px; }
-            h3 { font-size: 1rem; }
-            .stat-item h4 { font-size: 17px; }
+            .section-title { font-size: 1.15rem; }
 
             .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .product-info { padding: 10px 12px 12px; gap: 6px; }
-            .product-name { font-size: 0.82rem; }
-            .price-tag { font-size: 0.82rem; }
-            .product-meta { font-size: 0.66rem; }
+            .product-name { font-size: 0.8rem; }
+            .price-tag { font-size: 0.8rem; }
+            .product-meta { font-size: 0.64rem; }
+            .qty-input { width: 46px; }
+
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .metric-card { padding: 16px; gap: 10px; }
+            .metric-value { font-size: 1.1rem; }
         }
     </style>
 </head>
@@ -344,7 +514,7 @@
                 <circle cx="24" cy="27" r="5" fill="#5bc0be"/>
                 <path d="M20.5 27 L23 29.5 L28 24" stroke="#0b1329" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <h3 id="auth-title" style="border:none; margin:0; padding:0;">Blue Mart</h3>
+            <h3 style="border:none; margin:0; padding:0;">Blue Mart</h3>
         </div>
         <input type="text" id="auth-user" placeholder="Username">
         <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
@@ -371,63 +541,117 @@
             </div>
         </header>
 
-        <div class="container">
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <button class="nav-tab active" data-tab="marketplace" onclick="switchTab('marketplace')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6A1 1 0 0 0 5.6 19H17M17 13v6M9 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0M17 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/></svg>
+                Marketplace
+            </button>
+            <button class="nav-tab" data-tab="mystore" onclick="switchTab('mystore')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M8 13a2 2 0 1 0 4 0"/></svg>
+                My Store
+            </button>
+            <button class="nav-tab" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V4M16 19v-7M22 19H2"/></svg>
+                Dashboard
+            </button>
+        </nav>
 
-            <!-- Action Forms -->
-            <div>
-                <div class="card" id="control-card">
-                    <h3>Buy or Sell</h3>
-                    <p class="hint" style="margin-top:-14px;">
-                        Any account can list products and buy from other sellers. You just can't buy your own listing.
-                    </p>
-                    <select id="action-type" onchange="toggleFormFields()">
-                        <option value="sell">Buy an Item</option>
-                        <option value="add">List a New Product</option>
-                        <option value="restock">Restock My Item</option>
-                        <option value="edit">Edit My Item</option>
-                        <option value="delete">Remove My Item</option>
-                    </select>
+        <!-- MARKETPLACE TAB -->
+        <div class="tab-panel active" id="tab-marketplace">
+            <div class="page-wrap">
+                <h1 class="section-title">Marketplace</h1>
+                <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
 
-                    <input type="text" id="prod-name" placeholder="Product Name">
-                    <input type="number" id="prod-price" placeholder="Price ($)" step="0.01">
+                <input type="text" id="search-bar" placeholder="Search products..." onkeyup="filterMarketplace()">
 
-                    <select id="prod-cat">
-                        <option value="">Select Category</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Clothing">Clothing</option>
-                        <option value="Food">Food</option>
-                        <option value="Books">Books</option>
-                        <option value="Furniture">Furniture</option>
-                        <option value="Other">Other</option>
-                    </select>
-
-                    <input type="number" id="prod-qty" placeholder="Quantity">
-                    <input type="file" id="prod-image" accept="image/*">
-                    <button id="action-btn" onclick="executeInventoryAction()">Submit</button>
+                <div class="product-grid" id="marketplace-grid" style="margin-top:18px;">
+                    <!-- cards injected by loadMarketplace() -->
                 </div>
+            </div>
+        </div>
 
-                <div class="card">
-                    <h3>Live System Metrics</h3>
-                    <div class="stats-grid">
-                        <div class="stat-item"><h4 id="stat-count">0</h4><p>Unique Lines</p></div>
-                        <div class="stat-item"><h4 id="stat-qty">0</h4><p>Total Units</p></div>
-                        <div class="stat-item" style="grid-column: span 2"><h4 id="stat-avg">$0.00</h4><p>Average Value</p></div>
+        <!-- MY STORE TAB -->
+        <div class="tab-panel" id="tab-mystore">
+            <div class="page-wrap">
+                <h1 class="section-title">My Store</h1>
+                <p class="section-subtitle">List new products and manage the items you're selling.</p>
+
+                <div class="layout-split">
+                    <div>
+                        <div class="card">
+                            <h3>Add / Edit Product</h3>
+
+                            <div class="edit-banner" id="edit-banner">
+                                <span>Editing an existing listing</span>
+                                <button onclick="cancelEdit()">Cancel</button>
+                            </div>
+
+                            <input type="text" id="prod-name" placeholder="Product Name">
+                            <input type="number" id="prod-price" placeholder="Price ($)" step="0.01">
+
+                            <select id="prod-cat">
+                                <option value="">Select Category</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Clothing">Clothing</option>
+                                <option value="Food">Food</option>
+                                <option value="Books">Books</option>
+                                <option value="Furniture">Furniture</option>
+                                <option value="Other">Other</option>
+                            </select>
+
+                            <input type="number" id="prod-qty" placeholder="Quantity">
+
+                            <input type="file" id="prod-image" accept="image/*">
+                            <p class="hint" id="image-hint">Image can only be set when first listing a product.</p>
+
+                            <button id="submit-btn" onclick="submitProductForm()">List Product</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="card">
+                            <h3>Your Listings</h3>
+                            <div class="product-grid" id="mystore-grid">
+                                <!-- cards injected by loadMyStore() -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Inventory Display Grid -->
-            <div class="card">
-                <h3>Current Stock Registers</h3>
+        <!-- DASHBOARD TAB -->
+        <div class="tab-panel" id="tab-dashboard">
+            <div class="page-wrap">
+                <h1 class="section-title">Dashboard</h1>
+                <p class="section-subtitle">Live metrics across the whole marketplace.</p>
 
-                <input type="text" id="search-bar" placeholder="Search products..." onkeyup="filterInventoryTable()">
-
-                <div class="product-grid" id="inventory-grid">
-                    <!-- cards injected by refreshDashboard() -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
+                        <div><div class="metric-value" id="stat-count">0</div><div class="metric-label">Unique Products</div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2m18 0v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8m18 0H3m4 4h4"/></svg></div>
+                        <div><div class="metric-value" id="stat-qty">0</div><div class="metric-label">Total Units in Stock</div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                        <div><div class="metric-value" id="stat-avg">$0.00</div><div class="metric-label">Average Price</div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
+                        <div><div class="metric-value" id="stat-expensive">N/A</div><div class="metric-label">Highest Priced Item</div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20v-6M12 20V10M18 20V4"/></svg></div>
+                        <div><div class="metric-value" id="stat-cheapest">N/A</div><div class="metric-label">Lowest Priced Item</div></div>
+                    </div>
                 </div>
             </div>
-
         </div>
+
     </div>
 
     <!-- Image lightbox -->
@@ -440,17 +664,17 @@
 
     <script>
         let currentUsername = '';
+        let allProducts = [];
+        let editingProductName = null; // null = add mode, otherwise the product name being edited
 
         async function defAPI(url, data) {
             const options = { method: 'POST' };
-
             if (data instanceof FormData) {
                 options.body = data;
             } else {
                 options.headers = {'Content-Type': 'application/json'};
                 options.body = JSON.stringify(data);
             }
-
             const res = await fetch(url, options);
             return res.json();
         }
@@ -465,9 +689,7 @@
             alert(res.message);
 
             if (res.success) {
-                if (mode === 'register') {
-                    return;
-                }
+                if (mode === 'register') return;
                 enterDashboard(username);
             }
         }
@@ -477,8 +699,7 @@
             document.getElementById('auth-panel').style.display = 'none';
             document.getElementById('main-dashboard').style.display = 'block';
             document.getElementById('current-user').innerText = username;
-            toggleFormFields();
-            refreshDashboard();
+            refreshAll();
         }
 
         async function handleLogout() {
@@ -490,131 +711,53 @@
             try {
                 const res = await fetch('/api/session');
                 const data = await res.json();
-                if (data.logged_in) {
-                    enterDashboard(data.username);
-                }
+                if (data.logged_in) enterDashboard(data.username);
             } catch (e) {
                 console.error('Session check failed:', e);
             }
         }
 
-        function toggleFormFields() {
-            const action = document.getElementById('action-type').value;
-            const p = document.getElementById('prod-price');
-            const c = document.getElementById('prod-cat');
-            const q = document.getElementById('prod-qty');
-            const img = document.getElementById('prod-image');
-            const btn = document.getElementById('action-btn');
-
-            p.style.display = 'block';
-            c.style.display = 'block';
-            q.style.display = 'block';
-            img.style.display = 'none';
-            btn.className = '';
-
-            if (action === 'delete') {
-                p.style.display = 'none';
-                c.style.display = 'none';
-                q.style.display = 'none';
-                btn.innerText = 'DELETE MY LISTING';
-                btn.className = 'btn-danger';
-            } else if (action === 'sell') {
-                p.style.display = 'none';
-                c.style.display = 'none';
-                btn.innerText = 'BUY THIS ITEM';
-            } else if (action === 'restock') {
-                p.style.display = 'none';
-                c.style.display = 'none';
-                btn.innerText = 'ADD MORE STOCK';
-            } else if (action === 'edit') {
-                btn.innerText = 'SAVE CHANGES (leave a field blank to keep it unchanged)';
-            } else {
-                img.style.display = 'block';
-                btn.innerText = 'LIST PRODUCT';
-            }
+        // ---------- Tabs ----------
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === `tab-${tab}`);
+            });
         }
 
-        // Each backend schema only accepts specific fields - sending extras
-        // (like price/category on a delete request) gets rejected as an
-        // "unknown field" validation error. Build the payload per-action,
-        // and route each action to its own endpoint.
-        async function executeInventoryAction() {
-            const action = document.getElementById('action-type').value;
-            const name = document.getElementById('prod-name').value.trim();
-            const price = document.getElementById('prod-price').value;
-            const category = document.getElementById('prod-cat').value;
-            const quantity = document.getElementById('prod-qty').value;
+        // ---------- Shared data load ----------
+        async function refreshAll() {
+            const res = await fetch('/api/products');
+            allProducts = await res.json();
 
-            if (!name) return alert('Product Name is required');
+            renderMarketplace(allProducts);
+            renderMyStore(allProducts);
 
-            // NEW PRODUCT — uses multipart/form-data so an image can be attached.
-            if (action === 'add') {
-                if (!price || !category || !quantity) {
-                    return alert('Price, category, and quantity are all required to list a product');
-                }
+            const statsRes = await fetch('/api/statistics');
+            const stats = await statsRes.json();
+            document.getElementById('stat-count').innerText = stats.total_products;
+            document.getElementById('stat-qty').innerText = stats.total_quantity;
+            document.getElementById('stat-avg').innerText = stats.avg_price;
+            document.getElementById('stat-expensive').innerText = stats.expensive;
+            document.getElementById('stat-cheapest').innerText = stats.cheapest;
+        }
 
-                const imageInput = document.getElementById('prod-image');
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('price', price);
-                formData.append('category', category);
-                formData.append('quantity', quantity);
+        // ---------- Marketplace ----------
+        function renderMarketplace(products) {
+            const grid = document.getElementById('marketplace-grid');
+            grid.innerHTML = '';
 
-                if (imageInput.files.length > 0) {
-                    formData.append('image', imageInput.files[0]);
-                }
-
-                try {
-                    const res = await fetch('/api/products/add', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await res.json();
-                    alert(data.message);
-                    if (data.success) {
-                        refreshDashboard();
-                    }
-                } catch (e) {
-                    console.error('Product upload failed:', e);
-                    alert('Failed to add product.');
-                }
-
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No products listed yet.</div>';
                 return;
             }
 
-            // OTHER ACTIONS — plain JSON, only the fields each endpoint expects.
-            let payload;
-
-            if (action === 'edit') {
-                payload = { name };
-                if (price !== '') payload.price = parseFloat(price);
-                if (category !== '') payload.category = category;
-                if (quantity !== '') payload.quantity = parseInt(quantity, 10);
-
-            } else if (action === 'sell' || action === 'restock') {
-                if (!quantity) return alert('Quantity is required');
-                payload = { name, quantity: parseInt(quantity, 10) };
-
-            } else if (action === 'delete') {
-                payload = { name };
-            }
-
-            const res = await defAPI(`/api/products/${action}`, payload);
-            alert(res.message);
-            refreshDashboard();
-        }
-
-        async function refreshDashboard() {
-            const res = await fetch('/api/products');
-            const products = await res.json();
-
-            const grid = document.getElementById('inventory-grid');
-            grid.innerHTML = '';
-
             products.forEach(p => {
                 const isOwn = p['Seller'] === currentUsername;
-                const imageUrl = p['image_url'];
                 const name = p['Product Name'];
+                const imageUrl = p['image_url'];
 
                 const card = document.createElement('div');
                 card.className = 'product-card';
@@ -639,26 +782,201 @@
                         <div>
                             <span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}</span>
                         </div>
+                        ${isOwn
+                            ? `<p class="hint" style="margin:2px 0 0;">This is your listing - manage it in My Store.</p>`
+                            : `<div class="product-actions">
+                                    <input type="number" class="qty-input" min="1" value="1">
+                                    <button class="buy-btn" onclick="buyProduct(this)">Buy</button>
+                               </div>`
+                        }
                     </div>
                 `;
                 grid.appendChild(card);
             });
-
-            const statsRes = await fetch('/api/statistics');
-            const stats = await statsRes.json();
-            document.getElementById('stat-count').innerText = stats.total_products;
-            document.getElementById('stat-qty').innerText = stats.total_quantity;
-            document.getElementById('stat-avg').innerText = stats.avg_price;
         }
 
-        function filterInventoryTable() {
+        function filterMarketplace() {
             const query = document.getElementById('search-bar').value.toLowerCase();
-            const cards = document.querySelectorAll('#inventory-grid .product-card');
-            cards.forEach(card => {
+            document.querySelectorAll('#marketplace-grid .product-card').forEach(card => {
                 card.style.display = card.dataset.name.includes(query) ? '' : 'none';
             });
         }
 
+        async function buyProduct(btn) {
+            const card = btn.closest('.product-card');
+            const name = card.dataset.name;
+            const qty = parseInt(card.querySelector('.qty-input').value, 10);
+
+            if (!qty || qty < 1) return alert('Enter a valid quantity');
+
+            const res = await defAPI('/api/products/sell', { name, quantity: qty });
+            alert(res.message);
+            if (res.success) refreshAll();
+        }
+
+        // ---------- My Store ----------
+        function renderMyStore(products) {
+            const mine = products.filter(p => p['Seller'] === currentUsername);
+            const grid = document.getElementById('mystore-grid');
+            grid.innerHTML = '';
+
+            if (mine.length === 0) {
+                grid.innerHTML = '<div class="empty-state">You have not listed anything yet.</div>';
+                return;
+            }
+
+            mine.forEach(p => {
+                const name = p['Product Name'];
+                const imageUrl = p['image_url'];
+
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.dataset.name = name.toLowerCase();
+
+                card.innerHTML = `
+                    <div class="product-media">
+                        ${imageUrl
+                            ? `<img src="${imageUrl}" alt="${name}" class="product-image-large" onclick="openImageModal('${imageUrl}')">`
+                            : `<div class="no-image-large">No Image</div>`
+                        }
+                    </div>
+                    <div class="product-info">
+                        <div class="product-info-top">
+                            <h4 class="product-name">${name}</h4>
+                            <span class="price-tag">$${parseFloat(p['Price']).toFixed(2)}</span>
+                        </div>
+                        <div class="product-meta">
+                            <span class="category-chip">${p['Category'] || 'General'}</span>
+                            <span class="stock-chip">${p['Quantity']} in stock</span>
+                        </div>
+                        <div class="product-actions">
+                            <input type="number" class="qty-input" min="1" value="1">
+                            <button class="restock-btn btn-secondary" onclick="restockProduct(this)">+ Stock</button>
+                        </div>
+                        <div class="own-actions">
+                            <button class="btn-small btn-secondary" onclick="startEdit(this)">Edit</button>
+                            <button class="btn-small btn-danger" onclick="deleteProduct(this)">Delete</button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function restockProduct(btn) {
+            const card = btn.closest('.product-card');
+            const name = card.dataset.name;
+            const qty = parseInt(card.querySelector('.qty-input').value, 10);
+
+            if (!qty || qty < 1) return alert('Enter a valid quantity');
+
+            const res = await defAPI('/api/products/restock', { name, quantity: qty });
+            alert(res.message);
+            if (res.success) refreshAll();
+        }
+
+        async function deleteProduct(btn) {
+            const card = btn.closest('.product-card');
+            const name = card.dataset.name;
+
+            if (!confirm(`Remove "${name}" from your store?`)) return;
+
+            const res = await defAPI('/api/products/delete', { name });
+            alert(res.message);
+            if (res.success) refreshAll();
+        }
+
+        function startEdit(btn) {
+            const card = btn.closest('.product-card');
+            const name = card.dataset.name;
+            const product = allProducts.find(p => p['Product Name'].toLowerCase() === name && p['Seller'] === currentUsername);
+            if (!product) return;
+
+            editingProductName = product['Product Name'];
+
+            document.getElementById('prod-name').value = product['Product Name'];
+            document.getElementById('prod-name').disabled = true;
+            document.getElementById('prod-price').value = product['Price'];
+            document.getElementById('prod-cat').value = product['Category'] || '';
+            document.getElementById('prod-qty').value = product['Quantity'];
+
+            document.getElementById('prod-image').style.display = 'none';
+            document.getElementById('image-hint').style.display = 'block';
+            document.getElementById('submit-btn').innerText = 'Save Changes';
+            document.getElementById('edit-banner').classList.add('show');
+
+            switchTab('mystore');
+            document.getElementById('prod-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function cancelEdit() {
+            editingProductName = null;
+            document.getElementById('prod-name').disabled = false;
+            document.getElementById('prod-name').value = '';
+            document.getElementById('prod-price').value = '';
+            document.getElementById('prod-cat').value = '';
+            document.getElementById('prod-qty').value = '';
+            document.getElementById('prod-image').value = '';
+            document.getElementById('prod-image').style.display = 'block';
+            document.getElementById('image-hint').style.display = 'none';
+            document.getElementById('submit-btn').innerText = 'List Product';
+            document.getElementById('edit-banner').classList.remove('show');
+        }
+
+        async function submitProductForm() {
+            const name = document.getElementById('prod-name').value.trim();
+            const price = document.getElementById('prod-price').value;
+            const category = document.getElementById('prod-cat').value;
+            const quantity = document.getElementById('prod-qty').value;
+
+            if (!name) return alert('Product Name is required');
+
+            if (editingProductName) {
+                // EDIT — plain JSON, backend doesn't support changing the image here.
+                const payload = { name: editingProductName };
+                if (price !== '') payload.price = parseFloat(price);
+                if (category !== '') payload.category = category;
+                if (quantity !== '') payload.quantity = parseInt(quantity, 10);
+
+                const res = await defAPI('/api/products/edit', payload);
+                alert(res.message);
+                if (res.success) {
+                    cancelEdit();
+                    refreshAll();
+                }
+                return;
+            }
+
+            // ADD — multipart/form-data so an image can be attached.
+            if (!price || !category || !quantity) {
+                return alert('Price, category, and quantity are all required to list a product');
+            }
+
+            const imageInput = document.getElementById('prod-image');
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('price', price);
+            formData.append('category', category);
+            formData.append('quantity', quantity);
+            if (imageInput.files.length > 0) {
+                formData.append('image', imageInput.files[0]);
+            }
+
+            try {
+                const res = await fetch('/api/products/add', { method: 'POST', body: formData });
+                const data = await res.json();
+                alert(data.message);
+                if (data.success) {
+                    cancelEdit();
+                    refreshAll();
+                }
+            } catch (e) {
+                console.error('Product upload failed:', e);
+                alert('Failed to add product.');
+            }
+        }
+
+        // ---------- Lightbox ----------
         function openImageModal(imageUrl) {
             document.getElementById('modal-image').src = imageUrl;
             document.getElementById('image-modal').classList.add('show');
