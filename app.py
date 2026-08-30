@@ -1,4 +1,3 @@
-import secrets
 import cloudinary
 import cloudinary.uploader
 import os
@@ -41,8 +40,13 @@ db_pool = None
 
 def init_connection_pool():
     global db_pool
+
+    if db_pool is not None:
+        return
+
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable is missing.")
+
     try:
         db_pool = psycopg2.pool.SimpleConnectionPool(1, 20, DATABASE_URL)
         logger.info("Database connection pool initialized.")
@@ -221,46 +225,34 @@ class Useraccount:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-    password_hash = generate_password_hash(
-        password_input,
-        method='pbkdf2:sha256'
-    )
-
-    verification_token = secrets.token_urlsafe(32)
-
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-
-        cur.execute(
-            """INSERT INTO users
-               (username, password_hash, email, email_verified, verification_token)
-               VALUES (%s, %s, %s, %s, %s);""",
-            (
-                self.username,
-                password_hash,
-                email,
-                False,
-                verification_token
+            password_hash = generate_password_hash(
+                password_input,
+                method='pbkdf2:sha256'
             )
-        )
 
-        conn.commit()
-        cur.close()
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """INSERT INTO users (username, password_hash)
+                       VALUES (%s, %s);""",
+                    (self.username, password_hash)
+                )
+                conn.commit()
+                cur.close()
 
-    self.password_hash = password_hash
-    self.is_new = False
+            self.password_hash = password_hash
+            self.is_new = False
 
-    logger.info(f"Account created for user: {self.username}")
+            logger.info(f"Account created for user: {self.username}")
+            return True, "Account created successfully."
 
-    return True, "Account created successfully."
+        except psycopg2.IntegrityError:
+            logger.warning(f"Duplicate username attempt: {self.username}")
+            return False, "Username already taken."
 
-except psycopg2.IntegrityError:
-    logger.warning(f"Duplicate username attempt: {self.username}")
-    return False, "Username already taken."
-
-except Exception as e:
-    logger.error(f"Error creating account for {self.username}: {e}")
-    return False, "Account creation failed."
+        except Exception as e:
+            logger.error(f"Error creating account for {self.username}: {e}")
+            return False, "Account creation failed."
 
     def verify_password(self, password_input):
         if self.password_hash is None:
@@ -635,6 +627,27 @@ def add_product():
                 "message": f"Invalid category. Allowed: {', '.join(ALLOWED_PRODUCT_CATEGORIES)}"
             }), 400
 
+        try:
+            price_value = float(price)
+            quantity_value = int(quantity)
+        except (ValueError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "Price and quantity must be valid numbers."
+            }), 400
+
+        if price_value < 0:
+            return jsonify({
+                "success": False,
+                "message": "Price cannot be negative."
+            }), 400
+
+        if quantity_value < 0:
+            return jsonify({
+                "success": False,
+                "message": "Quantity cannot be negative."
+            }), 400
+
         image_url = None
 
         if image:
@@ -648,9 +661,9 @@ def add_product():
 
         success, msg = pm.add_product(
             name,
-            float(price),
+            price_value,
             category,
-            int(quantity),
+            quantity_value,
             session['username'],
             image_url
         )
@@ -756,7 +769,6 @@ def internal_error(error):
 
 
 try:
-    init_connection_pool()
     init_db()
 except Exception as e:
     logger.error(f"Failed to initialize database on startup: {e}")
