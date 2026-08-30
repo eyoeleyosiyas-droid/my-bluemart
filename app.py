@@ -129,15 +129,9 @@ def init_db():
 
 
 class RegisterSchema(Schema):
-    username = fields.Str(
-        required=True,
-        validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH)
-    )
-    password = fields.Str(
-        required=True,
-        validate=validate.Length(min=MIN_PASSWORD_LENGTH)
-    )
-    email = fields.Email(required=True)
+    username = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH))
+    password = fields.Str(required=True, validate=validate.Length(min=MIN_PASSWORD_LENGTH))
+
 class LoginSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True)
@@ -215,18 +209,17 @@ class Useraccount:
             logger.error(f"Error retrieving user {self.username}: {e}")
             raise
 
-    def set_password(self, password_input, email):
+    def set_password(self, password_input):
         if not self.is_new:
             return False, "User already exists."
         if len(password_input) < MIN_PASSWORD_LENGTH:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-            cur.execute("""INSERT INTO users(username, password_hash, email, email_verified, verification_token)VALUES (%s, %s, %s, %s, %s);""",(self.username,password_hash,email,False,verification_token))
-            verification_token = secrets.token_urlsafe(32)
+            password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute("""INSERT INTO users(username, password_hash, email)VALUES (%s, %s, %s);""",(self.username, password_hash, email))
+                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s);", (self.username, password_hash))
                 conn.commit()
                 cur.close()
             self.password_hash = password_hash
@@ -527,10 +520,9 @@ def index():
 def register():
     username = request.validated_data['username'].strip()
     password = request.validated_data['password']
-    email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
-    success, msg = user.set_password(password, email)
+    success, msg = user.set_password(password)
     status_code = 201 if success else 400
     return jsonify({"success": success, "message": msg}), status_code
 
