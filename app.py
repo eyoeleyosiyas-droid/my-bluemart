@@ -222,7 +222,7 @@ class Useraccount:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-            password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
+            cur.execute("""INSERT INTO users(username, password_hash, email, email_verified, verification_token)VALUES (%s, %s, %s, %s, %s);""",(self.username,password_hash,email,False,verification_token))
             verification_token = secrets.token_urlsafe(32)
             with get_db_connection() as conn:
                 cur = conn.cursor()
