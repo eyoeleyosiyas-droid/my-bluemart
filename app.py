@@ -1,3 +1,4 @@
+import secrets
 import cloudinary
 import cloudinary.uploader
 import os
@@ -40,13 +41,8 @@ db_pool = None
 
 def init_connection_pool():
     global db_pool
-
-    if db_pool is not None:
-        return
-
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable is missing.")
-
     try:
         db_pool = psycopg2.pool.SimpleConnectionPool(1, 20, DATABASE_URL)
         logger.info("Database connection pool initialized.")
@@ -85,9 +81,16 @@ def init_db():
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     username VARCHAR(100) PRIMARY KEY,
-                    password_hash VARCHAR(255) NOT NULL
+                    password_hash VARCHAR(255) NOT NULL,
+                    email VARCHAR(255),
+                    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                    verification_token VARCHAR(255)
                 );
             """)
+
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255);")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS products (
@@ -135,6 +138,7 @@ def init_db():
 class RegisterSchema(Schema):
     username = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH))
     password = fields.Str(required=True, validate=validate.Length(min=MIN_PASSWORD_LENGTH))
+    email = fields.Email(required=True)
 
 class LoginSchema(Schema):
     username = fields.Str(required=True)
@@ -213,14 +217,10 @@ class Useraccount:
             logger.error(f"Error retrieving user {self.username}: {e}")
             raise
 
-    def set_password(self, password_input):
-        """Create a new user with a hashed password.
-
-        Returns (success: bool, message: str).
-        """
+    def set_password(self, password_input, email):
+        """Create a new user with a hashed password and email verification token."""
         if not self.is_new:
             return False, "User already exists."
-
         if len(password_input) < MIN_PASSWORD_LENGTH:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
@@ -229,13 +229,15 @@ class Useraccount:
                 password_input,
                 method='pbkdf2:sha256'
             )
+            verification_token = secrets.token_urlsafe(32)
 
             with get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute(
-                    """INSERT INTO users (username, password_hash)
-                       VALUES (%s, %s);""",
-                    (self.username, password_hash)
+                    """INSERT INTO users
+                       (username, password_hash, email, email_verified, verification_token)
+                       VALUES (%s, %s, %s, %s, %s);""",
+                    (self.username, password_hash, email, False, verification_token)
                 )
                 conn.commit()
                 cur.close()
@@ -542,9 +544,10 @@ def index():
 def register():
     username = request.validated_data['username'].strip()
     password = request.validated_data['password']
+    email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
-    success, msg = user.set_password(password)
+    success, msg = user.set_password(password, email)
     status_code = 201 if success else 400
     return jsonify({"success": success, "message": msg}), status_code
 
@@ -627,27 +630,6 @@ def add_product():
                 "message": f"Invalid category. Allowed: {', '.join(ALLOWED_PRODUCT_CATEGORIES)}"
             }), 400
 
-        try:
-            price_value = float(price)
-            quantity_value = int(quantity)
-        except (ValueError, TypeError):
-            return jsonify({
-                "success": False,
-                "message": "Price and quantity must be valid numbers."
-            }), 400
-
-        if price_value < 0:
-            return jsonify({
-                "success": False,
-                "message": "Price cannot be negative."
-            }), 400
-
-        if quantity_value < 0:
-            return jsonify({
-                "success": False,
-                "message": "Quantity cannot be negative."
-            }), 400
-
         image_url = None
 
         if image:
@@ -661,9 +643,9 @@ def add_product():
 
         success, msg = pm.add_product(
             name,
-            price_value,
+            float(price),
             category,
-            quantity_value,
+            int(quantity),
             session['username'],
             image_url
         )
@@ -769,6 +751,7 @@ def internal_error(error):
 
 
 try:
+    init_connection_pool()
     init_db()
 except Exception as e:
     logger.error(f"Failed to initialize database on startup: {e}")
