@@ -223,6 +223,7 @@ class Useraccount:
 
         try:
             password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
+            verification_token = secrets.token_urlsafe(32)
             with get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("""INSERT INTO users(username, password_hash, email)VALUES (%s, %s, %s);""",(self.username, password_hash, email))
