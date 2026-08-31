@@ -518,6 +518,7 @@
         </div>
         <input type="text" id="auth-user" placeholder="Username">
         <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
+        <input type="email" id="auth-email" placeholder="Email (required to create an account)">
 
         <button onclick="handleAuth('login')">Sign In</button>
         <button class="btn-secondary" onclick="handleAuth('register')">Create New Account</button>
@@ -682,13 +683,27 @@
         async function handleAuth(mode) {
             const username = document.getElementById('auth-user').value;
             const password = document.getElementById('auth-pass').value;
+            const email = document.getElementById('auth-email').value;
 
             if (!username || !password) return alert('Fill in all fields');
 
-            const res = await defAPI(`/api/${mode}`, { username, password });
+            // LoginSchema only accepts username/password - RegisterSchema also
+            // requires email. Sending email on login (or omitting it on
+            // register) gets rejected as a validation error.
+            let payload;
+            if (mode === 'register') {
+                if (!email) return alert('Email is required to create an account');
+                payload = { username, password, email };
+            } else {
+                payload = { username, password };
+            }
+
+            const res = await defAPI(`/api/${mode}`, payload);
             alert(res.message);
 
             if (res.success) {
+                // Registering no longer logs the user in immediately - they
+                // must verify their email first (see the link we send them).
                 if (mode === 'register') return;
                 enterDashboard(username);
             }
