@@ -1,3 +1,4 @@
+import resend
 import secrets
 import cloudinary
 import cloudinary.uploader
