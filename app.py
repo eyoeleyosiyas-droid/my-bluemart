@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='.')
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
 resend.api_key = os.getenv("RESEND_API_KEY")
+
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
 MAX_PRODUCT_NAME_LENGTH = 255
@@ -39,6 +40,8 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 db_pool = None
+
+
 def send_verification_email(email, username, verification_token):
     try:
         verification_url = (
@@ -51,11 +54,8 @@ def send_verification_email(email, username, verification_token):
             "subject": "Verify your BlueMart account",
             "html": f"""
                 <h2>Welcome to BlueMart, {username}!</h2>
-
                 <p>Thanks for creating your account.</p>
-
                 <p>Please click the button below to verify your email address:</p>
-
                 <p>
                     <a href="{verification_url}"
                        style="
@@ -69,19 +69,19 @@ def send_verification_email(email, username, verification_token):
                         Verify My Account
                     </a>
                 </p>
-
                 <p>If you didn't create this account, you can ignore this email.</p>
             """
         }
 
         resend.Emails.send(params)
-
         logger.info(f"Verification email sent to {email}")
         return True
 
     except Exception as e:
         logger.error(f"Failed to send verification email to {email}: {e}")
         return False
+
+
 def init_connection_pool():
     global db_pool
     if not DATABASE_URL:
@@ -150,9 +150,6 @@ def init_db():
                 );
             """)
 
-            # Covers the case where the table already existed from a deploy
-            # before image_url was added - CREATE TABLE IF NOT EXISTS alone
-            # won't add a column to an existing table.
             cur.execute("""
                 ALTER TABLE products
                 ADD COLUMN IF NOT EXISTS image_url TEXT;
@@ -268,10 +265,7 @@ class Useraccount:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
         try:
-            password_hash = generate_password_hash(
-                password_input,
-                method='pbkdf2:sha256'
-            )
+            password_hash = generate_password_hash(password_input, method='pbkdf2:sha256')
             verification_token = secrets.token_urlsafe(32)
 
             with get_db_connection() as conn:
@@ -577,7 +571,6 @@ def get_product_owner(product_name):
         return None
 
 
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -594,12 +587,7 @@ def register():
 
     if success:
         verification_token = result
-
-        email_sent = send_verification_email(
-            email,
-            username,
-            verification_token
-        )
+        email_sent = send_verification_email(email, username, verification_token)
 
         if not email_sent:
             return jsonify({
@@ -612,12 +600,63 @@ def register():
             'message': 'Account created. Please check your email to verify your account.'
         }), 201
 
-    else:
-        return jsonify({
-            'success': False,
-            'message': result
-        }), 400
+    return jsonify({'success': False, 'message': result}), 400
 
+# This route was missing entirely - the email links to it, but nothing
+# handled the request, so verification could never actually complete.
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT username FROM users WHERE verification_token = %s;", (token,))
+            row = cur.fetchone()
+
+            if not row:
+                cur.close()
+                return _verification_page(
+                    "Link not valid",
+                    "This verification link is invalid or has already been used.",
+                    ok=False
+                ), 400
+
+            username = row[0]
+            cur.execute(
+                "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE username = %s;",
+                (username,)
+            )
+            conn.commit()
+            cur.close()
+
+        logger.info(f"Email verified for user: {username}")
+        return _verification_page(
+            "Email verified",
+            f"Thanks, {username} - your email is verified. You can close this tab and sign in."
+        )
+    except Exception as e:
+        logger.error(f"Email verification failed for token {token}: {e}")
+        return _verification_page(
+            "Something went wrong",
+            "We couldn't verify your email right now. Please try the link again shortly.",
+            ok=False
+        ), 500
+
+
+def _verification_page(title, message, ok=True):
+    color = "#02c39a" if ok else "#ff5a5f"
+    return f"""
+    <html>
+    <head><title>{title} - Blue Mart</title></head>
+    <body style="background:#0b1329; color:#ffffff; font-family:system-ui, sans-serif;
+                 display:flex; align-items:center; justify-content:center; height:100vh; margin:0;">
+        <div style="text-align:center; max-width:420px; padding:30px;">
+            <h2 style="color:{color};">{title}</h2>
+            <p style="color:#9aa5b1;">{message}</p>
+            <a href="/" style="color:#5bc0be; text-decoration:none; font-weight:600;">Go to Blue Mart &rarr;</a>
+        </div>
+    </body>
+    </html>
+    """
 
 
 @app.route('/api/login', methods=['POST'])
@@ -670,7 +709,6 @@ def get_products():
     except Exception as e:
         logger.error(f"Error retrieving products: {e}")
         return jsonify({"success": False, "message": "Failed to retrieve products."}), 500
-
 
 
 @app.route('/api/products/add', methods=['POST'])
