@@ -889,11 +889,22 @@
             if (data instanceof FormData) {
                 options.body = data;
             } else {
-                options.headers = {'Content-Type': 'application/json'};
+                options.headers = { 'Content-Type': 'application/json' };
                 options.body = JSON.stringify(data);
             }
+
             const res = await fetch(url, options);
-            return res.json();
+            let result;
+            try {
+                result = await res.json();
+            } catch {
+                throw new Error(`Server returned HTTP ${res.status}`);
+            }
+
+            if (!res.ok && !result.message) {
+                result.message = `Request failed (HTTP ${res.status}).`;
+            }
+            return result;
         }
 
         // ---------- Auth ----------
@@ -1316,5 +1327,3 @@
     </script>
 </body>
 </html>
-HTMLEOF
-echo written
