@@ -39,7 +39,49 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 db_pool = None
+def send_verification_email(email, username, verification_token):
+    try:
+        verification_url = (
+            f"{os.getenv('BASE_URL')}/verify-email/{verification_token}"
+        )
 
+        params = {
+            "from": "BlueMart <onboarding@resend.dev>",
+            "to": [email],
+            "subject": "Verify your BlueMart account",
+            "html": f"""
+                <h2>Welcome to BlueMart, {username}!</h2>
+
+                <p>Thanks for creating your account.</p>
+
+                <p>Please click the button below to verify your email address:</p>
+
+                <p>
+                    <a href="{verification_url}"
+                       style="
+                       display:inline-block;
+                       padding:12px 20px;
+                       background:#5bc0be;
+                       color:#0b1329;
+                       text-decoration:none;
+                       border-radius:6px;
+                       font-weight:bold;">
+                        Verify My Account
+                    </a>
+                </p>
+
+                <p>If you didn't create this account, you can ignore this email.</p>
+            """
+        }
+
+        resend.Emails.send(params)
+
+        logger.info(f"Verification email sent to {email}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {email}: {e}")
+        return False
 def init_connection_pool():
     global db_pool
     if not DATABASE_URL:
