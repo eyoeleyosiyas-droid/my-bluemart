@@ -289,7 +289,7 @@ class Useraccount:
             self.is_new = False
 
             logger.info(f"Account created for user: {self.username}")
-            return True, "Account created successfully."
+            return True, verification_token
 
         except psycopg2.IntegrityError:
             logger.warning(f"Duplicate username attempt: {self.username}")
@@ -590,7 +590,31 @@ def register():
     email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
-    success, msg = user.set_password(password, email)
+    success, result = user.set_password(password, email)
+    if success:
+    verification_token = result
+
+    email_sent = send_verification_email(
+        email,
+        username,
+        verification_token
+    )
+
+    if not email_sent:
+        return jsonify({
+            "success": False,
+            "message": "Account created, but verification email could not be sent."
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Account created. Please check your email to verify your account."
+    }), 201
+
+return jsonify({
+    "success": False,
+    "message": result
+}), 400
     status_code = 201 if success else 400
     return jsonify({"success": success, "message": msg}), status_code
 
