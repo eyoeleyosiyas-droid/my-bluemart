@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
-
+resend.api_key = os.getenv("RESEND_API_KEY")
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
 MAX_PRODUCT_NAME_LENGTH = 255
