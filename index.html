@@ -1,3 +1,4 @@
+at > /home/claude/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -188,9 +189,11 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 12px;
+            transition: background 0.15s ease, opacity 0.15s ease;
         }
 
         button:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-secondary { background: transparent; color: var(--accent-glow); border: 1px solid var(--accent-glow); }
         .btn-secondary:hover { background: rgba(91, 192, 190, 0.1); }
@@ -228,6 +231,103 @@
             border: 1px solid var(--accent-glow);
             color: var(--accent-glow);
         }
+
+        /* ---------- Auth ---------- */
+        #auth-panel { max-width: 400px; width: 90%; margin: 100px auto; }
+        #auth-panel .brand { justify-content: center; margin-bottom: 18px; }
+        #main-dashboard { display: none; }
+
+        .auth-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border-glow);
+        }
+        .auth-tab {
+            width: auto;
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .auth-tab:hover { background: transparent; color: var(--text-primary); }
+        .auth-tab.active { color: var(--accent-glow); border-bottom-color: var(--accent-glow); }
+
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin: -2px 0 6px 2px;
+        }
+        .hint a { color: var(--accent-glow); text-decoration: none; font-weight: 600; }
+        .hint a:hover { text-decoration: underline; }
+
+        /* ---------- Toasts ---------- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 340px;
+        }
+        .toast {
+            background: var(--surface-panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-left: 4px solid var(--accent-glow);
+            color: var(--text-primary);
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            transform: translateX(30px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast-success { border-left-color: var(--success-glow); }
+        .toast-error { border-left-color: var(--danger-glow); }
+
+        /* ---------- Marketplace controls ---------- */
+        .marketplace-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .marketplace-controls-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .marketplace-controls-row select { width: auto; margin: 0; min-width: 180px; }
+        .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+            width: auto;
+            margin: 0;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            background: rgba(11, 19, 41, 0.5);
+            border: 1px solid var(--border-glow);
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .chip:hover { color: var(--text-primary); }
+        .chip.active { background: rgba(91, 192, 190, 0.15); border-color: var(--accent-glow); color: var(--accent-glow); }
 
         /* ---------- Product grid (storefront cards) ---------- */
         .product-grid {
@@ -423,7 +523,28 @@
 
         .image-modal-close:hover { background: var(--danger-hover); }
 
-        /* ---------- Dashboard metrics ---------- */
+        /* ---------- Dashboard ---------- */
+        .dash-welcome {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .avatar-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-glow), var(--accent-hover));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0b1329;
+            flex-shrink: 0;
+        }
+
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -466,14 +587,38 @@
             margin-top: 2px;
         }
 
-        #auth-panel { max-width: 400px; width: 90%; margin: 100px auto; }
-        #auth-panel .brand { justify-content: center; margin-bottom: 10px; }
-        #main-dashboard { display: none; }
-
-        .hint {
-            font-size: 0.75rem;
+        .breakdown-card { margin-top: 24px; }
+        .breakdown-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .breakdown-label {
+            width: 100px;
+            flex-shrink: 0;
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            margin: -2px 0 6px 2px;
+        }
+        .breakdown-bar-track {
+            flex: 1;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .breakdown-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-glow), var(--accent-hover));
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+        .breakdown-count {
+            width: 24px;
+            text-align: right;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
         }
 
         @media (max-width: 992px) {
@@ -500,10 +645,17 @@
             .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .metric-card { padding: 16px; gap: 10px; }
             .metric-value { font-size: 1.1rem; }
+
+            .avatar-circle { width: 44px; height: 44px; font-size: 1.1rem; }
+            .breakdown-label { width: 74px; font-size: 0.72rem; }
+
+            #toast-container { left: 14px; right: 14px; max-width: none; top: 14px; }
         }
     </style>
 </head>
 <body>
+
+    <div id="toast-container"></div>
 
     <!-- Authentication Area -->
     <div id="auth-panel" class="card">
@@ -516,12 +668,27 @@
             </svg>
             <h3 style="border:none; margin:0; padding:0;">Blue Mart</h3>
         </div>
-        <input type="text" id="auth-user" placeholder="Username">
-        <input type="password" id="auth-pass" placeholder="Password (min 6 chars)">
-        <input type="email" id="auth-email" placeholder="Email (required to create an account)">
 
-        <button onclick="handleAuth('login')">Sign In</button>
-        <button class="btn-secondary" onclick="handleAuth('register')">Create New Account</button>
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="login" onclick="switchAuthTab('login')">Sign In</button>
+            <button class="auth-tab" data-auth-tab="register" onclick="switchAuthTab('register')">Create Account</button>
+        </div>
+
+        <div id="auth-form-login" class="auth-form active">
+            <input type="text" id="login-user" placeholder="Username">
+            <input type="password" id="login-pass" placeholder="Password">
+            <button id="login-btn" onclick="handleAuth('login')">Sign In</button>
+            <p class="hint" id="resend-hint" style="display:none;">
+                Didn't get the email? <a href="#" onclick="resendVerification(); return false;">Resend verification</a>
+            </p>
+        </div>
+
+        <div id="auth-form-register" class="auth-form">
+            <input type="text" id="reg-user" placeholder="Username (letters, numbers, underscores)">
+            <input type="email" id="reg-email" placeholder="Email">
+            <input type="password" id="reg-pass" placeholder="Password (min 6 chars)">
+            <button id="register-btn" onclick="handleAuth('register')">Create Account</button>
+        </div>
     </div>
 
     <!-- Main Application Interface -->
@@ -564,10 +731,28 @@
                 <h1 class="section-title">Marketplace</h1>
                 <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
 
-                <input type="text" id="search-bar" placeholder="Search products..." onkeyup="filterMarketplace()">
+                <div class="marketplace-controls">
+                    <input type="text" id="search-bar" placeholder="Search products..." oninput="applyMarketplaceFilters()">
+                    <div class="marketplace-controls-row">
+                        <div class="filter-chips" id="category-chips">
+                            <button class="chip active" data-cat="all" onclick="setCategoryFilter('all')">All</button>
+                            <button class="chip" data-cat="Electronics" onclick="setCategoryFilter('Electronics')">Electronics</button>
+                            <button class="chip" data-cat="Clothing" onclick="setCategoryFilter('Clothing')">Clothing</button>
+                            <button class="chip" data-cat="Food" onclick="setCategoryFilter('Food')">Food</button>
+                            <button class="chip" data-cat="Books" onclick="setCategoryFilter('Books')">Books</button>
+                            <button class="chip" data-cat="Furniture" onclick="setCategoryFilter('Furniture')">Furniture</button>
+                            <button class="chip" data-cat="Other" onclick="setCategoryFilter('Other')">Other</button>
+                        </div>
+                        <select id="sort-select" onchange="applyMarketplaceFilters()">
+                            <option value="name-asc">Name: A-Z</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                        </select>
+                    </div>
+                </div>
 
-                <div class="product-grid" id="marketplace-grid" style="margin-top:18px;">
-                    <!-- cards injected by loadMarketplace() -->
+                <div class="product-grid" id="marketplace-grid">
+                    <!-- cards injected by applyMarketplaceFilters() -->
                 </div>
             </div>
         </div>
@@ -614,7 +799,7 @@
                         <div class="card">
                             <h3>Your Listings</h3>
                             <div class="product-grid" id="mystore-grid">
-                                <!-- cards injected by loadMyStore() -->
+                                <!-- cards injected by renderMyStore() -->
                             </div>
                         </div>
                     </div>
@@ -625,29 +810,42 @@
         <!-- DASHBOARD TAB -->
         <div class="tab-panel" id="tab-dashboard">
             <div class="page-wrap">
-                <h1 class="section-title">Dashboard</h1>
-                <p class="section-subtitle">Live metrics across the whole marketplace.</p>
+
+                <div class="dash-welcome">
+                    <div class="avatar-circle" id="user-avatar">?</div>
+                    <div>
+                        <h1 class="section-title" style="margin-bottom:2px;">Welcome back, <span id="dash-username">-</span></h1>
+                        <p class="section-subtitle" style="margin:0;">Here's how your store is performing.</p>
+                    </div>
+                </div>
 
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
-                        <div><div class="metric-value" id="stat-count">0</div><div class="metric-label">Unique Products</div></div>
+                        <div><div class="metric-value" id="stat-count">0</div><div class="metric-label">Your Products</div></div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2m18 0v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8m18 0H3m4 4h4"/></svg></div>
-                        <div><div class="metric-value" id="stat-qty">0</div><div class="metric-label">Total Units in Stock</div></div>
+                        <div><div class="metric-value" id="stat-qty">0</div><div class="metric-label">Units in Your Stock</div></div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-                        <div><div class="metric-value" id="stat-avg">$0.00</div><div class="metric-label">Average Price</div></div>
+                        <div><div class="metric-value" id="stat-avg">$0.00</div><div class="metric-label">Your Average Price</div></div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
-                        <div><div class="metric-value" id="stat-expensive">N/A</div><div class="metric-label">Highest Priced Item</div></div>
+                        <div><div class="metric-value" id="stat-expensive">N/A</div><div class="metric-label">Your Highest Priced Item</div></div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20v-6M12 20V10M18 20V4"/></svg></div>
-                        <div><div class="metric-value" id="stat-cheapest">N/A</div><div class="metric-label">Lowest Priced Item</div></div>
+                        <div><div class="metric-value" id="stat-cheapest">N/A</div><div class="metric-label">Your Lowest Priced Item</div></div>
+                    </div>
+                </div>
+
+                <div class="card breakdown-card">
+                    <h3>Your Listings by Category</h3>
+                    <div id="category-breakdown">
+                        <!-- bars injected by renderCategoryBreakdown() -->
                     </div>
                 </div>
             </div>
@@ -667,6 +865,24 @@
         let currentUsername = '';
         let allProducts = [];
         let editingProductName = null; // null = add mode, otherwise the product name being edited
+        let activeCategory = 'all';
+        let lastLoginUsername = '';
+
+        // ---------- Toasts (replaces alert() everywhere) ----------
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
 
         async function defAPI(url, data) {
             const options = { method: 'POST' };
@@ -680,33 +896,60 @@
             return res.json();
         }
 
+        // ---------- Auth ----------
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.authTab === tab));
+            document.getElementById('auth-form-login').classList.toggle('active', tab === 'login');
+            document.getElementById('auth-form-register').classList.toggle('active', tab === 'register');
+            document.getElementById('resend-hint').style.display = 'none';
+        }
+
         async function handleAuth(mode) {
-            const username = document.getElementById('auth-user').value;
-            const password = document.getElementById('auth-pass').value;
-            const email = document.getElementById('auth-email').value;
-
-            if (!username || !password) return alert('Fill in all fields');
-
-            // LoginSchema only accepts username/password - RegisterSchema also
-            // requires email. Sending email on login (or omitting it on
-            // register) gets rejected as a validation error.
+            const btn = document.getElementById(mode === 'login' ? 'login-btn' : 'register-btn');
+            const originalText = btn.innerText;
             let payload;
-            if (mode === 'register') {
-                if (!email) return alert('Email is required to create an account');
-                payload = { username, password, email };
-            } else {
+
+            if (mode === 'login') {
+                const username = document.getElementById('login-user').value.trim();
+                const password = document.getElementById('login-pass').value;
+                if (!username || !password) return showToast('Enter your username and password.', 'error');
                 payload = { username, password };
+                lastLoginUsername = username;
+            } else {
+                const username = document.getElementById('reg-user').value.trim();
+                const email = document.getElementById('reg-email').value.trim();
+                const password = document.getElementById('reg-pass').value;
+                if (!username || !email || !password) return showToast('Fill in all fields to create an account.', 'error');
+                payload = { username, password, email };
             }
 
-            const res = await defAPI(`/api/${mode}`, payload);
-            alert(res.message);
+            btn.disabled = true;
+            btn.innerText = mode === 'login' ? 'Signing in...' : 'Creating account...';
 
-            if (res.success) {
-                // Registering no longer logs the user in immediately - they
-                // must verify their email first (see the link we send them).
-                if (mode === 'register') return;
-                enterDashboard(username);
+            try {
+                const res = await defAPI(`/api/${mode}`, payload);
+                showToast(res.message, res.success ? 'success' : 'error');
+
+                const needsVerification = !res.success && res.message.toLowerCase().includes('verify your email');
+                document.getElementById('resend-hint').style.display = needsVerification ? 'block' : 'none';
+
+                if (res.success) {
+                    if (mode === 'register') {
+                        switchAuthTab('login');
+                        return;
+                    }
+                    enterDashboard(payload.username);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
             }
+        }
+
+        async function resendVerification() {
+            if (!lastLoginUsername) return;
+            const res = await defAPI('/api/resend-verification', { username: lastLoginUsername });
+            showToast(res.message, res.success ? 'success' : 'error');
         }
 
         function enterDashboard(username) {
@@ -714,6 +957,8 @@
             document.getElementById('auth-panel').style.display = 'none';
             document.getElementById('main-dashboard').style.display = 'block';
             document.getElementById('current-user').innerText = username;
+            document.getElementById('dash-username').innerText = username;
+            document.getElementById('user-avatar').innerText = username.charAt(0).toUpperCase();
             refreshAll();
         }
 
@@ -747,10 +992,11 @@
             const res = await fetch('/api/products');
             allProducts = await res.json();
 
-            renderMarketplace(allProducts);
+            applyMarketplaceFilters();
             renderMyStore(allProducts);
+            renderCategoryBreakdown();
 
-            const statsRes = await fetch('/api/statistics');
+            const statsRes = await fetch('/api/statistics/mine');
             const stats = await statsRes.json();
             document.getElementById('stat-count').innerText = stats.total_products;
             document.getElementById('stat-qty').innerText = stats.total_quantity;
@@ -760,12 +1006,37 @@
         }
 
         // ---------- Marketplace ----------
+        function setCategoryFilter(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('#category-chips .chip').forEach(c => c.classList.toggle('active', c.dataset.cat === cat));
+            applyMarketplaceFilters();
+        }
+
+        function applyMarketplaceFilters() {
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            const sort = document.getElementById('sort-select').value;
+
+            let filtered = allProducts.filter(p => {
+                const matchesSearch = p['Product Name'].toLowerCase().includes(query);
+                const matchesCategory = activeCategory === 'all' || p['Category'] === activeCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            filtered = filtered.slice().sort((a, b) => {
+                if (sort === 'price-asc') return parseFloat(a['Price']) - parseFloat(b['Price']);
+                if (sort === 'price-desc') return parseFloat(b['Price']) - parseFloat(a['Price']);
+                return a['Product Name'].localeCompare(b['Product Name']);
+            });
+
+            renderMarketplace(filtered);
+        }
+
         function renderMarketplace(products) {
             const grid = document.getElementById('marketplace-grid');
             grid.innerHTML = '';
 
             if (products.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No products listed yet.</div>';
+                grid.innerHTML = '<div class="empty-state">No products match right now.</div>';
                 return;
             }
 
@@ -810,22 +1081,17 @@
             });
         }
 
-        function filterMarketplace() {
-            const query = document.getElementById('search-bar').value.toLowerCase();
-            document.querySelectorAll('#marketplace-grid .product-card').forEach(card => {
-                card.style.display = card.dataset.name.includes(query) ? '' : 'none';
-            });
-        }
-
         async function buyProduct(btn) {
             const card = btn.closest('.product-card');
             const name = card.dataset.name;
             const qty = parseInt(card.querySelector('.qty-input').value, 10);
 
-            if (!qty || qty < 1) return alert('Enter a valid quantity');
+            if (!qty || qty < 1) return showToast('Enter a valid quantity.', 'error');
 
+            btn.disabled = true;
             const res = await defAPI('/api/products/sell', { name, quantity: qty });
-            alert(res.message);
+            showToast(res.message, res.success ? 'success' : 'error');
+            btn.disabled = false;
             if (res.success) refreshAll();
         }
 
@@ -883,10 +1149,10 @@
             const name = card.dataset.name;
             const qty = parseInt(card.querySelector('.qty-input').value, 10);
 
-            if (!qty || qty < 1) return alert('Enter a valid quantity');
+            if (!qty || qty < 1) return showToast('Enter a valid quantity.', 'error');
 
             const res = await defAPI('/api/products/restock', { name, quantity: qty });
-            alert(res.message);
+            showToast(res.message, res.success ? 'success' : 'error');
             if (res.success) refreshAll();
         }
 
@@ -897,7 +1163,7 @@
             if (!confirm(`Remove "${name}" from your store?`)) return;
 
             const res = await defAPI('/api/products/delete', { name });
-            alert(res.message);
+            showToast(res.message, res.success ? 'success' : 'error');
             if (res.success) refreshAll();
         }
 
@@ -939,32 +1205,39 @@
         }
 
         async function submitProductForm() {
+            const btn = document.getElementById('submit-btn');
+            const originalText = btn.innerText;
             const name = document.getElementById('prod-name').value.trim();
             const price = document.getElementById('prod-price').value;
             const category = document.getElementById('prod-cat').value;
             const quantity = document.getElementById('prod-qty').value;
 
-            if (!name) return alert('Product Name is required');
+            if (!name) return showToast('Product name is required.', 'error');
 
             if (editingProductName) {
-                // EDIT — plain JSON, backend doesn't support changing the image here.
                 const payload = { name: editingProductName };
                 if (price !== '') payload.price = parseFloat(price);
                 if (category !== '') payload.category = category;
                 if (quantity !== '') payload.quantity = parseInt(quantity, 10);
 
-                const res = await defAPI('/api/products/edit', payload);
-                alert(res.message);
-                if (res.success) {
-                    cancelEdit();
-                    refreshAll();
+                btn.disabled = true;
+                btn.innerText = 'Saving...';
+                try {
+                    const res = await defAPI('/api/products/edit', payload);
+                    showToast(res.message, res.success ? 'success' : 'error');
+                    if (res.success) {
+                        cancelEdit();
+                        refreshAll();
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
                 }
                 return;
             }
 
-            // ADD — multipart/form-data so an image can be attached.
             if (!price || !category || !quantity) {
-                return alert('Price, category, and quantity are all required to list a product');
+                return showToast('Price, category, and quantity are all required to list a product.', 'error');
             }
 
             const imageInput = document.getElementById('prod-image');
@@ -977,18 +1250,55 @@
                 formData.append('image', imageInput.files[0]);
             }
 
+            btn.disabled = true;
+            btn.innerText = 'Listing...';
             try {
                 const res = await fetch('/api/products/add', { method: 'POST', body: formData });
                 const data = await res.json();
-                alert(data.message);
+                showToast(data.message, data.success ? 'success' : 'error');
                 if (data.success) {
                     cancelEdit();
                     refreshAll();
                 }
             } catch (e) {
                 console.error('Product upload failed:', e);
-                alert('Failed to add product.');
+                showToast('Failed to add product.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
             }
+        }
+
+        // ---------- Dashboard ----------
+        function renderCategoryBreakdown() {
+            const mine = allProducts.filter(p => p['Seller'] === currentUsername);
+            const counts = {};
+            mine.forEach(p => {
+                const cat = p['Category'] || 'General';
+                counts[cat] = (counts[cat] || 0) + 1;
+            });
+
+            const container = document.getElementById('category-breakdown');
+            container.innerHTML = '';
+
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="empty-state">List a product to see your category breakdown.</div>';
+                return;
+            }
+
+            const max = Math.max(...entries.map(e => e[1]));
+            entries.forEach(([cat, count]) => {
+                const pct = (count / max) * 100;
+                const row = document.createElement('div');
+                row.className = 'breakdown-row';
+                row.innerHTML = `
+                    <span class="breakdown-label">${cat}</span>
+                    <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
+                    <span class="breakdown-count">${count}</span>
+                `;
+                container.appendChild(row);
+            });
         }
 
         // ---------- Lightbox ----------
@@ -1006,3 +1316,5 @@
     </script>
 </body>
 </html>
+HTMLEOF
+echo written
