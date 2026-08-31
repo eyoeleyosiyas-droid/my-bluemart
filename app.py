@@ -1,4 +1,4 @@
-cat > /home/claude/app.py << 'PYEOF'
+
 import resend
 import secrets
 import datetime
