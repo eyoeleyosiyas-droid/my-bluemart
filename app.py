@@ -591,32 +591,34 @@ def register():
 
     user = Useraccount(username)
     success, result = user.set_password(password, email)
+
     if success:
-    verification_token = result
+        verification_token = result
 
-    email_sent = send_verification_email(
-        email,
-        username,
-        verification_token
-    )
+        email_sent = send_verification_email(
+            email,
+            username,
+            verification_token
+        )
 
-    if not email_sent:
+        if not email_sent:
+            return jsonify({
+                'success': False,
+                'message': 'Account created, but verification email could not be sent.'
+            }), 500
+
         return jsonify({
-            "success": False,
-            "message": "Account created, but verification email could not be sent."
-        }), 500
+            'success': True,
+            'message': 'Account created. Please check your email to verify your account.'
+        }), 201
 
-    return jsonify({
-        "success": True,
-        "message": "Account created. Please check your email to verify your account."
-    }), 201
+    else:
+        return jsonify({
+            'success': False,
+            'message': result
+        }), 400
 
-return jsonify({
-    "success": False,
-    "message": result
-}), 400
-    status_code = 201 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+
 
 @app.route('/api/login', methods=['POST'])
 @validate_json(LoginSchema)
