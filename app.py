@@ -1,5 +1,7 @@
+cat > /home/claude/app.py << 'PYEOF'
 import resend
 import secrets
+import datetime
 import cloudinary
 import cloudinary.uploader
 import os
@@ -33,6 +35,12 @@ MAX_PRODUCT_NAME_LENGTH = 255
 ALLOWED_PRODUCT_CATEGORIES = [
     "Electronics", "Clothing", "Food", "Books", "Furniture", "Other"
 ]
+USERNAME_PATTERN = r'^[a-zA-Z0-9_]{3,100}$'
+
+# Account lockout policy - a standard defense against password guessing
+# that most established platforms apply.
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 15
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -127,13 +135,17 @@ def init_db():
                     password_hash VARCHAR(255) NOT NULL,
                     email VARCHAR(255),
                     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                    verification_token VARCHAR(255)
+                    verification_token VARCHAR(255),
+                    failed_login_attempts INT NOT NULL DEFAULT 0,
+                    locked_until TIMESTAMP
                 );
             """)
 
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS products (
@@ -175,14 +187,24 @@ def init_db():
         raise
 
 
+# --- VALIDATION SCHEMAS ---
 class RegisterSchema(Schema):
-    username = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_USERNAME_LENGTH))
+    username = fields.Str(
+        required=True,
+        validate=[
+            validate.Length(min=3, max=MAX_USERNAME_LENGTH),
+            validate.Regexp(USERNAME_PATTERN, error="Username can only contain letters, numbers, and underscores.")
+        ]
+    )
     password = fields.Str(required=True, validate=validate.Length(min=MIN_PASSWORD_LENGTH))
     email = fields.Email(required=True)
 
 class LoginSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True)
+
+class ResendVerificationSchema(Schema):
+    username = fields.Str(required=True)
 
 class ProductSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH))
@@ -215,16 +237,20 @@ def validate_json(schema_class):
             try:
                 data = request.get_json()
                 if not data:
-                    return jsonify({"success": False, "message": "Invalid or missing JSON."}), 400
+                    return api_error("Invalid or missing JSON body.", 400)
                 schema = schema_class()
                 validated_data = schema.load(data)
                 request.validated_data = validated_data
             except ValidationError as err:
                 logger.warning(f"Validation error in {f.__name__}: {err.messages}")
-                return jsonify({"success": False, "message": "Validation error.", "errors": err.messages}), 422
+                # Surface the first concrete field error so the person sees
+                # something actionable instead of a generic message.
+                first_error = next(iter(err.messages.values()))
+                first_message = first_error[0] if isinstance(first_error, list) else str(first_error)
+                return api_error(first_message, 422, errors=err.messages)
             except Exception as e:
                 logger.error(f"Error in validate_json: {e}")
-                return jsonify({"success": False, "message": "Request processing error."}), 400
+                return api_error("We couldn't process that request.", 400)
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -233,24 +259,51 @@ def require_login(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'username' not in session:
-            return jsonify({"success": False, "message": "Please sign in."}), 403
+            return api_error("Please sign in to continue.", 401)
         return f(*args, **kwargs)
     return decorated_function
+
+
+def api_ok(message, status=200, **extra):
+    """Consistent shape for every successful API response."""
+    return jsonify({"success": True, "message": message, **extra}), status
+
+
+def api_error(message, status=400, **extra):
+    """Consistent shape for every failed API response."""
+    return jsonify({"success": False, "message": message, **extra}), status
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
 
 
 class Useraccount:
     def __init__(self, username):
         self.username = username
         self.password_hash = None
+        self.email = None
+        self.email_verified = False
+        self.failed_login_attempts = 0
+        self.locked_until = None
         self.is_new = True
 
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute("SELECT password_hash FROM users WHERE username = %s;", (self.username,))
+                cur.execute(
+                    """SELECT password_hash, email, email_verified, failed_login_attempts, locked_until
+                       FROM users WHERE username = %s;""",
+                    (self.username,)
+                )
                 row = cur.fetchone()
                 if row:
-                    self.password_hash = row[0]
+                    (self.password_hash, self.email, self.email_verified,
+                     self.failed_login_attempts, self.locked_until) = row
                     self.is_new = False
                 cur.close()
         except Exception as e:
@@ -260,7 +313,7 @@ class Useraccount:
     def set_password(self, password_input, email):
         """Create a new user with a hashed password and email verification token."""
         if not self.is_new:
-            return False, "User already exists."
+            return False, "That username is already taken."
         if len(password_input) < MIN_PASSWORD_LENGTH:
             return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
 
@@ -287,20 +340,75 @@ class Useraccount:
 
         except psycopg2.IntegrityError:
             logger.warning(f"Duplicate username attempt: {self.username}")
-            return False, "Username already taken."
+            return False, "That username is already taken."
 
         except Exception as e:
             logger.error(f"Error creating account for {self.username}: {e}")
-            return False, "Account creation failed."
+            return False, "We couldn't create your account right now. Please try again."
 
     def verify_password(self, password_input):
+        now = datetime.datetime.utcnow()
+
+        # Deliberately identical wording whether the username exists or the
+        # password is wrong - real platforms never reveal which one failed,
+        # since that lets an attacker enumerate valid usernames.
+        generic_failure = "Invalid username or password."
+
         if self.password_hash is None:
-            return False, "User does not exist. Register first."
-        if check_password_hash(self.password_hash, password_input):
-            logger.info(f"User {self.username} logged in successfully.")
-            return True, "Password verified successfully."
-        logger.warning(f"Failed login attempt for user: {self.username}")
-        return False, "Incorrect password."
+            return False, generic_failure
+
+        if self.locked_until and self.locked_until > now:
+            minutes_left = max(1, int((self.locked_until - now).total_seconds() // 60) + 1)
+            logger.warning(f"Login blocked - account locked: {self.username}")
+            return False, f"Too many failed attempts. Try again in {minutes_left} minute(s)."
+
+        if not check_password_hash(self.password_hash, password_input):
+            self._record_failed_attempt()
+            logger.warning(f"Failed login attempt for user: {self.username}")
+            return False, generic_failure
+
+        if not self.email_verified:
+            logger.info(f"Login blocked - email not verified: {self.username}")
+            return False, "Please verify your email before signing in. Check your inbox for the verification link."
+
+        self._reset_failed_attempts()
+        logger.info(f"User {self.username} logged in successfully.")
+        return True, "Signed in successfully."
+
+    def _record_failed_attempt(self):
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                new_count = self.failed_login_attempts + 1
+                if new_count >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    lock_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                    cur.execute(
+                        "UPDATE users SET failed_login_attempts = %s, locked_until = %s WHERE username = %s;",
+                        (new_count, lock_time, self.username)
+                    )
+                    logger.warning(f"Account locked after {new_count} failed attempts: {self.username}")
+                else:
+                    cur.execute(
+                        "UPDATE users SET failed_login_attempts = %s WHERE username = %s;",
+                        (new_count, self.username)
+                    )
+                conn.commit()
+                cur.close()
+        except Exception as e:
+            logger.error(f"Failed to record failed login attempt for {self.username}: {e}")
+
+    def _reset_failed_attempts(self):
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE username = %s;",
+                    (self.username,)
+                )
+                conn.commit()
+                cur.close()
+        except Exception as e:
+            logger.error(f"Failed to reset login attempts for {self.username}: {e}")
 
 
 class ProductManager:
@@ -346,10 +454,10 @@ class ProductManager:
                 return True, "Product listed successfully."
         except psycopg2.IntegrityError as e:
             logger.warning(f"Integrity error adding product {product_name}: {e}")
-            return False, "Product listing error. This name may already exist."
+            return False, "A product with this name already exists. Try a different name."
         except Exception as e:
             logger.error(f"Error adding product {product_name}: {e}")
-            return False, "Failed to add product."
+            return False, "We couldn't add that product right now. Please try again."
 
     def sell_product(self, product_name, quantity, buyer_username):
         try:
@@ -379,19 +487,19 @@ class ProductManager:
 
                 if current_qty < quantity:
                     cur.close()
-                    return False, f"Insufficient quantity. Available: {current_qty}, Requested: {quantity}"
+                    return False, f"Only {current_qty} left in stock - you asked for {quantity}."
 
                 new_qty = current_qty - quantity
                 cur.execute("UPDATE products SET quantity = %s WHERE id = %s;", (new_qty, product_id))
                 conn.commit()
                 cur.close()
                 logger.info(f"Sale: {buyer_username} purchased {quantity} units of {product_name}")
-                return True, f"Purchase successful! Bought {quantity} units of {product_name}."
+                return True, f"Purchase successful! Bought {quantity} unit(s) of {product_name}."
         except ValueError:
             return False, "Invalid quantity."
         except Exception as e:
             logger.error(f"Error selling product {product_name}: {e}")
-            return False, "Purchase failed."
+            return False, "We couldn't complete that purchase. Please try again."
 
     def restock_product(self, product_name, quantity, seller_username):
         try:
@@ -424,12 +532,12 @@ class ProductManager:
                 conn.commit()
                 cur.close()
                 logger.info(f"Product {product_name} restocked by {seller_username}. New qty: {new_qty}")
-                return True, f"Restocked {quantity} units. New quantity: {new_qty}."
+                return True, f"Restocked {quantity} unit(s). New quantity: {new_qty}."
         except ValueError:
             return False, "Invalid quantity."
         except Exception as e:
             logger.error(f"Error restocking product {product_name}: {e}")
-            return False, "Restock failed."
+            return False, "We couldn't restock that item right now. Please try again."
 
     def edit_product(self, product_name, seller_username, new_price=None, new_category=None, new_quantity=None):
         try:
@@ -480,7 +588,7 @@ class ProductManager:
 
                 if not updates:
                     cur.close()
-                    return False, "No modifications specified."
+                    return False, "No changes were specified."
 
                 params.append(product_id)
                 query = f"UPDATE products SET {', '.join(updates)} WHERE id = %s;"
@@ -496,7 +604,7 @@ class ProductManager:
                 return False, "Update failed."
         except Exception as e:
             logger.error(f"Error editing product {product_name}: {e}")
-            return False, "Product update failed."
+            return False, "We couldn't update that product right now. Please try again."
 
     def delete_product(self, product_name, seller_username):
         try:
@@ -523,17 +631,25 @@ class ProductManager:
 
                 if row_count > 0:
                     logger.info(f"Product {product_name} deleted by {seller_username}")
-                    return True, f"Product deleted successfully."
+                    return True, "Product removed from your store."
                 return False, "Deletion failed."
         except Exception as e:
             logger.error(f"Error deleting product {product_name}: {e}")
-            return False, "Product deletion failed."
+            return False, "We couldn't delete that product right now. Please try again."
 
-    def get_statistics(self):
+    def get_statistics(self, seller_username=None):
+        """Compute stats either across the whole marketplace, or - when
+        seller_username is given - scoped to just that seller's own listings."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
-                cur.execute('SELECT product_name, price, category, quantity FROM products ORDER BY price DESC;')
+                if seller_username:
+                    cur.execute(
+                        'SELECT product_name, price, category, quantity FROM products WHERE seller_username = %s ORDER BY price DESC;',
+                        (seller_username,)
+                    )
+                else:
+                    cur.execute('SELECT product_name, price, category, quantity FROM products ORDER BY price DESC;')
                 products = cur.fetchall()
                 cur.close()
 
@@ -571,6 +687,8 @@ def get_product_owner(product_name):
         return None
 
 
+# --- ROUTES ---
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -585,22 +703,17 @@ def register():
     user = Useraccount(username)
     success, result = user.set_password(password, email)
 
-    if success:
-        verification_token = result
-        email_sent = send_verification_email(email, username, verification_token)
+    if not success:
+        return api_error(result, 400)
 
-        if not email_sent:
-            return jsonify({
-                'success': False,
-                'message': 'Account created, but verification email could not be sent.'
-            }), 500
+    verification_token = result
+    email_sent = send_verification_email(email, username, verification_token)
 
-        return jsonify({
-            'success': True,
-            'message': 'Account created. Please check your email to verify your account.'
-        }), 201
+    if not email_sent:
+        return api_error("Account created, but the verification email could not be sent. Please contact support.", 502)
 
-    return jsonify({'success': False, 'message': result}), 400
+    return api_ok("Account created. Check your email to verify your account before signing in.", 201)
+
 
 # This route was missing entirely - the email links to it, but nothing
 # handled the request, so verification could never actually complete.
@@ -642,6 +755,42 @@ def verify_email(token):
         ), 500
 
 
+@app.route('/api/resend-verification', methods=['POST'])
+@validate_json(ResendVerificationSchema)
+def resend_verification():
+    username = request.validated_data['username'].strip()
+    generic_message = "If that account exists and needs verifying, a new email is on its way."
+
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT email, email_verified FROM users WHERE username = %s;", (username,))
+            row = cur.fetchone()
+
+            if not row:
+                cur.close()
+                # Same generic message whether or not the account exists,
+                # for the same enumeration-prevention reason as login.
+                return api_ok(generic_message)
+
+            email, email_verified = row
+            if email_verified:
+                cur.close()
+                return api_ok("This account is already verified - you can sign in.")
+
+            new_token = secrets.token_urlsafe(32)
+            cur.execute("UPDATE users SET verification_token = %s WHERE username = %s;", (new_token, username))
+            conn.commit()
+            cur.close()
+
+        send_verification_email(email, username, new_token)
+        return api_ok(generic_message)
+
+    except Exception as e:
+        logger.error(f"Resend verification failed for {username}: {e}")
+        return api_error("We couldn't process that right now. Please try again shortly.", 500)
+
+
 def _verification_page(title, message, ok=True):
     color = "#02c39a" if ok else "#ff5a5f"
     return f"""
@@ -671,16 +820,16 @@ def login():
         if success:
             session.clear()
             session['username'] = user.username
-            return jsonify({"success": True, "message": msg, "username": user.username}), 200
-        return jsonify({"success": False, "message": msg}), 401
+            return api_ok(msg, 200, username=user.username)
+        return api_error(msg, 401)
     except Exception as e:
         logger.error(f"Login error for {username}: {e}")
-        return jsonify({"success": False, "message": "Login failed."}), 500
+        return api_error("We couldn't sign you in right now. Please try again shortly.", 500)
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
-    return jsonify({"success": True, "message": "Logged out safely."}), 200
+    return api_ok("Logged out safely.")
 
 @app.route('/api/session', methods=['GET'])
 def check_session():
@@ -708,7 +857,7 @@ def get_products():
         return jsonify(rows), 200
     except Exception as e:
         logger.error(f"Error retrieving products: {e}")
-        return jsonify({"success": False, "message": "Failed to retrieve products."}), 500
+        return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
 
 @app.route('/api/products/add', methods=['POST'])
@@ -723,54 +872,37 @@ def add_product():
         image = request.files.get('image')
 
         if not name:
-            return jsonify({"success": False, "message": "Product Name is required."}), 400
+            return api_error("Product name is required.", 400)
 
         if not price or not category or not quantity:
-            return jsonify({
-                "success": False,
-                "message": "Price, category, and quantity are all required."
-            }), 400
+            return api_error("Price, category, and quantity are all required.", 400)
 
         if category not in ALLOWED_PRODUCT_CATEGORIES:
-            return jsonify({
-                "success": False,
-                "message": f"Invalid category. Allowed: {', '.join(ALLOWED_PRODUCT_CATEGORIES)}"
-            }), 400
+            return api_error(f"Invalid category. Allowed: {', '.join(ALLOWED_PRODUCT_CATEGORIES)}", 400)
+
+        try:
+            price_val = float(price)
+            quantity_val = int(quantity)
+        except ValueError:
+            return api_error("Price and quantity must be valid numbers.", 400)
 
         image_url = None
-
         if image:
-            upload_result = cloudinary.uploader.upload(
-                image,
-                folder="bluemart/products"
-            )
-            image_url = upload_result.get("secure_url")
+            try:
+                upload_result = cloudinary.uploader.upload(image, folder="bluemart/products")
+                image_url = upload_result.get("secure_url")
+            except Exception as e:
+                logger.error(f"Image upload failed: {e}")
+                return api_error("We couldn't upload that image. Try a different file or list without one.", 502)
 
         pm = ProductManager()
-
-        success, msg = pm.add_product(
-            name,
-            float(price),
-            category,
-            int(quantity),
-            session['username'],
-            image_url
-        )
-
+        success, msg = pm.add_product(name, price_val, category, quantity_val, session['username'], image_url)
         status_code = 201 if success else 400
-
-        return jsonify({
-            "success": success,
-            "message": msg,
-            "image_url": image_url
-        }), status_code
+        return jsonify({"success": success, "message": msg, "image_url": image_url}), status_code
 
     except Exception as e:
         logger.error(f"Error adding product: {e}")
-        return jsonify({
-           "success": False,
-           "message": "Failed to add product."
-        }), 500
+        return api_error("We couldn't add that product right now. Please try again.", 500)
 
 @app.route('/api/products/delete', methods=['POST'])
 @require_login
@@ -780,14 +912,13 @@ def delete_product():
     owner = get_product_owner(name)
 
     if owner is None:
-        return jsonify({"success": False, "message": "Product not found."}), 404
+        return api_error("Product not found.", 404)
     if owner != session['username']:
-        return jsonify({"success": False, "message": "You can only delete your own products."}), 403
+        return api_error("You can only delete your own products.", 403)
 
     pm = ProductManager()
     success, msg = pm.delete_product(name, session['username'])
-    status_code = 200 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+    return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
 @app.route('/api/products/sell', methods=['POST'])
 @require_login
@@ -798,8 +929,7 @@ def sell_product():
 
     pm = ProductManager()
     success, msg = pm.sell_product(name, quantity, session['username'])
-    status_code = 200 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+    return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
 @app.route('/api/products/restock', methods=['POST'])
 @require_login
@@ -810,14 +940,13 @@ def restock_product():
     owner = get_product_owner(name)
 
     if owner is None:
-        return jsonify({"success": False, "message": "Product not found."}), 404
+        return api_error("Product not found.", 404)
     if owner != session['username']:
-        return jsonify({"success": False, "message": "You can only restock your own products."}), 403
+        return api_error("You can only restock your own products.", 403)
 
     pm = ProductManager()
     success, msg = pm.restock_product(name, quantity, session['username'])
-    status_code = 200 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+    return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
 @app.route('/api/products/edit', methods=['POST'])
 @require_login
@@ -827,9 +956,9 @@ def edit_product():
     owner = get_product_owner(name)
 
     if owner is None:
-        return jsonify({"success": False, "message": "Product not found."}), 404
+        return api_error("Product not found.", 404)
     if owner != session['username']:
-        return jsonify({"success": False, "message": "You can only edit your own products."}), 403
+        return api_error("You can only edit your own products.", 403)
 
     pm = ProductManager()
     success, msg = pm.edit_product(
@@ -839,22 +968,41 @@ def edit_product():
         new_category=request.validated_data.get('category'),
         new_quantity=request.validated_data.get('quantity')
     )
-    status_code = 200 if success else 400
-    return jsonify({"success": success, "message": msg}), status_code
+    return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
 @app.route('/api/statistics', methods=['GET'])
 def get_stats():
+    """Marketplace-wide statistics (kept for potential future admin use)."""
     pm = ProductManager()
     return jsonify(pm.get_statistics()), 200
 
+@app.route('/api/statistics/mine', methods=['GET'])
+@require_login
+def get_my_stats():
+    """Statistics scoped to the signed-in seller's own listings only."""
+    pm = ProductManager()
+    return jsonify(pm.get_statistics(seller_username=session['username'])), 200
+
+@app.errorhandler(400)
+def bad_request(error):
+    return api_error("Bad request.", 400)
+
+@app.errorhandler(403)
+def forbidden(error):
+    return api_error("You don't have permission to do that.", 403)
+
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({"success": False, "message": "Endpoint not found."}), 404
+    return api_error("That endpoint doesn't exist.", 404)
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    return api_error("That method isn't allowed on this endpoint.", 405)
 
 @app.errorhandler(500)
 def internal_error(error):
     logger.error(f"Internal server error: {error}")
-    return jsonify({"success": False, "message": "Internal server error."}), 500
+    return api_error("Something went wrong on our end. Please try again.", 500)
 
 
 try:
@@ -866,3 +1014,5 @@ except Exception as e:
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+PYEOF
+python3 -c "import ast; ast.parse(open('/home/claude/app.py').read()); print('Syntax OK')"
