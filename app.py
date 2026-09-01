@@ -61,8 +61,11 @@ def send_verification_email(email, username, verification_token):
             "subject": "Verify your BlueMart account",
             "html": f"""
                 <h2>Welcome to BlueMart, {username}!</h2>
+
                 <p>Thanks for creating your account.</p>
+
                 <p>Please click the button below to verify your email address:</p>
+
                 <p>
                     <a href="{verification_url}"
                        style="
@@ -76,16 +79,31 @@ def send_verification_email(email, username, verification_token):
                         Verify My Account
                     </a>
                 </p>
+
                 <p>If you didn't create this account, you can ignore this email.</p>
             """
         }
 
-        resend.Emails.send(params)
+        print("=== RESEND: ABOUT TO SEND EMAIL ===")
+        print(f"Recipient: {email}")
+        print(f"BASE_URL: {os.getenv('BASE_URL')}")
+
+        response = resend.Emails.send(params)
+
+        print("=== RESEND RESPONSE ===")
+        print(response)
+
         logger.info(f"Verification email sent to {email}")
+
         return True
 
     except Exception as e:
-        logger.error(f"Failed to send verification email to {email}: {e}")
+        print("=== RESEND ERROR ===")
+        print(type(e).__name__)
+        print(str(e))
+
+        logger.exception("Failed to send verification email")
+
         return False
 
 
