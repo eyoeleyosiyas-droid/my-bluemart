@@ -146,6 +146,22 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;")
 
+            # Email had no uniqueness check at all before this - two accounts
+            # could silently share the same address. Postgres allows multiple
+            # NULLs under a UNIQUE constraint, so this is safe to add even if
+            # older rows have no email yet.
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'users_email_unique'
+                    ) THEN
+                        ALTER TABLE users ADD CONSTRAINT users_email_unique UNIQUE (email);
+                    END IF;
+                END
+                $$;
+            """)
+
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS products (
                     id SERIAL PRIMARY KEY,
@@ -337,8 +353,11 @@ class Useraccount:
             logger.info(f"Account created for user: {self.username}")
             return True, verification_token
 
-        except psycopg2.IntegrityError:
-            logger.warning(f"Duplicate username attempt: {self.username}")
+        except psycopg2.IntegrityError as e:
+            logger.warning(f"Duplicate account attempt for {self.username}: {e}")
+            constraint = getattr(getattr(e, 'diag', None), 'constraint_name', '') or ''
+            if 'email' in constraint:
+                return False, "That email is already registered. Try signing in instead."
             return False, "That username is already taken."
 
         except Exception as e:
@@ -686,6 +705,19 @@ def get_product_owner(product_name):
         return None
 
 
+def email_already_registered(email):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM users WHERE email = %s;", (email,))
+            exists = cur.fetchone() is not None
+            cur.close()
+            return exists
+    except Exception as e:
+        logger.error(f"Error checking email uniqueness for {email}: {e}")
+        return False
+
+
 # --- ROUTES ---
 
 @app.route('/')
@@ -700,10 +732,16 @@ def register():
     email = request.validated_data['email'].strip()
 
     user = Useraccount(username)
+    if not user.is_new:
+        return api_error("That username is already taken.", 409)
+
+    if email_already_registered(email):
+        return api_error("That email is already registered. Try signing in instead.", 409)
+
     success, result = user.set_password(password, email)
 
     if not success:
-        return api_error(result, 400)
+        return api_error(result, 409)
 
     verification_token = result
     email_sent = send_verification_email(email, username, verification_token)
@@ -882,13 +920,8 @@ def add_product():
         try:
             price_val = float(price)
             quantity_val = int(quantity)
-        except (TypeError, ValueError):
+        except ValueError:
             return api_error("Price and quantity must be valid numbers.", 400)
-
-        if price_val < 0:
-            return api_error("Price cannot be negative.", 400)
-        if quantity_val < 0:
-            return api_error("Quantity cannot be negative.", 400)
 
         image_url = None
         if image:
