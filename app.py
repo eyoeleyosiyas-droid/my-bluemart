@@ -913,32 +913,7 @@ def get_products():
     except Exception as e:
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
-@app.route('/test-email')
-def test_email():
-    try:
-        response = resend.Emails.send({
-            "from": "BlueMart <onboarding@resend.dev>",
-            "to": ["eyobmelak1@gmail.com"],
-            "subject": "BlueMart Test Email",
-            "html": "<h2>BlueMart email test</h2><p>If you received this, Resend is working.</p>"
-        })
 
-        print("=== RESEND TEST RESPONSE ===")
-        print(response)
-
-        return jsonify({
-            "success": True,
-            "response": str(response)
-        }), 200
-
-    except Exception as e:
-        print("=== RESEND TEST ERROR ===")
-        print(type(e).__name__)
-        print(str(e))
-
-        return jsonify({
-            "success": False,
-            "error": str(e)
         }), 500
 
 @app.route('/api/products/add', methods=['POST'])
