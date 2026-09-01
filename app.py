@@ -914,7 +914,7 @@ def get_products():
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
-        }), 500
+      
 
 @app.route('/api/products/add', methods=['POST'])
 @require_login
