@@ -1,4 +1,4 @@
-
+cat > /home/claude/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -70,8 +70,35 @@
             font-size: 0.85rem;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
+        }
+
+        .cart-btn {
+            width: auto;
+            margin: 0;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: transparent;
+            border: 1px solid var(--border-glow);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            border-radius: 8px;
+        }
+        .cart-btn:hover { border-color: var(--accent-glow); background: rgba(91,192,190,0.08); }
+        .cart-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        .cart-badge {
+            background: var(--accent-glow);
+            color: #0b1329;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
         }
 
         /* ---------- Navigation tabs ---------- */
@@ -523,6 +550,96 @@
 
         .image-modal-close:hover { background: var(--danger-hover); }
 
+        /* ---------- Cart modal ---------- */
+        .cart-modal-content {
+            background: var(--surface-panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--card-radius);
+            width: 100%;
+            max-width: 480px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-glow);
+        }
+
+        .modal-close-inline {
+            width: auto;
+            margin: 0;
+            padding: 2px 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 22px;
+            line-height: 1;
+            border: none;
+        }
+        .modal-close-inline:hover { color: var(--danger-glow); background: transparent; }
+
+        #cart-items {
+            padding: 8px 22px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .cart-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-glow);
+        }
+        .cart-item:last-child { border-bottom: none; }
+
+        .cart-item-media {
+            width: 52px;
+            height: 52px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-glow);
+        }
+        .cart-item-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .no-image-small {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            color: var(--text-secondary);
+            background: rgba(11, 19, 41, 0.6);
+        }
+
+        .cart-item-info { flex: 1; min-width: 0; }
+        .cart-item-name { font-weight: 600; font-size: 0.85rem; }
+        .cart-item-sub { font-size: 0.7rem; color: var(--text-secondary); margin: 2px 0 8px; }
+        .cart-item-controls { display: flex; align-items: center; gap: 6px; }
+        .cart-item-controls button { padding: 3px 10px; font-size: 0.8rem; margin: 0; }
+        .cart-item-qty { font-size: 0.85rem; font-weight: 600; min-width: 18px; text-align: center; }
+
+        .cart-item-price { font-weight: 700; color: var(--accent-glow); font-size: 0.85rem; white-space: nowrap; flex-shrink: 0; }
+
+        .cart-footer {
+            padding: 16px 22px 20px;
+            border-top: 1px solid var(--border-glow);
+        }
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
         /* ---------- Dashboard ---------- */
         .dash-welcome {
             display: flex;
@@ -650,6 +767,7 @@
             .breakdown-label { width: 74px; font-size: 0.72rem; }
 
             #toast-container { left: 14px; right: 14px; max-width: none; top: 14px; }
+            .cart-modal-content { max-width: 100%; max-height: 90vh; }
         }
     </style>
 </head>
@@ -705,6 +823,11 @@
             </div>
             <div class="user-info">
                 <span>Signed in as <strong id="current-user">None</strong></span>
+                <button class="cart-btn" onclick="openCart()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6A1 1 0 0 0 5.6 19H17M17 13v6M9 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0M17 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/></svg>
+                    Cart
+                    <span class="cart-badge" id="cart-count">0</span>
+                </button>
                 <a href="#" onclick="handleLogout()" style="color:var(--danger-glow); text-decoration:none; font-weight:600;">Logout</a>
             </div>
         </header>
@@ -729,7 +852,7 @@
         <div class="tab-panel active" id="tab-marketplace">
             <div class="page-wrap">
                 <h1 class="section-title">Marketplace</h1>
-                <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
+                <p class="section-subtitle">Browse everything for sale. Add items to your cart, then check out. You can't buy your own listings.</p>
 
                 <div class="marketplace-controls">
                     <input type="text" id="search-bar" placeholder="Search products..." oninput="applyMarketplaceFilters()">
@@ -861,12 +984,30 @@
         </div>
     </div>
 
+    <!-- Cart -->
+    <div id="cart-modal" class="image-modal" onclick="closeCart()">
+        <div class="cart-modal-content" onclick="event.stopPropagation()">
+            <div class="cart-header">
+                <h3 style="border:none; margin:0; padding:0;">Your Cart</h3>
+                <button class="modal-close-inline" onclick="closeCart()">&times;</button>
+            </div>
+            <div id="cart-items">
+                <!-- rows injected by renderCart() -->
+            </div>
+            <div class="cart-footer">
+                <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
+                <button id="checkout-btn" onclick="checkout()" disabled>Checkout</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUsername = '';
         let allProducts = [];
         let editingProductName = null; // null = add mode, otherwise the product name being edited
         let activeCategory = 'all';
         let lastLoginUsername = '';
+        let cart = [];
 
         // ---------- Toasts (replaces alert() everywhere) ----------
         function showToast(message, type = 'info') {
@@ -970,6 +1111,7 @@
             document.getElementById('current-user').innerText = username;
             document.getElementById('dash-username').innerText = username;
             document.getElementById('user-avatar').innerText = username.charAt(0).toUpperCase();
+            loadCartFromStorage();
             refreshAll();
         }
 
@@ -1083,7 +1225,7 @@
                             ? `<p class="hint" style="margin:2px 0 0;">This is your listing - manage it in My Store.</p>`
                             : `<div class="product-actions">
                                     <input type="number" class="qty-input" min="1" value="1">
-                                    <button class="buy-btn" onclick="buyProduct(this)">Buy</button>
+                                    <button class="buy-btn" onclick="addToCart(this)">Add to Cart</button>
                                </div>`
                         }
                     </div>
@@ -1092,18 +1234,157 @@
             });
         }
 
-        async function buyProduct(btn) {
+        // ---------- Cart ----------
+        function loadCartFromStorage() {
+            try {
+                const saved = localStorage.getItem(`bluemart_cart_${currentUsername}`);
+                cart = saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                cart = [];
+            }
+            updateCartBadge();
+        }
+
+        function saveCartToStorage() {
+            try {
+                localStorage.setItem(`bluemart_cart_${currentUsername}`, JSON.stringify(cart));
+            } catch (e) {
+                // Storage unavailable (e.g. private browsing) - cart just won't persist across reloads.
+            }
+        }
+
+        function updateCartBadge() {
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cart-count').innerText = count;
+        }
+
+        function addToCart(btn) {
             const card = btn.closest('.product-card');
             const name = card.dataset.name;
             const qty = parseInt(card.querySelector('.qty-input').value, 10);
 
             if (!qty || qty < 1) return showToast('Enter a valid quantity.', 'error');
 
+            const product = allProducts.find(p => p['Product Name'].toLowerCase() === name);
+            if (!product) return;
+
+            const existing = cart.find(item => item.name === product['Product Name']);
+            if (existing) {
+                existing.quantity += qty;
+            } else {
+                cart.push({
+                    name: product['Product Name'],
+                    price: parseFloat(product['Price']),
+                    imageUrl: product['image_url'],
+                    seller: product['Seller'],
+                    quantity: qty
+                });
+            }
+
+            saveCartToStorage();
+            updateCartBadge();
+            showToast(`Added ${qty} x ${product['Product Name']} to cart.`, 'success');
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="empty-state">Your cart is empty.</div>';
+                document.getElementById('cart-total').innerText = '$0.00';
+                document.getElementById('checkout-btn').disabled = true;
+                return;
+            }
+
+            document.getElementById('checkout-btn').disabled = false;
+            let total = 0;
+
+            cart.forEach((item, index) => {
+                total += item.price * item.quantity;
+                const row = document.createElement('div');
+                row.className = 'cart-item';
+                row.innerHTML = `
+                    <div class="cart-item-media">
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}">` : `<div class="no-image-small">No Image</div>`}
+                    </div>
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-sub">$${item.price.toFixed(2)} each - sold by ${item.seller}</div>
+                        <div class="cart-item-controls">
+                            <button class="btn-secondary" onclick="changeCartQty(${index}, -1)">-</button>
+                            <span class="cart-item-qty">${item.quantity}</span>
+                            <button class="btn-secondary" onclick="changeCartQty(${index}, 1)">+</button>
+                            <button class="btn-danger" onclick="removeFromCart(${index})" style="margin-left:6px;">Remove</button>
+                        </div>
+                    </div>
+                    <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
+                `;
+                container.appendChild(row);
+            });
+
+            document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
+        }
+
+        function changeCartQty(index, delta) {
+            cart[index].quantity += delta;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+            saveCartToStorage();
+            updateCartBadge();
+            renderCart();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            saveCartToStorage();
+            updateCartBadge();
+            renderCart();
+        }
+
+        function openCart() {
+            renderCart();
+            document.getElementById('cart-modal').classList.add('show');
+        }
+
+        function closeCart() {
+            document.getElementById('cart-modal').classList.remove('show');
+        }
+
+        async function checkout() {
+            if (cart.length === 0) return;
+            const btn = document.getElementById('checkout-btn');
             btn.disabled = true;
-            const res = await defAPI('/api/products/sell', { name, quantity: qty });
-            showToast(res.message, res.success ? 'success' : 'error');
-            btn.disabled = false;
-            if (res.success) refreshAll();
+            btn.innerText = 'Processing...';
+
+            const items = cart.map(item => ({ name: item.name, quantity: item.quantity }));
+
+            try {
+                const res = await defAPI('/api/cart/checkout', { items });
+
+                if (res.results) {
+                    const failed = res.results.filter(r => !r.success);
+                    const succeeded = res.results.filter(r => r.success);
+
+                    succeeded.forEach(r => showToast(`${r.name}: ${r.message}`, 'success'));
+                    failed.forEach(r => showToast(`${r.name}: ${r.message}`, 'error'));
+
+                    // Keep only the items that failed so the person can retry or remove them.
+                    cart = cart.filter(item => failed.some(f => f.name === item.name));
+                } else {
+                    showToast(res.message, res.success ? 'success' : 'error');
+                    if (res.success) cart = [];
+                }
+
+                saveCartToStorage();
+                updateCartBadge();
+                renderCart();
+                refreshAll();
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Checkout';
+            }
         }
 
         // ---------- My Store ----------
@@ -1327,3 +1608,5 @@
     </script>
 </body>
 </html>
+HTMLEOF
+echo written
