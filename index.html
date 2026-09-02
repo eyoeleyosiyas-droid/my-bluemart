@@ -70,35 +70,8 @@
             font-size: 0.85rem;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
-        }
-
-        .cart-btn {
-            width: auto;
-            margin: 0;
-            padding: 8px 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: transparent;
-            border: 1px solid var(--border-glow);
-            color: var(--text-primary);
-            font-size: 0.8rem;
-            border-radius: 8px;
-        }
-        .cart-btn:hover { border-color: var(--accent-glow); background: rgba(91,192,190,0.08); }
-        .cart-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
-
-        .cart-badge {
-            background: var(--accent-glow);
-            color: #0b1329;
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 10px;
-            min-width: 16px;
-            text-align: center;
         }
 
         /* ---------- Navigation tabs ---------- */
@@ -550,96 +523,6 @@
 
         .image-modal-close:hover { background: var(--danger-hover); }
 
-        /* ---------- Cart modal ---------- */
-        .cart-modal-content {
-            background: var(--surface-panel);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-glow);
-            border-radius: var(--card-radius);
-            width: 100%;
-            max-width: 480px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .cart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 18px 22px;
-            border-bottom: 1px solid var(--border-glow);
-        }
-
-        .modal-close-inline {
-            width: auto;
-            margin: 0;
-            padding: 2px 8px;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 22px;
-            line-height: 1;
-            border: none;
-        }
-        .modal-close-inline:hover { color: var(--danger-glow); background: transparent; }
-
-        #cart-items {
-            padding: 8px 22px;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .cart-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 0;
-            border-bottom: 1px solid var(--border-glow);
-        }
-        .cart-item:last-child { border-bottom: none; }
-
-        .cart-item-media {
-            width: 52px;
-            height: 52px;
-            flex-shrink: 0;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--border-glow);
-        }
-        .cart-item-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .no-image-small {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.55rem;
-            color: var(--text-secondary);
-            background: rgba(11, 19, 41, 0.6);
-        }
-
-        .cart-item-info { flex: 1; min-width: 0; }
-        .cart-item-name { font-weight: 600; font-size: 0.85rem; }
-        .cart-item-sub { font-size: 0.7rem; color: var(--text-secondary); margin: 2px 0 8px; }
-        .cart-item-controls { display: flex; align-items: center; gap: 6px; }
-        .cart-item-controls button { padding: 3px 10px; font-size: 0.8rem; margin: 0; }
-        .cart-item-qty { font-size: 0.85rem; font-weight: 600; min-width: 18px; text-align: center; }
-
-        .cart-item-price { font-weight: 700; color: var(--accent-glow); font-size: 0.85rem; white-space: nowrap; flex-shrink: 0; }
-
-        .cart-footer {
-            padding: 16px 22px 20px;
-            border-top: 1px solid var(--border-glow);
-        }
-        .cart-total {
-            display: flex;
-            justify-content: space-between;
-            font-weight: 700;
-            font-size: 1rem;
-            margin-bottom: 10px;
-        }
-
         /* ---------- Dashboard ---------- */
         .dash-welcome {
             display: flex;
@@ -767,7 +650,6 @@
             .breakdown-label { width: 74px; font-size: 0.72rem; }
 
             #toast-container { left: 14px; right: 14px; max-width: none; top: 14px; }
-            .cart-modal-content { max-width: 100%; max-height: 90vh; }
         }
     </style>
 </head>
@@ -823,11 +705,6 @@
             </div>
             <div class="user-info">
                 <span>Signed in as <strong id="current-user">None</strong></span>
-                <button class="cart-btn" onclick="openCart()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6A1 1 0 0 0 5.6 19H17M17 13v6M9 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0M17 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/></svg>
-                    Cart
-                    <span class="cart-badge" id="cart-count">0</span>
-                </button>
                 <a href="#" onclick="handleLogout()" style="color:var(--danger-glow); text-decoration:none; font-weight:600;">Logout</a>
             </div>
         </header>
@@ -852,7 +729,7 @@
         <div class="tab-panel active" id="tab-marketplace">
             <div class="page-wrap">
                 <h1 class="section-title">Marketplace</h1>
-                <p class="section-subtitle">Browse everything for sale. Add items to your cart, then check out. You can't buy your own listings.</p>
+                <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
 
                 <div class="marketplace-controls">
                     <input type="text" id="search-bar" placeholder="Search products..." oninput="applyMarketplaceFilters()">
@@ -984,30 +861,13 @@
         </div>
     </div>
 
-    <!-- Cart -->
-    <div id="cart-modal" class="image-modal" onclick="closeCart()">
-        <div class="cart-modal-content" onclick="event.stopPropagation()">
-            <div class="cart-header">
-                <h3 style="border:none; margin:0; padding:0;">Your Cart</h3>
-                <button class="modal-close-inline" onclick="closeCart()">&times;</button>
-            </div>
-            <div id="cart-items">
-                <!-- rows injected by renderCart() -->
-            </div>
-            <div class="cart-footer">
-                <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
-                <button id="checkout-btn" onclick="checkout()" disabled>Checkout</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let currentUsername = '';
         let allProducts = [];
         let editingProductName = null; // null = add mode, otherwise the product name being edited
         let activeCategory = 'all';
         let lastLoginUsername = '';
-        let cart = [];
+        let csrfToken = '';
 
         // ---------- Toasts (replaces alert() everywhere) ----------
         function showToast(message, type = 'info') {
@@ -1025,27 +885,50 @@
             }, 4500);
         }
 
+        async function parseJSONResponse(res) {
+            try {
+                return await res.json();
+            } catch {
+                return {
+                    success: false,
+                    message: `Server returned HTTP ${res.status}.`
+                };
+            }
+        }
+
         async function defAPI(url, data) {
-            const options = { method: 'POST' };
+            const options = {
+                method: 'POST',
+                headers: {}
+            };
+
+            if (csrfToken) {
+                options.headers['X-CSRF-Token'] = csrfToken;
+            }
+
             if (data instanceof FormData) {
                 options.body = data;
             } else {
-                options.headers = { 'Content-Type': 'application/json' };
-                options.body = JSON.stringify(data);
+                options.headers['Content-Type'] = 'application/json';
+                if (data !== undefined) {
+                    options.body = JSON.stringify(data);
+                }
             }
 
-            const res = await fetch(url, options);
-            let result;
             try {
-                result = await res.json();
-            } catch {
-                throw new Error(`Server returned HTTP ${res.status}`);
+                const res = await fetch(url, options);
+                const result = await parseJSONResponse(res);
+                if (!res.ok) {
+                    result.success = false;
+                    if (!result.message) {
+                        result.message = `Request failed (HTTP ${res.status}).`;
+                    }
+                }
+                return result;
+            } catch (error) {
+                console.error(`API request failed for ${url}:`, error);
+                return { success: false, message: 'Network error. Please check your connection and try again.' };
             }
-
-            if (!res.ok && !result.message) {
-                result.message = `Request failed (HTTP ${res.status}).`;
-            }
-            return result;
         }
 
         // ---------- Auth ----------
@@ -1082,7 +965,7 @@
                 const res = await defAPI(`/api/${mode}`, payload);
                 showToast(res.message, res.success ? 'success' : 'error');
 
-                const needsVerification = !res.success && res.message.toLowerCase().includes('verify your email');
+                const needsVerification = !res.success && (res.message || '').toLowerCase().includes('verify your email');
                 document.getElementById('resend-hint').style.display = needsVerification ? 'block' : 'none';
 
                 if (res.success) {
@@ -1090,6 +973,7 @@
                         switchAuthTab('login');
                         return;
                     }
+                    csrfToken = res.csrf_token || '';
                     enterDashboard(payload.username);
                 }
             } finally {
@@ -1108,15 +992,18 @@
             currentUsername = username;
             document.getElementById('auth-panel').style.display = 'none';
             document.getElementById('main-dashboard').style.display = 'block';
-            document.getElementById('current-user').innerText = username;
-            document.getElementById('dash-username').innerText = username;
-            document.getElementById('user-avatar').innerText = username.charAt(0).toUpperCase();
-            loadCartFromStorage();
+            document.getElementById('current-user').textContent = username;
+            document.getElementById('dash-username').textContent = username;
+            document.getElementById('user-avatar').textContent = username.charAt(0).toUpperCase();
             refreshAll();
         }
 
         async function handleLogout() {
-            await fetch('/api/logout', { method: 'POST' });
+            const res = await defAPI('/api/logout');
+            if (!res.success) {
+                showToast(res.message || 'Logout failed.', 'error');
+                return;
+            }
             location.reload();
         }
 
@@ -1124,7 +1011,10 @@
             try {
                 const res = await fetch('/api/session');
                 const data = await res.json();
-                if (data.logged_in) enterDashboard(data.username);
+                if (data.logged_in) {
+                    csrfToken = data.csrf_token || '';
+                    enterDashboard(data.username);
+                }
             } catch (e) {
                 console.error('Session check failed:', e);
             }
@@ -1142,20 +1032,35 @@
 
         // ---------- Shared data load ----------
         async function refreshAll() {
-            const res = await fetch('/api/products');
-            allProducts = await res.json();
+            try {
+                const res = await fetch('/api/products');
+                const data = await parseJSONResponse(res);
 
-            applyMarketplaceFilters();
-            renderMyStore(allProducts);
-            renderCategoryBreakdown();
+                if (!res.ok || !Array.isArray(data)) {
+                    throw new Error(data.message || `Unable to load products (HTTP ${res.status}).`);
+                }
 
-            const statsRes = await fetch('/api/statistics/mine');
-            const stats = await statsRes.json();
-            document.getElementById('stat-count').innerText = stats.total_products;
-            document.getElementById('stat-qty').innerText = stats.total_quantity;
-            document.getElementById('stat-avg').innerText = stats.avg_price;
-            document.getElementById('stat-expensive').innerText = stats.expensive;
-            document.getElementById('stat-cheapest').innerText = stats.cheapest;
+                allProducts = data;
+
+                applyMarketplaceFilters();
+                renderMyStore(allProducts);
+                renderCategoryBreakdown();
+
+                const statsRes = await fetch('/api/statistics/mine');
+                const stats = await parseJSONResponse(statsRes);
+                if (!statsRes.ok || typeof stats !== 'object' || stats === null) {
+                    throw new Error(stats.message || `Unable to load statistics (HTTP ${statsRes.status}).`);
+                }
+
+                document.getElementById('stat-count').textContent = stats.total_products ?? 0;
+                document.getElementById('stat-qty').textContent = stats.total_quantity ?? 0;
+                document.getElementById('stat-avg').textContent = stats.avg_price ?? '$0.00';
+                document.getElementById('stat-expensive').textContent = stats.expensive ?? 'N/A';
+                document.getElementById('stat-cheapest').textContent = stats.cheapest ?? 'N/A';
+            } catch (error) {
+                console.error('Data refresh failed:', error);
+                showToast(error.message || 'Could not refresh your marketplace data.', 'error');
+            }
         }
 
         // ---------- Marketplace ----------
@@ -1184,285 +1089,251 @@
             renderMarketplace(filtered);
         }
 
+        function createProductCard(product, options = {}) {
+            const { isOwn = false, showStoreActions = false } = options;
+            const name = String(product['Product Name'] ?? 'Unnamed product');
+            const category = String(product['Category'] ?? 'General');
+            const seller = String(product['Seller'] ?? 'System Drop');
+            const imageUrl = String(product['image_url'] ?? '');
+            const price = Number.parseFloat(product['Price']);
+            const quantity = Number.parseInt(product['Quantity'], 10);
+
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.dataset.name = name;
+
+            const media = document.createElement('div');
+            media.className = 'product-media';
+
+            if (imageUrl) {
+                const image = document.createElement('img');
+                image.src = imageUrl;
+                image.alt = name;
+                image.className = 'product-image-large';
+                image.addEventListener('click', () => openImageModal(imageUrl));
+                media.appendChild(image);
+            } else {
+                const noImage = document.createElement('div');
+                noImage.className = 'no-image-large';
+                noImage.textContent = 'No Image';
+                media.appendChild(noImage);
+            }
+
+            const info = document.createElement('div');
+            info.className = 'product-info';
+
+            const top = document.createElement('div');
+            top.className = 'product-info-top';
+
+            const title = document.createElement('h4');
+            title.className = 'product-name';
+            title.textContent = name;
+
+            const priceTag = document.createElement('span');
+            priceTag.className = 'price-tag';
+            priceTag.textContent = Number.isFinite(price) ? `$${price.toFixed(2)}` : '$0.00';
+
+            top.append(title, priceTag);
+
+            const meta = document.createElement('div');
+            meta.className = 'product-meta';
+
+            const categoryChip = document.createElement('span');
+            categoryChip.className = 'category-chip';
+            categoryChip.textContent = category;
+
+            const stockChip = document.createElement('span');
+            stockChip.className = 'stock-chip';
+            stockChip.textContent = `${Number.isFinite(quantity) ? quantity : 0} in stock`;
+
+            meta.append(categoryChip, stockChip);
+
+            const sellerWrap = document.createElement('div');
+            const badge = document.createElement('span');
+            badge.className = `role-badge ${isOwn ? 'role-you' : 'role-seller'}`;
+            badge.textContent = `${seller}${isOwn ? ' (You)' : ''}`;
+            sellerWrap.appendChild(badge);
+
+            info.append(top, meta, sellerWrap);
+
+            if (showStoreActions) {
+                const actions = document.createElement('div');
+                actions.className = 'product-actions';
+
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'number';
+                qtyInput.className = 'qty-input';
+                qtyInput.min = '1';
+                qtyInput.step = '1';
+                qtyInput.value = '1';
+                qtyInput.setAttribute('aria-label', `Quantity to restock for ${name}`);
+
+                const restockBtn = document.createElement('button');
+                restockBtn.className = 'restock-btn btn-secondary';
+                restockBtn.textContent = '+ Stock';
+                restockBtn.addEventListener('click', () => restockProduct(restockBtn));
+
+                actions.append(qtyInput, restockBtn);
+                info.appendChild(actions);
+
+                const ownActions = document.createElement('div');
+                ownActions.className = 'own-actions';
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn-small btn-secondary';
+                editBtn.textContent = 'Edit';
+                editBtn.addEventListener('click', () => startEdit(editBtn));
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-small btn-danger';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.addEventListener('click', () => deleteProduct(deleteBtn));
+
+                ownActions.append(editBtn, deleteBtn);
+                info.appendChild(ownActions);
+            } else if (!isOwn) {
+                const actions = document.createElement('div');
+                actions.className = 'product-actions';
+
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'number';
+                qtyInput.className = 'qty-input';
+                qtyInput.min = '1';
+                qtyInput.step = '1';
+                qtyInput.value = '1';
+                qtyInput.setAttribute('aria-label', `Quantity to buy of ${name}`);
+
+                const buyBtn = document.createElement('button');
+                buyBtn.className = 'buy-btn';
+                buyBtn.textContent = 'Buy';
+                buyBtn.addEventListener('click', () => buyProduct(buyBtn));
+
+                actions.append(qtyInput, buyBtn);
+                info.appendChild(actions);
+            } else {
+                const hint = document.createElement('p');
+                hint.className = 'hint';
+                hint.style.margin = '2px 0 0';
+                hint.textContent = 'This is your listing - manage it in My Store.';
+                info.appendChild(hint);
+            }
+
+            card.append(media, info);
+            return card;
+        }
+
         function renderMarketplace(products) {
             const grid = document.getElementById('marketplace-grid');
-            grid.innerHTML = '';
+            grid.replaceChildren();
 
             if (products.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No products match right now.</div>';
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No products match right now.';
+                grid.appendChild(empty);
                 return;
             }
 
-            products.forEach(p => {
-                const isOwn = p['Seller'] === currentUsername;
-                const name = p['Product Name'];
-                const imageUrl = p['image_url'];
-
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                card.dataset.name = name.toLowerCase();
-
-                card.innerHTML = `
-                    <div class="product-media">
-                        ${imageUrl
-                            ? `<img src="${imageUrl}" alt="${name}" class="product-image-large" onclick="openImageModal('${imageUrl}')">`
-                            : `<div class="no-image-large">No Image</div>`
-                        }
-                    </div>
-                    <div class="product-info">
-                        <div class="product-info-top">
-                            <h4 class="product-name">${name}</h4>
-                            <span class="price-tag">$${parseFloat(p['Price']).toFixed(2)}</span>
-                        </div>
-                        <div class="product-meta">
-                            <span class="category-chip">${p['Category'] || 'General'}</span>
-                            <span class="stock-chip">${p['Quantity']} in stock</span>
-                        </div>
-                        <div>
-                            <span class="role-badge ${isOwn ? 'role-you' : 'role-seller'}">${p['Seller'] || 'System Drop'}${isOwn ? ' (You)' : ''}</span>
-                        </div>
-                        ${isOwn
-                            ? `<p class="hint" style="margin:2px 0 0;">This is your listing - manage it in My Store.</p>`
-                            : `<div class="product-actions">
-                                    <input type="number" class="qty-input" min="1" value="1">
-                                    <button class="buy-btn" onclick="addToCart(this)">Add to Cart</button>
-                               </div>`
-                        }
-                    </div>
-                `;
-                grid.appendChild(card);
+            products.forEach(product => {
+                grid.appendChild(createProductCard(product, { isOwn: product['Seller'] === currentUsername }));
             });
         }
 
-        // ---------- Cart ----------
-        function loadCartFromStorage() {
-            try {
-                const saved = localStorage.getItem(`bluemart_cart_${currentUsername}`);
-                cart = saved ? JSON.parse(saved) : [];
-            } catch (e) {
-                cart = [];
-            }
-            updateCartBadge();
-        }
-
-        function saveCartToStorage() {
-            try {
-                localStorage.setItem(`bluemart_cart_${currentUsername}`, JSON.stringify(cart));
-            } catch (e) {
-                // Storage unavailable (e.g. private browsing) - cart just won't persist across reloads.
-            }
-        }
-
-        function updateCartBadge() {
-            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
-            document.getElementById('cart-count').innerText = count;
-        }
-
-        function addToCart(btn) {
+        async function buyProduct(btn) {
             const card = btn.closest('.product-card');
+            if (!card) return;
+
             const name = card.dataset.name;
-            const qty = parseInt(card.querySelector('.qty-input').value, 10);
+            const qty = Number.parseInt(card.querySelector('.qty-input').value, 10);
 
-            if (!qty || qty < 1) return showToast('Enter a valid quantity.', 'error');
-
-            const product = allProducts.find(p => p['Product Name'].toLowerCase() === name);
-            if (!product) return;
-
-            const existing = cart.find(item => item.name === product['Product Name']);
-            if (existing) {
-                existing.quantity += qty;
-            } else {
-                cart.push({
-                    name: product['Product Name'],
-                    price: parseFloat(product['Price']),
-                    imageUrl: product['image_url'],
-                    seller: product['Seller'],
-                    quantity: qty
-                });
-            }
-
-            saveCartToStorage();
-            updateCartBadge();
-            showToast(`Added ${qty} x ${product['Product Name']} to cart.`, 'success');
-        }
-
-        function renderCart() {
-            const container = document.getElementById('cart-items');
-            container.innerHTML = '';
-
-            if (cart.length === 0) {
-                container.innerHTML = '<div class="empty-state">Your cart is empty.</div>';
-                document.getElementById('cart-total').innerText = '$0.00';
-                document.getElementById('checkout-btn').disabled = true;
+            if (!Number.isInteger(qty) || qty < 1) {
+                showToast('Enter a valid quantity.', 'error');
                 return;
             }
 
-            document.getElementById('checkout-btn').disabled = false;
-            let total = 0;
-
-            cart.forEach((item, index) => {
-                total += item.price * item.quantity;
-                const row = document.createElement('div');
-                row.className = 'cart-item';
-                row.innerHTML = `
-                    <div class="cart-item-media">
-                        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}">` : `<div class="no-image-small">No Image</div>`}
-                    </div>
-                    <div class="cart-item-info">
-                        <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-sub">$${item.price.toFixed(2)} each - sold by ${item.seller}</div>
-                        <div class="cart-item-controls">
-                            <button class="btn-secondary" onclick="changeCartQty(${index}, -1)">-</button>
-                            <span class="cart-item-qty">${item.quantity}</span>
-                            <button class="btn-secondary" onclick="changeCartQty(${index}, 1)">+</button>
-                            <button class="btn-danger" onclick="removeFromCart(${index})" style="margin-left:6px;">Remove</button>
-                        </div>
-                    </div>
-                    <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
-                `;
-                container.appendChild(row);
-            });
-
-            document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
-        }
-
-        function changeCartQty(index, delta) {
-            cart[index].quantity += delta;
-            if (cart[index].quantity <= 0) {
-                cart.splice(index, 1);
-            }
-            saveCartToStorage();
-            updateCartBadge();
-            renderCart();
-        }
-
-        function removeFromCart(index) {
-            cart.splice(index, 1);
-            saveCartToStorage();
-            updateCartBadge();
-            renderCart();
-        }
-
-        function openCart() {
-            renderCart();
-            document.getElementById('cart-modal').classList.add('show');
-        }
-
-        function closeCart() {
-            document.getElementById('cart-modal').classList.remove('show');
-        }
-
-        async function checkout() {
-            if (cart.length === 0) return;
-            const btn = document.getElementById('checkout-btn');
             btn.disabled = true;
-            btn.innerText = 'Processing...';
-
-            const items = cart.map(item => ({ name: item.name, quantity: item.quantity }));
-
             try {
-                const res = await defAPI('/api/cart/checkout', { items });
-
-                if (res.results) {
-                    const failed = res.results.filter(r => !r.success);
-                    const succeeded = res.results.filter(r => r.success);
-
-                    succeeded.forEach(r => showToast(`${r.name}: ${r.message}`, 'success'));
-                    failed.forEach(r => showToast(`${r.name}: ${r.message}`, 'error'));
-
-                    // Keep only the items that failed so the person can retry or remove them.
-                    cart = cart.filter(item => failed.some(f => f.name === item.name));
-                } else {
-                    showToast(res.message, res.success ? 'success' : 'error');
-                    if (res.success) cart = [];
-                }
-
-                saveCartToStorage();
-                updateCartBadge();
-                renderCart();
-                refreshAll();
+                const res = await defAPI('/api/products/sell', { name, quantity: qty });
+                showToast(res.message || 'Purchase request completed.', res.success ? 'success' : 'error');
+                if (res.success) await refreshAll();
+            } catch (error) {
+                console.error('Purchase failed:', error);
+                showToast('Could not complete the purchase.', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerText = 'Checkout';
             }
         }
 
         // ---------- My Store ----------
         function renderMyStore(products) {
-            const mine = products.filter(p => p['Seller'] === currentUsername);
+            const mine = Array.isArray(products)
+                ? products.filter(p => p['Seller'] === currentUsername)
+                : [];
             const grid = document.getElementById('mystore-grid');
-            grid.innerHTML = '';
+            grid.replaceChildren();
 
             if (mine.length === 0) {
-                grid.innerHTML = '<div class="empty-state">You have not listed anything yet.</div>';
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'You have not listed anything yet.';
+                grid.appendChild(empty);
                 return;
             }
 
-            mine.forEach(p => {
-                const name = p['Product Name'];
-                const imageUrl = p['image_url'];
-
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                card.dataset.name = name.toLowerCase();
-
-                card.innerHTML = `
-                    <div class="product-media">
-                        ${imageUrl
-                            ? `<img src="${imageUrl}" alt="${name}" class="product-image-large" onclick="openImageModal('${imageUrl}')">`
-                            : `<div class="no-image-large">No Image</div>`
-                        }
-                    </div>
-                    <div class="product-info">
-                        <div class="product-info-top">
-                            <h4 class="product-name">${name}</h4>
-                            <span class="price-tag">$${parseFloat(p['Price']).toFixed(2)}</span>
-                        </div>
-                        <div class="product-meta">
-                            <span class="category-chip">${p['Category'] || 'General'}</span>
-                            <span class="stock-chip">${p['Quantity']} in stock</span>
-                        </div>
-                        <div class="product-actions">
-                            <input type="number" class="qty-input" min="1" value="1">
-                            <button class="restock-btn btn-secondary" onclick="restockProduct(this)">+ Stock</button>
-                        </div>
-                        <div class="own-actions">
-                            <button class="btn-small btn-secondary" onclick="startEdit(this)">Edit</button>
-                            <button class="btn-small btn-danger" onclick="deleteProduct(this)">Delete</button>
-                        </div>
-                    </div>
-                `;
-                grid.appendChild(card);
+            mine.forEach(product => {
+                grid.appendChild(createProductCard(product, { isOwn: true, showStoreActions: true }));
             });
         }
 
         async function restockProduct(btn) {
             const card = btn.closest('.product-card');
+            if (!card) return;
+
             const name = card.dataset.name;
-            const qty = parseInt(card.querySelector('.qty-input').value, 10);
+            const qty = Number.parseInt(card.querySelector('.qty-input').value, 10);
 
-            if (!qty || qty < 1) return showToast('Enter a valid quantity.', 'error');
+            if (!Number.isInteger(qty) || qty < 1) {
+                showToast('Enter a valid quantity.', 'error');
+                return;
+            }
 
-            const res = await defAPI('/api/products/restock', { name, quantity: qty });
-            showToast(res.message, res.success ? 'success' : 'error');
-            if (res.success) refreshAll();
+            btn.disabled = true;
+            try {
+                const res = await defAPI('/api/products/restock', { name, quantity: qty });
+                showToast(res.message || 'Restock request completed.', res.success ? 'success' : 'error');
+                if (res.success) await refreshAll();
+            } catch (error) {
+                console.error('Restock failed:', error);
+                showToast('Could not restock that product.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         async function deleteProduct(btn) {
             const card = btn.closest('.product-card');
-            const name = card.dataset.name;
+            if (!card) return;
 
+            const name = card.dataset.name;
             if (!confirm(`Remove "${name}" from your store?`)) return;
 
-            const res = await defAPI('/api/products/delete', { name });
-            showToast(res.message, res.success ? 'success' : 'error');
-            if (res.success) refreshAll();
+            btn.disabled = true;
+            try {
+                const res = await defAPI('/api/products/delete', { name });
+                showToast(res.message || 'Delete request completed.', res.success ? 'success' : 'error');
+                if (res.success) await refreshAll();
+            } catch (error) {
+                console.error('Delete failed:', error);
+                showToast('Could not delete that product.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         function startEdit(btn) {
             const card = btn.closest('.product-card');
             const name = card.dataset.name;
-            const product = allProducts.find(p => p['Product Name'].toLowerCase() === name && p['Seller'] === currentUsername);
+            const product = allProducts.find(p => String(p['Product Name'] ?? '').toLowerCase() === name.toLowerCase() && p['Seller'] === currentUsername);
             if (!product) return;
 
             editingProductName = product['Product Name'];
@@ -1508,9 +1379,23 @@
 
             if (editingProductName) {
                 const payload = { name: editingProductName };
-                if (price !== '') payload.price = parseFloat(price);
+                if (price !== '') {
+                    const priceValue = Number(price);
+                    if (!Number.isFinite(priceValue) || priceValue < 0) {
+                        showToast('Enter a valid non-negative price.', 'error');
+                        return;
+                    }
+                    payload.price = priceValue;
+                }
                 if (category !== '') payload.category = category;
-                if (quantity !== '') payload.quantity = parseInt(quantity, 10);
+                if (quantity !== '') {
+                    const quantityValue = Number(quantity);
+                    if (!Number.isInteger(quantityValue) || quantityValue < 0) {
+                        showToast('Enter a valid non-negative whole-number quantity.', 'error');
+                        return;
+                    }
+                    payload.quantity = quantityValue;
+                }
 
                 btn.disabled = true;
                 btn.innerText = 'Saving...';
@@ -1519,7 +1404,7 @@
                     showToast(res.message, res.success ? 'success' : 'error');
                     if (res.success) {
                         cancelEdit();
-                        refreshAll();
+                        await refreshAll();
                     }
                 } finally {
                     btn.disabled = false;
@@ -1530,6 +1415,15 @@
 
             if (!price || !category || !quantity) {
                 return showToast('Price, category, and quantity are all required to list a product.', 'error');
+            }
+
+            const priceValue = Number(price);
+            const quantityValue = Number(quantity);
+            if (!Number.isFinite(priceValue) || priceValue < 0) {
+                return showToast('Enter a valid non-negative price.', 'error');
+            }
+            if (!Number.isInteger(quantityValue) || quantityValue < 0) {
+                return showToast('Enter a valid non-negative whole-number quantity.', 'error');
             }
 
             const imageInput = document.getElementById('prod-image');
@@ -1545,12 +1439,11 @@
             btn.disabled = true;
             btn.innerText = 'Listing...';
             try {
-                const res = await fetch('/api/products/add', { method: 'POST', body: formData });
-                const data = await res.json();
-                showToast(data.message, data.success ? 'success' : 'error');
+                const data = await defAPI('/api/products/add', formData);
+                showToast(data.message || 'Product request completed.', data.success ? 'success' : 'error');
                 if (data.success) {
                     cancelEdit();
-                    refreshAll();
+                    await refreshAll();
                 }
             } catch (e) {
                 console.error('Product upload failed:', e);
@@ -1563,38 +1456,57 @@
 
         // ---------- Dashboard ----------
         function renderCategoryBreakdown() {
-            const mine = allProducts.filter(p => p['Seller'] === currentUsername);
+            const mine = Array.isArray(allProducts)
+                ? allProducts.filter(p => p['Seller'] === currentUsername)
+                : [];
             const counts = {};
             mine.forEach(p => {
-                const cat = p['Category'] || 'General';
+                const cat = String(p['Category'] || 'General');
                 counts[cat] = (counts[cat] || 0) + 1;
             });
 
             const container = document.getElementById('category-breakdown');
-            container.innerHTML = '';
+            container.replaceChildren();
 
             const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             if (entries.length === 0) {
-                container.innerHTML = '<div class="empty-state">List a product to see your category breakdown.</div>';
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'List a product to see your category breakdown.';
+                container.appendChild(empty);
                 return;
             }
 
             const max = Math.max(...entries.map(e => e[1]));
             entries.forEach(([cat, count]) => {
-                const pct = (count / max) * 100;
+                const pct = Math.min(100, Math.max(0, (count / max) * 100));
                 const row = document.createElement('div');
                 row.className = 'breakdown-row';
-                row.innerHTML = `
-                    <span class="breakdown-label">${cat}</span>
-                    <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
-                    <span class="breakdown-count">${count}</span>
-                `;
+
+                const label = document.createElement('span');
+                label.className = 'breakdown-label';
+                label.textContent = cat;
+
+                const track = document.createElement('div');
+                track.className = 'breakdown-bar-track';
+
+                const fill = document.createElement('div');
+                fill.className = 'breakdown-bar-fill';
+                fill.style.width = `${pct}%`;
+                track.appendChild(fill);
+
+                const countEl = document.createElement('span');
+                countEl.className = 'breakdown-count';
+                countEl.textContent = String(count);
+
+                row.append(label, track, countEl);
                 container.appendChild(row);
             });
         }
 
         // ---------- Lightbox ----------
         function openImageModal(imageUrl) {
+            if (!imageUrl) return;
             document.getElementById('modal-image').src = imageUrl;
             document.getElementById('image-modal').classList.add('show');
         }
@@ -1608,4 +1520,3 @@
     </script>
 </body>
 </html>
-
