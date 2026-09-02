@@ -1,3 +1,4 @@
+cat > /home/claude/app.py << 'PYEOF'
 import resend
 import secrets
 import datetime
@@ -36,8 +37,6 @@ ALLOWED_PRODUCT_CATEGORIES = [
 ]
 USERNAME_PATTERN = r'^[a-zA-Z0-9_]{3,100}$'
 
-# Account lockout policy - a standard defense against password guessing
-# that most established platforms apply.
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 
@@ -61,11 +60,8 @@ def send_verification_email(email, username, verification_token):
             "subject": "Verify your BlueMart account",
             "html": f"""
                 <h2>Welcome to BlueMart, {username}!</h2>
-
                 <p>Thanks for creating your account.</p>
-
                 <p>Please click the button below to verify your email address:</p>
-
                 <p>
                     <a href="{verification_url}"
                        style="
@@ -79,7 +75,6 @@ def send_verification_email(email, username, verification_token):
                         Verify My Account
                     </a>
                 </p>
-
                 <p>If you didn't create this account, you can ignore this email.</p>
             """
         }
@@ -94,16 +89,13 @@ def send_verification_email(email, username, verification_token):
         print(response)
 
         logger.info(f"Verification email sent to {email}")
-
         return True
 
     except Exception as e:
         print("=== RESEND ERROR ===")
         print(type(e).__name__)
         print(str(e))
-
         logger.exception("Failed to send verification email")
-
         return False
 
 
@@ -164,10 +156,6 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;")
 
-            # Email had no uniqueness check at all before this - two accounts
-            # could silently share the same address. Postgres allows multiple
-            # NULLs under a UNIQUE constraint, so this is safe to add even if
-            # older rows have no email yet.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -262,6 +250,13 @@ class RestockProductSchema(Schema):
 class DeleteProductSchema(Schema):
     name = fields.Str(required=True)
 
+class CartItemSchema(Schema):
+    name = fields.Str(required=True)
+    quantity = fields.Int(required=True, validate=validate.Range(min=1))
+
+class CheckoutSchema(Schema):
+    items = fields.List(fields.Nested(CartItemSchema), required=True, validate=validate.Length(min=1))
+
 
 def validate_json(schema_class):
     def decorator(f):
@@ -276,8 +271,6 @@ def validate_json(schema_class):
                 request.validated_data = validated_data
             except ValidationError as err:
                 logger.warning(f"Validation error in {f.__name__}: {err.messages}")
-                # Surface the first concrete field error so the person sees
-                # something actionable instead of a generic message.
                 first_error = next(iter(err.messages.values()))
                 first_message = first_error[0] if isinstance(first_error, list) else str(first_error)
                 return api_error(first_message, 422, errors=err.messages)
@@ -298,12 +291,10 @@ def require_login(f):
 
 
 def api_ok(message, status=200, **extra):
-    """Consistent shape for every successful API response."""
     return jsonify({"success": True, "message": message, **extra}), status
 
 
 def api_error(message, status=400, **extra):
-    """Consistent shape for every failed API response."""
     return jsonify({"success": False, "message": message, **extra}), status
 
 
@@ -344,7 +335,6 @@ class Useraccount:
             raise
 
     def set_password(self, password_input, email):
-        """Create a new user with a hashed password and email verification token."""
         if not self.is_new:
             return False, "That username is already taken."
         if len(password_input) < MIN_PASSWORD_LENGTH:
@@ -384,10 +374,6 @@ class Useraccount:
 
     def verify_password(self, password_input):
         now = datetime.datetime.utcnow()
-
-        # Deliberately identical wording whether the username exists or the
-        # password is wrong - real platforms never reveal which one failed,
-        # since that lets an attacker enumerate valid usernames.
         generic_failure = "Invalid username or password."
 
         if self.password_hash is None:
@@ -674,8 +660,6 @@ class ProductManager:
             return False, "We couldn't delete that product right now. Please try again."
 
     def get_statistics(self, seller_username=None):
-        """Compute stats either across the whole marketplace, or - when
-        seller_username is given - scoped to just that seller's own listings."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -770,8 +754,6 @@ def register():
     return api_ok("Account created. Check your email to verify your account before signing in.", 201)
 
 
-# This route was missing entirely - the email links to it, but nothing
-# handled the request, so verification could never actually complete.
 @app.route('/verify-email/<token>')
 def verify_email(token):
     try:
@@ -824,8 +806,6 @@ def resend_verification():
 
             if not row:
                 cur.close()
-                # Same generic message whether or not the account exists,
-                # for the same enumeration-prevention reason as login.
                 return api_ok(generic_message)
 
             email, email_verified = row
@@ -914,7 +894,6 @@ def get_products():
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
-      
 
 @app.route('/api/products/add', methods=['POST'])
 @require_login
@@ -939,8 +918,13 @@ def add_product():
         try:
             price_val = float(price)
             quantity_val = int(quantity)
-        except ValueError:
+        except (TypeError, ValueError):
             return api_error("Price and quantity must be valid numbers.", 400)
+
+        if price_val < 0:
+            return api_error("Price cannot be negative.", 400)
+        if quantity_val < 0:
+            return api_error("Quantity cannot be negative.", 400)
 
         image_url = None
         if image:
@@ -987,6 +971,38 @@ def sell_product():
     success, msg = pm.sell_product(name, quantity, session['username'])
     return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
+@app.route('/api/cart/checkout', methods=['POST'])
+@require_login
+@validate_json(CheckoutSchema)
+def checkout_cart():
+    """Processes every cart line item as its own purchase and reports back
+    per-item, since one item can fail (e.g. sold out) without the rest
+    needing to fail too."""
+    items = request.validated_data['items']
+    pm = ProductManager()
+
+    results = []
+    for item in items:
+        success, msg = pm.sell_product(item['name'], item['quantity'], session['username'])
+        results.append({
+            "name": item['name'],
+            "quantity": item['quantity'],
+            "success": success,
+            "message": msg
+        })
+
+    any_success = any(r['success'] for r in results)
+    all_success = all(r['success'] for r in results)
+
+    if all_success:
+        overall_message = "Checkout complete."
+    elif any_success:
+        overall_message = "Some items were purchased, but others couldn't be. See details below."
+    else:
+        overall_message = "Checkout failed - nothing could be purchased."
+
+    return jsonify({"success": any_success, "message": overall_message, "results": results}), 200
+
 @app.route('/api/products/restock', methods=['POST'])
 @require_login
 @validate_json(RestockProductSchema)
@@ -1028,14 +1044,12 @@ def edit_product():
 
 @app.route('/api/statistics', methods=['GET'])
 def get_stats():
-    """Marketplace-wide statistics (kept for potential future admin use)."""
     pm = ProductManager()
     return jsonify(pm.get_statistics()), 200
 
 @app.route('/api/statistics/mine', methods=['GET'])
 @require_login
 def get_my_stats():
-    """Statistics scoped to the signed-in seller's own listings only."""
     pm = ProductManager()
     return jsonify(pm.get_statistics(seller_username=session['username'])), 200
 
@@ -1070,3 +1084,5 @@ except Exception as e:
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+PYEOF
+python3 -c "import ast; ast.parse(open('/home/claude/app.py').read()); print('Syntax OK')"
