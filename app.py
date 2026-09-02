@@ -1,4 +1,3 @@
-
 import resend
 import secrets
 import datetime
@@ -6,10 +5,12 @@ import cloudinary
 import cloudinary.uploader
 import os
 import logging
+import math
 from contextlib import contextmanager
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session
+from markupsafe import escape
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
@@ -26,8 +27,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-fallback-key-change-in-render")
-resend.api_key = os.getenv("RESEND_API_KEY")
+
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+if not FLASK_SECRET_KEY:
+    # Never use a predictable production secret. A random fallback keeps local
+    # development working, but sessions will reset when the process restarts.
+    FLASK_SECRET_KEY = secrets.token_hex(32)
+    logger.warning("FLASK_SECRET_KEY is not set; using a temporary random secret. Set it in production.")
+app.secret_key = FLASK_SECRET_KEY
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB request limit
+
+BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
+RESEND_API_KEY = (os.getenv("RESEND_API_KEY") or "").strip()
+resend.api_key = RESEND_API_KEY or None
 
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
@@ -37,6 +49,8 @@ ALLOWED_PRODUCT_CATEGORIES = [
 ]
 USERNAME_PATTERN = r'^[a-zA-Z0-9_]{3,100}$'
 
+# Account lockout policy - a standard defense against password guessing
+# that most established platforms apply.
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 
@@ -50,9 +64,14 @@ db_pool = None
 
 def send_verification_email(email, username, verification_token):
     try:
-        verification_url = (
-            f"{os.getenv('BASE_URL')}/verify-email/{verification_token}"
-        )
+        if not BASE_URL:
+            logger.error("BASE_URL is not configured; cannot create verification URL.")
+            return False
+        if not RESEND_API_KEY:
+            logger.error("RESEND_API_KEY is not configured; cannot send verification email.")
+            return False
+
+        verification_url = f"{BASE_URL}/verify-email/{verification_token}"
 
         params = {
             "from": "BlueMart <onboarding@resend.dev>",
@@ -60,8 +79,11 @@ def send_verification_email(email, username, verification_token):
             "subject": "Verify your BlueMart account",
             "html": f"""
                 <h2>Welcome to BlueMart, {username}!</h2>
+
                 <p>Thanks for creating your account.</p>
+
                 <p>Please click the button below to verify your email address:</p>
+
                 <p>
                     <a href="{verification_url}"
                        style="
@@ -75,13 +97,14 @@ def send_verification_email(email, username, verification_token):
                         Verify My Account
                     </a>
                 </p>
+
                 <p>If you didn't create this account, you can ignore this email.</p>
             """
         }
 
         print("=== RESEND: ABOUT TO SEND EMAIL ===")
         print(f"Recipient: {email}")
-        print(f"BASE_URL: {os.getenv('BASE_URL')}")
+        logger.debug("Verification email prepared for %s", email)
 
         response = resend.Emails.send(params)
 
@@ -89,13 +112,16 @@ def send_verification_email(email, username, verification_token):
         print(response)
 
         logger.info(f"Verification email sent to {email}")
+
         return True
 
     except Exception as e:
         print("=== RESEND ERROR ===")
         print(type(e).__name__)
         print(str(e))
+
         logger.exception("Failed to send verification email")
+
         return False
 
 
@@ -131,7 +157,8 @@ def init_db():
         return
 
     try:
-        init_connection_pool()
+        if db_pool is None:
+            init_connection_pool()
 
         with get_db_connection() as conn:
             cur = conn.cursor()
@@ -156,6 +183,10 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;")
 
+            # Email had no uniqueness check at all before this - two accounts
+            # could silently share the same address. Postgres allows multiple
+            # NULLs under a UNIQUE constraint, so this is safe to add even if
+            # older rows have no email yet.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -250,13 +281,6 @@ class RestockProductSchema(Schema):
 class DeleteProductSchema(Schema):
     name = fields.Str(required=True)
 
-class CartItemSchema(Schema):
-    name = fields.Str(required=True)
-    quantity = fields.Int(required=True, validate=validate.Range(min=1))
-
-class CheckoutSchema(Schema):
-    items = fields.List(fields.Nested(CartItemSchema), required=True, validate=validate.Length(min=1))
-
 
 def validate_json(schema_class):
     def decorator(f):
@@ -271,6 +295,8 @@ def validate_json(schema_class):
                 request.validated_data = validated_data
             except ValidationError as err:
                 logger.warning(f"Validation error in {f.__name__}: {err.messages}")
+                # Surface the first concrete field error so the person sees
+                # something actionable instead of a generic message.
                 first_error = next(iter(err.messages.values()))
                 first_message = first_error[0] if isinstance(first_error, list) else str(first_error)
                 return api_error(first_message, 422, errors=err.messages)
@@ -291,10 +317,12 @@ def require_login(f):
 
 
 def api_ok(message, status=200, **extra):
+    """Consistent shape for every successful API response."""
     return jsonify({"success": True, "message": message, **extra}), status
 
 
 def api_error(message, status=400, **extra):
+    """Consistent shape for every failed API response."""
     return jsonify({"success": False, "message": message, **extra}), status
 
 
@@ -335,6 +363,7 @@ class Useraccount:
             raise
 
     def set_password(self, password_input, email):
+        """Create a new user with a hashed password and email verification token."""
         if not self.is_new:
             return False, "That username is already taken."
         if len(password_input) < MIN_PASSWORD_LENGTH:
@@ -374,6 +403,10 @@ class Useraccount:
 
     def verify_password(self, password_input):
         now = datetime.datetime.utcnow()
+
+        # Deliberately identical wording whether the username exists or the
+        # password is wrong - real platforms never reveal which one failed,
+        # since that lets an attacker enumerate valid usernames.
         generic_failure = "Invalid username or password."
 
         if self.password_hash is None:
@@ -585,8 +618,8 @@ class ProductManager:
                 if new_price is not None:
                     try:
                         price_val = float(new_price)
-                        if price_val < 0:
-                            return False, "Price cannot be negative."
+                        if not math.isfinite(price_val) or price_val < 0:
+                            return False, "Price must be a finite number greater than or equal to 0."
                         updates.append("price = %s")
                         params.append(price_val)
                     except (ValueError, TypeError):
@@ -660,6 +693,8 @@ class ProductManager:
             return False, "We couldn't delete that product right now. Please try again."
 
     def get_statistics(self, seller_username=None):
+        """Compute stats either across the whole marketplace, or - when
+        seller_username is given - scoped to just that seller's own listings."""
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -754,6 +789,8 @@ def register():
     return api_ok("Account created. Check your email to verify your account before signing in.", 201)
 
 
+# This route was missing entirely - the email links to it, but nothing
+# handled the request, so verification could never actually complete.
 @app.route('/verify-email/<token>')
 def verify_email(token):
     try:
@@ -806,6 +843,8 @@ def resend_verification():
 
             if not row:
                 cur.close()
+                # Same generic message whether or not the account exists,
+                # for the same enumeration-prevention reason as login.
                 return api_ok(generic_message)
 
             email, email_verified = row
@@ -818,7 +857,10 @@ def resend_verification():
             conn.commit()
             cur.close()
 
-        send_verification_email(email, username, new_token)
+        email_sent = send_verification_email(email, username, new_token)
+        if not email_sent:
+            logger.error("Verification email resend failed for %s", username)
+            return api_error("We couldn't send the verification email. Please try again shortly.", 502)
         return api_ok(generic_message)
 
     except Exception as e:
@@ -828,14 +870,16 @@ def resend_verification():
 
 def _verification_page(title, message, ok=True):
     color = "#02c39a" if ok else "#ff5a5f"
+    safe_title = escape(title)
+    safe_message = escape(message)
     return f"""
     <html>
-    <head><title>{title} - Blue Mart</title></head>
+    <head><title>{safe_title} - Blue Mart</title></head>
     <body style="background:#0b1329; color:#ffffff; font-family:system-ui, sans-serif;
                  display:flex; align-items:center; justify-content:center; height:100vh; margin:0;">
         <div style="text-align:center; max-width:420px; padding:30px;">
-            <h2 style="color:{color};">{title}</h2>
-            <p style="color:#9aa5b1;">{message}</p>
+            <h2 style="color:{color};">{safe_title}</h2>
+            <p style="color:#9aa5b1;">{safe_message}</p>
             <a href="/" style="color:#5bc0be; text-decoration:none; font-weight:600;">Go to Blue Mart &rarr;</a>
         </div>
     </body>
@@ -894,6 +938,7 @@ def get_products():
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
+      
 
 @app.route('/api/products/add', methods=['POST'])
 @require_login
@@ -921,15 +966,21 @@ def add_product():
         except (TypeError, ValueError):
             return api_error("Price and quantity must be valid numbers.", 400)
 
-        if price_val < 0:
-            return api_error("Price cannot be negative.", 400)
+        if not math.isfinite(price_val) or price_val < 0:
+            return api_error("Price must be a finite number greater than or equal to 0.", 400)
         if quantity_val < 0:
             return api_error("Quantity cannot be negative.", 400)
 
+        if len(name) > MAX_PRODUCT_NAME_LENGTH:
+            return api_error(f"Product name must be at most {MAX_PRODUCT_NAME_LENGTH} characters.", 422)
+
         image_url = None
-        if image:
+        if image and image.filename:
+            allowed_image_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+            if image.mimetype not in allowed_image_types:
+                return api_error("Unsupported image type. Use JPEG, PNG, WEBP, or GIF.", 415)
             try:
-                upload_result = cloudinary.uploader.upload(image, folder="bluemart/products")
+                upload_result = cloudinary.uploader.upload(image, folder="bluemart/products", resource_type="image")
                 image_url = upload_result.get("secure_url")
             except Exception as e:
                 logger.error(f"Image upload failed: {e}")
@@ -970,38 +1021,6 @@ def sell_product():
     pm = ProductManager()
     success, msg = pm.sell_product(name, quantity, session['username'])
     return jsonify({"success": success, "message": msg}), (200 if success else 400)
-
-@app.route('/api/cart/checkout', methods=['POST'])
-@require_login
-@validate_json(CheckoutSchema)
-def checkout_cart():
-    """Processes every cart line item as its own purchase and reports back
-    per-item, since one item can fail (e.g. sold out) without the rest
-    needing to fail too."""
-    items = request.validated_data['items']
-    pm = ProductManager()
-
-    results = []
-    for item in items:
-        success, msg = pm.sell_product(item['name'], item['quantity'], session['username'])
-        results.append({
-            "name": item['name'],
-            "quantity": item['quantity'],
-            "success": success,
-            "message": msg
-        })
-
-    any_success = any(r['success'] for r in results)
-    all_success = all(r['success'] for r in results)
-
-    if all_success:
-        overall_message = "Checkout complete."
-    elif any_success:
-        overall_message = "Some items were purchased, but others couldn't be. See details below."
-    else:
-        overall_message = "Checkout failed - nothing could be purchased."
-
-    return jsonify({"success": any_success, "message": overall_message, "results": results}), 200
 
 @app.route('/api/products/restock', methods=['POST'])
 @require_login
@@ -1044,12 +1063,14 @@ def edit_product():
 
 @app.route('/api/statistics', methods=['GET'])
 def get_stats():
+    """Marketplace-wide statistics (kept for potential future admin use)."""
     pm = ProductManager()
     return jsonify(pm.get_statistics()), 200
 
 @app.route('/api/statistics/mine', methods=['GET'])
 @require_login
 def get_my_stats():
+    """Statistics scoped to the signed-in seller's own listings only."""
     pm = ProductManager()
     return jsonify(pm.get_statistics(seller_username=session['username'])), 200
 
@@ -1076,7 +1097,6 @@ def internal_error(error):
 
 
 try:
-    init_connection_pool()
     init_db()
 except Exception as e:
     logger.error(f"Failed to initialize database on startup: {e}")
@@ -1084,4 +1104,3 @@ except Exception as e:
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
