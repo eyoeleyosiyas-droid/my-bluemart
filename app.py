@@ -273,7 +273,16 @@ class EditProductSchema(Schema):
 class SellProductSchema(Schema):
     name = fields.Str(required=True)
     quantity = fields.Int(required=True, validate=validate.Range(min=1))
-
+class AddToCartSchema(Schema):
+    product_id = fields.Int(
+        required=True,
+        validate=validate.Range(min=1)
+    )
+    
+    quantity = fields.Int(
+        required=True,
+        validate=validate.Range(min=1)
+    )
 class RestockProductSchema(Schema):
     name = fields.Str(required=True)
     quantity = fields.Int(required=True, validate=validate.Range(min=1))
@@ -885,7 +894,39 @@ def _verification_page(title, message, ok=True):
     </body>
     </html>
     """
+@app.route('/api/cart/add', methods=['POST'])
+@require_login
+@validate_json(AddToCartSchema)
+def add_to_cart():
+    username = session['username']
 
+    product_id = request.validated_data['product_id']
+    quantity = request.validated_data['quantity']
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+
+        cur.execute(
+           """
+           SELECT product_name, quantity, seller_username
+           FROM products
+           WHERE id = %s;
+           """,
+           (product_id,)
+        )
+
+         product = cur.fetchone()
+         if not product:
+            cur.close()
+            return api_error("Product not found.", 404)
+         available_stock = product[1]
+
+          if quantity > available_stock:
+             cur.close()
+             return api_error(
+             f"Only {available_stock} item(s) available in stock.",
+             400
+             )   
+    # We will build the database logic here next
 
 @app.route('/api/login', methods=['POST'])
 @validate_json(LoginSchema)
