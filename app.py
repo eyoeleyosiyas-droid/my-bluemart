@@ -6,6 +6,8 @@ import cloudinary.uploader
 import os
 import logging
 import math
+import stripe
+from decimal import Decimal
 from contextlib import contextmanager
 from functools import wraps
 
@@ -40,6 +42,10 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB request limit
 BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
 RESEND_API_KEY = (os.getenv("RESEND_API_KEY") or "").strip()
 resend.api_key = RESEND_API_KEY or None
+
+STRIPE_SECRET_KEY = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+STRIPE_WEBHOOK_SECRET = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
+stripe.api_key = STRIPE_SECRET_KEY or None
 
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
@@ -122,6 +128,31 @@ def send_verification_email(email, username, verification_token):
 
         logger.exception("Failed to send verification email")
 
+        return False
+
+
+def send_order_confirmation_email(email, username, order_id, total):
+    try:
+        if not BASE_URL or not RESEND_API_KEY:
+            logger.error("Email configuration missing; cannot send order confirmation.")
+            return False
+
+        params = {
+            "from": "BlueMart <onboarding@resend.dev>",
+            "to": [email],
+            "subject": f"BlueMart Order #{order_id} confirmed",
+            "html": f"""
+                <h2>Thank you, {escape(username)}!</h2>
+                <p>Your BlueMart order <strong>#{order_id}</strong> has been confirmed.</p>
+                <p><strong>Total paid:</strong> ${total:.2f}</p>
+                <p>We appreciate your order.</p>
+            """
+        }
+        response = resend.Emails.send(params)
+        logger.info("Order confirmation email sent for order %s: %s", order_id, response)
+        return True
+    except Exception as e:
+        logger.exception("Failed to send order confirmation email for order %s: %s", order_id, e)
         return False
 
 
@@ -229,6 +260,62 @@ def init_db():
                 ON products(LOWER(product_name));
             """)
 
+            # Shopping cart
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS cart_items (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    product_id INT NOT NULL,
+                    quantity INT NOT NULL DEFAULT 1,
+                    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                    UNIQUE(username, product_id),
+                    CHECK (quantity > 0)
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_cart_username ON cart_items(username);")
+
+            # Orders store the checkout-level information.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    total_amount NUMERIC(10, 2) NOT NULL,
+                    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                    payment_status VARCHAR(50) NOT NULL DEFAULT 'unpaid',
+                    stripe_session_id VARCHAR(255) UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_username ON orders(username);")
+
+            # Order items keep a price/name snapshot so old orders do not change
+            # when the product is later edited. product_id can become NULL if a
+            # product is deleted after the order.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS order_items (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    product_id INT,
+                    product_name VARCHAR(255) NOT NULL,
+                    price NUMERIC(10, 2) NOT NULL,
+                    quantity INT NOT NULL,
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+                    CHECK (quantity > 0)
+                );
+            """)
+
+            # Newsletter / opt-in subscribers
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             conn.commit()
             cur.close()
 
@@ -273,22 +360,27 @@ class EditProductSchema(Schema):
 class SellProductSchema(Schema):
     name = fields.Str(required=True)
     quantity = fields.Int(required=True, validate=validate.Range(min=1))
-class AddToCartSchema(Schema):
-    product_id = fields.Int(
-        required=True,
-        validate=validate.Range(min=1)
-    )
-    
-    quantity = fields.Int(
-        required=True,
-        validate=validate.Range(min=1)
-    )
+
 class RestockProductSchema(Schema):
     name = fields.Str(required=True)
     quantity = fields.Int(required=True, validate=validate.Range(min=1))
 
 class DeleteProductSchema(Schema):
     name = fields.Str(required=True)
+
+
+class AddToCartSchema(Schema):
+    product_id = fields.Int(required=True, validate=validate.Range(min=1))
+    quantity = fields.Int(required=True, validate=validate.Range(min=1))
+
+
+class UpdateCartSchema(Schema):
+    product_id = fields.Int(required=True, validate=validate.Range(min=1))
+    quantity = fields.Int(required=True, validate=validate.Range(min=1))
+
+
+class NewsletterSchema(Schema):
+    email = fields.Email(required=True)
 
 
 def validate_json(schema_class):
@@ -340,6 +432,12 @@ def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; "
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com; connect-src 'self' https:; "
+        "frame-src 'self' https://js.stripe.com https://checkout.stripe.com; font-src 'self' https: data:"
+    )
     return response
 
 
@@ -894,39 +992,7 @@ def _verification_page(title, message, ok=True):
     </body>
     </html>
     """
-@app.route('/api/cart/add', methods=['POST'])
-@require_login
-@validate_json(AddToCartSchema)
-def add_to_cart():
-    username = session['username']
 
-    product_id = request.validated_data['product_id']
-    quantity = request.validated_data['quantity']
-    with get_db_connection() as conn:
-        cur = conn.cursor()
-
-        cur.execute(
-           """
-           SELECT product_name, quantity, seller_username
-           FROM products
-           WHERE id = %s;
-           """,
-           (product_id,)
-        )
-
-         product = cur.fetchone()
-         if not product:
-            cur.close()
-            return api_error("Product not found.", 404)
-         available_stock = product[1]
-
-          if quantity > available_stock:
-             cur.close()
-             return api_error(
-             f"Only {available_stock} item(s) available in stock.",
-             400
-             )   
-    # We will build the database logic here next
 
 @app.route('/api/login', methods=['POST'])
 @validate_json(LoginSchema)
@@ -963,7 +1029,8 @@ def get_products():
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute(
-                 """SELECT product_name AS "Product Name",
+                 """SELECT id,
+                 product_name AS "Product Name",
                  price AS "Price",
                  category AS "Category",
                  quantity AS "Quantity",
@@ -980,6 +1047,620 @@ def get_products():
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
       
+
+# -----------------------------------------------------------------------------
+# CART API
+# -----------------------------------------------------------------------------
+
+@app.route('/api/cart/add', methods=['POST'])
+@require_login
+@validate_json(AddToCartSchema)
+def add_to_cart():
+    username = session['username']
+    product_id = request.validated_data['product_id']
+    quantity = request.validated_data['quantity']
+
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT product_name, quantity, seller_username
+                FROM products
+                WHERE id = %s
+                FOR UPDATE;
+            """, (product_id,))
+            product = cur.fetchone()
+
+            if not product:
+                cur.close()
+                return api_error("Product not found.", 404)
+
+            product_name, stock, seller_username = product
+
+            if seller_username == username:
+                cur.close()
+                return api_error("You cannot add your own product to your cart.", 400)
+
+            if stock <= 0:
+                cur.close()
+                return api_error("This product is out of stock.", 400)
+
+            cur.execute("""
+                SELECT quantity
+                FROM cart_items
+                WHERE username = %s AND product_id = %s;
+            """, (username, product_id))
+            existing = cur.fetchone()
+
+            new_quantity = quantity + (existing[0] if existing else 0)
+            if new_quantity > stock:
+                cur.close()
+                return api_error(f"Only {stock} item(s) are available.", 400)
+
+            if existing:
+                cur.execute("""
+                    UPDATE cart_items
+                    SET quantity = %s
+                    WHERE username = %s AND product_id = %s;
+                """, (new_quantity, username, product_id))
+                message = f"{product_name} quantity updated in your cart."
+            else:
+                cur.execute("""
+                    INSERT INTO cart_items (username, product_id, quantity)
+                    VALUES (%s, %s, %s);
+                """, (username, product_id, quantity))
+                message = f"{product_name} added to your cart."
+
+            conn.commit()
+            cur.close()
+        return api_ok(message)
+    except Exception as e:
+        logger.exception("Add to cart failed: %s", e)
+        return api_error("We couldn't add that product to your cart.", 500)
+
+
+@app.route('/api/cart', methods=['GET'])
+@require_login
+def get_cart():
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT c.id, c.product_id, p.product_name, p.price, c.quantity,
+                       p.image_url, p.quantity AS available_stock,
+                       (p.price * c.quantity) AS subtotal
+                FROM cart_items c
+                JOIN products p ON p.id = c.product_id
+                WHERE c.username = %s
+                ORDER BY c.id DESC;
+            """, (username,))
+            rows = cur.fetchall()
+            cur.close()
+
+        items = []
+        for row in rows:
+            items.append({
+                "id": row["id"],
+                "product_id": row["product_id"],
+                "product_name": row["product_name"],
+                "price": float(row["price"]),
+                "quantity": int(row["quantity"]),
+                "image_url": row["image_url"],
+                "available_stock": int(row["available_stock"]),
+                "subtotal": float(row["subtotal"])
+            })
+
+        total = round(sum(item["subtotal"] for item in items), 2)
+        return api_ok("Cart loaded.", items=items, total=total)
+    except Exception as e:
+        logger.exception("Get cart failed: %s", e)
+        return api_error("We couldn't load your cart.", 500)
+
+
+@app.route('/api/cart/update', methods=['PUT'])
+@require_login
+@validate_json(UpdateCartSchema)
+def update_cart():
+    username = session['username']
+    product_id = request.validated_data['product_id']
+    quantity = request.validated_data['quantity']
+
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT quantity FROM products WHERE id = %s FOR UPDATE;", (product_id,))
+            product = cur.fetchone()
+            if not product:
+                cur.close()
+                return api_error("Product not found.", 404)
+
+            stock = product[0]
+            if quantity > stock:
+                cur.close()
+                return api_error(f"Only {stock} item(s) are available.", 400)
+
+            cur.execute("""
+                UPDATE cart_items
+                SET quantity = %s
+                WHERE username = %s AND product_id = %s;
+            """, (quantity, username, product_id))
+            if cur.rowcount == 0:
+                cur.close()
+                return api_error("Product is not in your cart.", 404)
+
+            conn.commit()
+            cur.close()
+        return api_ok("Cart updated successfully.")
+    except Exception as e:
+        logger.exception("Update cart failed: %s", e)
+        return api_error("We couldn't update your cart.", 500)
+
+
+@app.route('/api/cart/remove/<int:product_id>', methods=['DELETE'])
+@require_login
+def remove_from_cart(product_id):
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                DELETE FROM cart_items
+                WHERE username = %s AND product_id = %s;
+            """, (username, product_id))
+            if cur.rowcount == 0:
+                cur.close()
+                return api_error("Product is not in your cart.", 404)
+            conn.commit()
+            cur.close()
+        return api_ok("Product removed from cart.")
+    except Exception as e:
+        logger.exception("Remove cart item failed: %s", e)
+        return api_error("We couldn't remove that product.", 500)
+
+
+@app.route('/api/cart/clear', methods=['DELETE'])
+@require_login
+def clear_cart():
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM cart_items WHERE username = %s;", (username,))
+            conn.commit()
+            cur.close()
+        return api_ok("Cart cleared.")
+    except Exception as e:
+        logger.exception("Clear cart failed: %s", e)
+        return api_error("We couldn't clear your cart.", 500)
+
+
+# -----------------------------------------------------------------------------
+# ORDER + PAYMENT API
+# -----------------------------------------------------------------------------
+
+@app.route('/api/orders/create', methods=['POST'])
+@require_login
+def create_order():
+    """Create an unpaid order from the current cart. Stock is not reduced yet."""
+    username = session['username']
+
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT c.product_id, c.quantity, p.product_name, p.price,
+                       p.quantity AS stock, p.seller_username
+                FROM cart_items c
+                JOIN products p ON p.id = c.product_id
+                WHERE c.username = %s
+                FOR UPDATE OF p;
+            """, (username,))
+            items = cur.fetchall()
+
+            if not items:
+                cur.close()
+                return api_error("Your cart is empty.", 400)
+
+            total = Decimal('0.00')
+            for product_id, qty, name, price, stock, seller in items:
+                if seller == username:
+                    conn.rollback()
+                    cur.close()
+                    return api_error(f"You cannot purchase your own product: {name}.", 400)
+                if qty > stock:
+                    conn.rollback()
+                    cur.close()
+                    return api_error(f"Not enough stock for {name}. Only {stock} available.", 400)
+                total += price * qty
+
+            cur.execute("""
+                INSERT INTO orders (username, total_amount, status, payment_status)
+                VALUES (%s, %s, 'pending', 'unpaid')
+                RETURNING id;
+            """, (username, total))
+            order_id = cur.fetchone()[0]
+
+            for product_id, qty, name, price, stock, seller in items:
+                cur.execute("""
+                    INSERT INTO order_items
+                        (order_id, product_id, product_name, price, quantity)
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (order_id, product_id, name, price, qty))
+
+            conn.commit()
+            cur.close()
+
+        return api_ok("Order created.", order_id=order_id, total=float(total))
+    except Exception as e:
+        logger.exception("Create order failed: %s", e)
+        return api_error("We couldn't create your order.", 500)
+
+
+@app.route('/api/orders', methods=['GET'])
+@require_login
+def get_orders():
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT id, total_amount, status, payment_status, created_at
+                FROM orders
+                WHERE username = %s
+                ORDER BY created_at DESC;
+            """, (username,))
+            rows = cur.fetchall()
+            cur.close()
+
+        orders = [{
+            "id": row["id"],
+            "total": float(row["total_amount"]),
+            "status": row["status"],
+            "payment_status": row["payment_status"],
+            "created_at": row["created_at"].isoformat()
+        } for row in rows]
+        return api_ok("Orders loaded.", orders=orders)
+    except Exception as e:
+        logger.exception("Get orders failed: %s", e)
+        return api_error("We couldn't load your orders.", 500)
+
+
+@app.route('/api/orders/<int:order_id>', methods=['GET'])
+@require_login
+def get_order(order_id):
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT id, total_amount, status, payment_status, created_at
+                FROM orders
+                WHERE id = %s AND username = %s;
+            """, (order_id, username))
+            order = cur.fetchone()
+            if not order:
+                cur.close()
+                return api_error("Order not found.", 404)
+
+            cur.execute("""
+                SELECT product_id, product_name, price, quantity,
+                       price * quantity AS subtotal
+                FROM order_items
+                WHERE order_id = %s
+                ORDER BY id;
+            """, (order_id,))
+            items = cur.fetchall()
+            cur.close()
+
+        return api_ok(
+            "Order loaded.",
+            order={
+                "id": order["id"],
+                "total": float(order["total_amount"]),
+                "status": order["status"],
+                "payment_status": order["payment_status"],
+                "created_at": order["created_at"].isoformat(),
+                "items": [{
+                    "product_id": item["product_id"],
+                    "product_name": item["product_name"],
+                    "price": float(item["price"]),
+                    "quantity": item["quantity"],
+                    "subtotal": float(item["subtotal"])
+                } for item in items]
+            }
+        )
+    except Exception as e:
+        logger.exception("Get order failed: %s", e)
+        return api_error("We couldn't load that order.", 500)
+
+
+@app.route('/api/create-checkout-session', methods=['POST'])
+@require_login
+def create_checkout_session():
+    """Create a Stripe Checkout session from a fresh server-side cart snapshot."""
+    username = session['username']
+
+    if not STRIPE_SECRET_KEY:
+        return api_error("Payment system is not configured yet.", 503)
+    if not BASE_URL:
+        return api_error("BASE_URL is not configured yet.", 503)
+
+    try:
+        # Build a fresh unpaid order first. This gives Stripe a stable order id.
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT c.product_id, c.quantity, p.product_name, p.price,
+                       p.quantity AS stock, p.seller_username
+                FROM cart_items c
+                JOIN products p ON p.id = c.product_id
+                WHERE c.username = %s
+                FOR UPDATE OF p;
+            """, (username,))
+            items = cur.fetchall()
+
+            if not items:
+                cur.close()
+                return api_error("Your cart is empty.", 400)
+
+            total = Decimal('0.00')
+            for product_id, qty, name, price, stock, seller in items:
+                if seller == username:
+                    conn.rollback()
+                    cur.close()
+                    return api_error(f"You cannot purchase your own product: {name}.", 400)
+                if qty > stock:
+                    conn.rollback()
+                    cur.close()
+                    return api_error(f"Not enough stock for {name}. Only {stock} available.", 400)
+                total += price * qty
+
+            cur.execute("""
+                INSERT INTO orders (username, total_amount, status, payment_status)
+                VALUES (%s, %s, 'pending', 'unpaid')
+                RETURNING id;
+            """, (username, total))
+            order_id = cur.fetchone()[0]
+
+            for product_id, qty, name, price, stock, seller in items:
+                cur.execute("""
+                    INSERT INTO order_items
+                        (order_id, product_id, product_name, price, quantity)
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (order_id, product_id, name, price, qty))
+
+            conn.commit()
+            cur.close()
+
+        line_items = []
+        for product_id, qty, name, price, stock, seller in items:
+            unit_amount = int((Decimal(str(price)) * 100).quantize(Decimal('1')))
+            line_items.append({
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": name},
+                    "unit_amount": unit_amount
+                },
+                "quantity": qty
+            })
+
+        checkout = stripe.checkout.Session.create(
+            mode='payment',
+            line_items=line_items,
+            success_url=f"{BASE_URL}/?payment=success&order_id={order_id}",
+            cancel_url=f"{BASE_URL}/?payment=cancelled&order_id={order_id}",
+            metadata={
+                "order_id": str(order_id),
+                "username": username
+            }
+        )
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("UPDATE orders SET stripe_session_id = %s WHERE id = %s;", (checkout.id, order_id))
+            conn.commit()
+            cur.close()
+
+        return api_ok(
+            "Checkout session created.",
+            order_id=order_id,
+            checkout_url=checkout.url
+        )
+
+    except Exception as e:
+        logger.exception("Stripe checkout creation failed: %s", e)
+        return api_error("We couldn't start the payment process.", 502)
+
+
+@app.route('/api/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    """Trust Stripe's signed webhook, then atomically finalize the order."""
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error("STRIPE_WEBHOOK_SECRET is missing.")
+        return '', 500
+
+    payload = request.get_data()
+    signature = request.headers.get('Stripe-Signature', '')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, signature, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        return '', 400
+    except stripe.error.SignatureVerificationError:
+        return '', 400
+
+    if event.get('type') != 'checkout.session.completed':
+        return '', 200
+
+    checkout = event['data']['object']
+    payment_status = checkout.get('payment_status')
+    if payment_status != 'paid':
+        return '', 200
+
+    metadata = checkout.get('metadata') or {}
+    order_id = metadata.get('order_id')
+    username = metadata.get('username')
+    stripe_session_id = checkout.get('id')
+
+    if not order_id or not username or not stripe_session_id:
+        logger.error("Stripe webhook missing order metadata.")
+        return '', 400
+
+    try:
+        email = None
+        order_total = Decimal('0.00')
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+
+            # Lock the order. If another webhook delivery is processed at the
+            # same time, only one can finalize it.
+            cur.execute("""
+                SELECT username, total_amount, payment_status
+                FROM orders
+                WHERE id = %s
+                FOR UPDATE;
+            """, (int(order_id),))
+            order = cur.fetchone()
+
+            if not order:
+                cur.close()
+                return '', 404
+
+            order_username, order_total, current_payment_status = order
+
+            if order_username != username:
+                conn.rollback()
+                cur.close()
+                return '', 403
+
+            # Idempotency: Stripe may deliver the same webhook more than once.
+            if current_payment_status == 'paid':
+                cur.close()
+                return '', 200
+
+            cur.execute("SELECT email FROM users WHERE username = %s;", (username,))
+            user_row = cur.fetchone()
+            email = user_row[0] if user_row else None
+
+            cur.execute("""
+                SELECT oi.product_id, oi.quantity, oi.product_name, oi.price,
+                       p.quantity AS stock, p.seller_username
+                FROM order_items oi
+                JOIN products p ON p.id = oi.product_id
+                WHERE oi.order_id = %s
+                FOR UPDATE OF p;
+            """, (int(order_id),))
+            items = cur.fetchall()
+
+            if not items:
+                conn.rollback()
+                cur.close()
+                return '', 409
+
+            calculated_total = Decimal('0.00')
+            for product_id, qty, name, price, stock, seller in items:
+                if seller == username:
+                    conn.rollback()
+                    cur.close()
+                    return '', 409
+                if stock < qty:
+                    logger.error(
+                        "Insufficient stock while finalizing paid order %s: %s",
+                        order_id, name
+                    )
+                    conn.rollback()
+                    cur.close()
+                    return '', 409
+                calculated_total += price * qty
+
+            # Make sure the amount stored by our server still matches the item snapshot.
+            if calculated_total != order_total:
+                logger.error(
+                    "Order total mismatch for order %s: stored=%s calculated=%s",
+                    order_id, order_total, calculated_total
+                )
+                conn.rollback()
+                cur.close()
+                return '', 409
+
+            # Reduce stock only after Stripe confirms payment.
+            for product_id, qty, name, price, stock, seller in items:
+                cur.execute("""
+                    UPDATE products
+                    SET quantity = quantity - %s
+                    WHERE id = %s AND quantity >= %s;
+                """, (qty, product_id, qty))
+                if cur.rowcount != 1:
+                    conn.rollback()
+                    cur.close()
+                    return '', 409
+
+            cur.execute("""
+                UPDATE orders
+                SET status = 'processing',
+                    payment_status = 'paid',
+                    stripe_session_id = %s
+                WHERE id = %s;
+            """, (stripe_session_id, int(order_id)))
+
+            # Only clear the cart rows that still match the purchased quantities.
+            # The order is based on the cart snapshot, so a customer can add a new
+            # quantity while paying without having unrelated new rows deleted.
+            for product_id, qty, name, price, stock, seller in items:
+                cur.execute("""
+                    DELETE FROM cart_items
+                    WHERE username = %s AND product_id = %s
+                      AND quantity = %s;
+                """, (username, product_id, qty))
+
+            conn.commit()
+            cur.close()
+
+        if email:
+            send_order_confirmation_email(
+                email, username, int(order_id), float(order_total)
+            )
+
+        logger.info("Stripe payment completed for order #%s", order_id)
+        return '', 200
+
+    except Exception as e:
+        logger.exception("Stripe webhook processing failed: %s", e)
+        return '', 500
+
+
+# -----------------------------------------------------------------------------
+# NEWSLETTER / OPT-IN
+# -----------------------------------------------------------------------------
+
+@app.route('/api/newsletter/subscribe', methods=['POST'])
+@validate_json(NewsletterSchema)
+def newsletter_subscribe():
+    email = request.validated_data['email'].strip().lower()
+
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO newsletter_subscribers (email)
+                VALUES (%s)
+                ON CONFLICT (email) DO NOTHING;
+            """, (email,))
+            inserted = cur.rowcount
+            conn.commit()
+            cur.close()
+
+        if inserted:
+            return api_ok("Thanks for subscribing to BlueMart!")
+        return api_ok("You're already subscribed.")
+    except Exception as e:
+        logger.exception("Newsletter subscription failed: %s", e)
+        return api_error("We couldn't subscribe you right now.", 500)
+
 
 @app.route('/api/products/add', methods=['POST'])
 @require_login
