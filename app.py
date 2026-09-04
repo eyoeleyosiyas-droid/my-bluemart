@@ -16,6 +16,7 @@ from markupsafe import escape
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
+from psycopg2.extensions import STATUS_READY
 from werkzeug.security import generate_password_hash, check_password_hash
 from marshmallow import Schema, fields, ValidationError, validate
 
@@ -180,6 +181,11 @@ def get_db_connection():
         logger.error(f"Database error: {e}")
         raise
     finally:
+        # A pooled psycopg2 connection must never be returned mid-transaction.
+        # This protects row locks and prevents one request from inheriting another
+        # request's uncommitted transaction state.
+        if not conn.closed and conn.status != STATUS_READY:
+            conn.rollback()
         db_pool.putconn(conn)
 
 def init_db():
@@ -284,11 +290,14 @@ def init_db():
                     status VARCHAR(50) NOT NULL DEFAULT 'pending',
                     payment_status VARCHAR(50) NOT NULL DEFAULT 'unpaid',
                     stripe_session_id VARCHAR(255) UNIQUE,
+                    reservation_expires_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
                 );
             """)
+            cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS reservation_expires_at TIMESTAMP;")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_username ON orders(username);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_reservation_expiry ON orders(reservation_expires_at) WHERE payment_status = 'unpaid';")
 
             # Order items keep a price/name snapshot so old orders do not change
             # when the product is later edited. product_id can become NULL if a
@@ -786,6 +795,21 @@ class ProductManager:
 
                 product_id = row[0]
 
+                cur.execute("""
+                    SELECT 1
+                    FROM order_items oi
+                    JOIN orders o ON o.id = oi.order_id
+                    WHERE oi.product_id = %s
+                      AND o.payment_status = 'unpaid'
+                      AND o.status = 'pending'
+                      AND (o.reservation_expires_at IS NULL OR o.reservation_expires_at > CURRENT_TIMESTAMP)
+                    LIMIT 1;
+                """, (product_id,))
+                if cur.fetchone():
+                    conn.rollback()
+                    cur.close()
+                    return False, "This product is currently reserved for a customer checkout and cannot be deleted yet."
+
                 cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
                 conn.commit()
                 row_count = cur.rowcount
@@ -1239,59 +1263,85 @@ def clear_cart():
 # ORDER + PAYMENT API
 # -----------------------------------------------------------------------------
 
+def _create_reserved_order(username):
+    """Create an unpaid order and reserve its stock atomically for 30 minutes.
+
+    The reservation is represented by reducing products.quantity inside the same
+    transaction that creates the order. If checkout is abandoned, the Stripe
+    checkout.session.expired webhook releases the reservation.
+    """
+    reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT c.product_id, c.quantity, p.product_name, p.price,
+                   p.quantity AS stock, p.seller_username
+            FROM cart_items c
+            JOIN products p ON p.id = c.product_id
+            WHERE c.username = %s
+            FOR UPDATE OF p;
+        """, (username,))
+        items = cur.fetchall()
+
+        if not items:
+            conn.rollback()
+            cur.close()
+            raise ValueError("Your cart is empty.")
+
+        total = Decimal('0.00')
+        for product_id, qty, name, price, stock, seller in items:
+            if seller == username:
+                conn.rollback()
+                cur.close()
+                raise ValueError(f"You cannot purchase your own product: {name}.")
+            if qty > stock:
+                conn.rollback()
+                cur.close()
+                raise ValueError(f"Not enough stock for {name}. Only {stock} available.")
+            total += price * qty
+
+        cur.execute("""
+            INSERT INTO orders
+                (username, total_amount, status, payment_status, reservation_expires_at)
+            VALUES (%s, %s, 'pending', 'unpaid', %s)
+            RETURNING id;
+        """, (username, total, reservation_expires_at))
+        order_id = cur.fetchone()[0]
+
+        for product_id, qty, name, price, stock, seller in items:
+            cur.execute("""
+                INSERT INTO order_items
+                    (order_id, product_id, product_name, price, quantity)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (order_id, product_id, name, price, qty))
+
+            cur.execute("""
+                UPDATE products
+                SET quantity = quantity - %s
+                WHERE id = %s AND quantity >= %s;
+            """, (qty, product_id, qty))
+            if cur.rowcount != 1:
+                conn.rollback()
+                cur.close()
+                raise ValueError(f"Not enough stock for {name}.")
+
+        conn.commit()
+        cur.close()
+
+    return order_id, total, items, reservation_expires_at
+
+
 @app.route('/api/orders/create', methods=['POST'])
 @require_login
 def create_order():
-    """Create an unpaid order from the current cart. Stock is not reduced yet."""
+    """Create an unpaid order and reserve its stock for 30 minutes."""
     username = session['username']
-
     try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT c.product_id, c.quantity, p.product_name, p.price,
-                       p.quantity AS stock, p.seller_username
-                FROM cart_items c
-                JOIN products p ON p.id = c.product_id
-                WHERE c.username = %s
-                FOR UPDATE OF p;
-            """, (username,))
-            items = cur.fetchall()
-
-            if not items:
-                cur.close()
-                return api_error("Your cart is empty.", 400)
-
-            total = Decimal('0.00')
-            for product_id, qty, name, price, stock, seller in items:
-                if seller == username:
-                    conn.rollback()
-                    cur.close()
-                    return api_error(f"You cannot purchase your own product: {name}.", 400)
-                if qty > stock:
-                    conn.rollback()
-                    cur.close()
-                    return api_error(f"Not enough stock for {name}. Only {stock} available.", 400)
-                total += price * qty
-
-            cur.execute("""
-                INSERT INTO orders (username, total_amount, status, payment_status)
-                VALUES (%s, %s, 'pending', 'unpaid')
-                RETURNING id;
-            """, (username, total))
-            order_id = cur.fetchone()[0]
-
-            for product_id, qty, name, price, stock, seller in items:
-                cur.execute("""
-                    INSERT INTO order_items
-                        (order_id, product_id, product_name, price, quantity)
-                    VALUES (%s, %s, %s, %s, %s);
-                """, (order_id, product_id, name, price, qty))
-
-            conn.commit()
-            cur.close()
-
-        return api_ok("Order created.", order_id=order_id, total=float(total))
+        order_id, total, items, _ = _create_reserved_order(username)
+        return api_ok("Order created and stock reserved for 30 minutes.", order_id=order_id, total=float(total))
+    except ValueError as e:
+        return api_error(str(e), 400)
     except Exception as e:
         logger.exception("Create order failed: %s", e)
         return api_error("We couldn't create your order.", 500)
@@ -1378,7 +1428,7 @@ def get_order(order_id):
 @app.route('/api/create-checkout-session', methods=['POST'])
 @require_login
 def create_checkout_session():
-    """Create a Stripe Checkout session from a fresh server-side cart snapshot."""
+    """Create a Stripe Checkout session backed by a 30-minute stock reservation."""
     username = session['username']
 
     if not STRIPE_SECRET_KEY:
@@ -1387,51 +1437,7 @@ def create_checkout_session():
         return api_error("BASE_URL is not configured yet.", 503)
 
     try:
-        # Build a fresh unpaid order first. This gives Stripe a stable order id.
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT c.product_id, c.quantity, p.product_name, p.price,
-                       p.quantity AS stock, p.seller_username
-                FROM cart_items c
-                JOIN products p ON p.id = c.product_id
-                WHERE c.username = %s
-                FOR UPDATE OF p;
-            """, (username,))
-            items = cur.fetchall()
-
-            if not items:
-                cur.close()
-                return api_error("Your cart is empty.", 400)
-
-            total = Decimal('0.00')
-            for product_id, qty, name, price, stock, seller in items:
-                if seller == username:
-                    conn.rollback()
-                    cur.close()
-                    return api_error(f"You cannot purchase your own product: {name}.", 400)
-                if qty > stock:
-                    conn.rollback()
-                    cur.close()
-                    return api_error(f"Not enough stock for {name}. Only {stock} available.", 400)
-                total += price * qty
-
-            cur.execute("""
-                INSERT INTO orders (username, total_amount, status, payment_status)
-                VALUES (%s, %s, 'pending', 'unpaid')
-                RETURNING id;
-            """, (username, total))
-            order_id = cur.fetchone()[0]
-
-            for product_id, qty, name, price, stock, seller in items:
-                cur.execute("""
-                    INSERT INTO order_items
-                        (order_id, product_id, product_name, price, quantity)
-                    VALUES (%s, %s, %s, %s, %s);
-                """, (order_id, product_id, name, price, qty))
-
-            conn.commit()
-            cur.close()
+        order_id, total, items, reservation_expires_at = _create_reserved_order(username)
 
         line_items = []
         for product_id, qty, name, price, stock, seller in items:
@@ -1445,11 +1451,13 @@ def create_checkout_session():
                 "quantity": qty
             })
 
+        stripe_expires_at = int((reservation_expires_at - datetime.datetime(1970, 1, 1)).total_seconds())
         checkout = stripe.checkout.Session.create(
             mode='payment',
             line_items=line_items,
             success_url=f"{BASE_URL}/?payment=success&order_id={order_id}",
             cancel_url=f"{BASE_URL}/?payment=cancelled&order_id={order_id}",
+            expires_at=stripe_expires_at,
             metadata={
                 "order_id": str(order_id),
                 "username": username
@@ -1458,7 +1466,10 @@ def create_checkout_session():
 
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("UPDATE orders SET stripe_session_id = %s WHERE id = %s;", (checkout.id, order_id))
+            cur.execute(
+                "UPDATE orders SET stripe_session_id = %s WHERE id = %s;",
+                (checkout.id, order_id)
+            )
             conn.commit()
             cur.close()
 
@@ -1468,14 +1479,44 @@ def create_checkout_session():
             checkout_url=checkout.url
         )
 
+    except ValueError as e:
+        return api_error(str(e), 400)
     except Exception as e:
         logger.exception("Stripe checkout creation failed: %s", e)
+
+        # If Stripe session creation failed after the reservation was made,
+        # release the reservation so inventory is not stranded.
+        try:
+            if 'order_id' in locals():
+                with get_db_connection() as conn:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT product_id, quantity
+                        FROM order_items
+                        WHERE order_id = %s;
+                    """, (order_id,))
+                    reserved_items = cur.fetchall()
+                    for product_id, qty in reserved_items:
+                        cur.execute(
+                            "UPDATE products SET quantity = quantity + %s WHERE id = %s;",
+                            (qty, product_id)
+                        )
+                    cur.execute("""
+                        UPDATE orders
+                        SET status = 'cancelled', reservation_expires_at = NULL
+                        WHERE id = %s AND payment_status = 'unpaid';
+                    """, (order_id,))
+                    conn.commit()
+                    cur.close()
+        except Exception:
+            logger.exception("Failed to release reservation after checkout creation failure for order %s", order_id)
+
         return api_error("We couldn't start the payment process.", 502)
 
 
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    """Trust Stripe's signed webhook, then atomically finalize the order."""
+    """Process signed Stripe events and finalize or release inventory reservations."""
     if not STRIPE_WEBHOOK_SECRET:
         logger.error("STRIPE_WEBHOOK_SECRET is missing.")
         return '', 500
@@ -1492,14 +1533,11 @@ def stripe_webhook():
     except stripe.error.SignatureVerificationError:
         return '', 400
 
-    if event.get('type') != 'checkout.session.completed':
+    event_type = event.get('type')
+    if event_type not in {'checkout.session.completed', 'checkout.session.expired'}:
         return '', 200
 
     checkout = event['data']['object']
-    payment_status = checkout.get('payment_status')
-    if payment_status != 'paid':
-        return '', 200
-
     metadata = checkout.get('metadata') or {}
     order_id = metadata.get('order_id')
     username = metadata.get('username')
@@ -1516,10 +1554,9 @@ def stripe_webhook():
         with get_db_connection() as conn:
             cur = conn.cursor()
 
-            # Lock the order. If another webhook delivery is processed at the
-            # same time, only one can finalize it.
+            # Lock the order so duplicate Stripe deliveries cannot finalize it twice.
             cur.execute("""
-                SELECT username, total_amount, payment_status
+                SELECT username, total_amount, payment_status, status, reservation_expires_at
                 FROM orders
                 WHERE id = %s
                 FOR UPDATE;
@@ -1527,19 +1564,79 @@ def stripe_webhook():
             order = cur.fetchone()
 
             if not order:
+                conn.rollback()
                 cur.close()
                 return '', 404
 
-            order_username, order_total, current_payment_status = order
+            order_username, order_total, current_payment_status, current_status, reservation_expires_at = order
 
             if order_username != username:
                 conn.rollback()
                 cur.close()
                 return '', 403
 
-            # Idempotency: Stripe may deliver the same webhook more than once.
-            if current_payment_status == 'paid':
+            # Duplicate completion delivery: already finalized.
+            if event_type == 'checkout.session.completed' and current_payment_status == 'paid':
                 cur.close()
+                return '', 200
+
+            # Expired checkout: release the reserved stock exactly once.
+            if event_type == 'checkout.session.expired':
+                if current_payment_status == 'paid':
+                    cur.close()
+                    return '', 200
+
+                cur.execute("""
+                    SELECT product_id, quantity
+                    FROM order_items
+                    WHERE order_id = %s;
+                """, (int(order_id),))
+                items = cur.fetchall()
+
+                if current_status != 'cancelled':
+                    for product_id, qty in items:
+                        cur.execute(
+                            "UPDATE products SET quantity = quantity + %s WHERE id = %s;",
+                            (qty, product_id)
+                        )
+                    cur.execute("""
+                        UPDATE orders
+                        SET status = 'cancelled', reservation_expires_at = NULL
+                        WHERE id = %s AND payment_status = 'unpaid';
+                    """, (int(order_id),))
+
+                conn.commit()
+                cur.close()
+                logger.info("Stripe checkout expired; reservation released for order #%s", order_id)
+                return '', 200
+
+            if checkout.get('payment_status') != 'paid':
+                cur.close()
+                return '', 200
+
+            # A paid session must still be within its reservation window. If it is
+            # somehow completed after expiry, do not fulfill it: refund the payment.
+            now = datetime.datetime.utcnow()
+            if reservation_expires_at and reservation_expires_at < now:
+                payment_intent = checkout.get('payment_intent')
+                conn.rollback()
+                cur.close()
+                if payment_intent:
+                    try:
+                        stripe.Refund.create(payment_intent=payment_intent, reason='requested_by_customer')
+                    except Exception:
+                        logger.exception("Automatic refund failed for expired paid order %s", order_id)
+                        return '', 500
+                with get_db_connection() as refund_conn:
+                    refund_cur = refund_conn.cursor()
+                    refund_cur.execute("""
+                        UPDATE orders
+                        SET status = 'cancelled', payment_status = 'refunded', reservation_expires_at = NULL, stripe_session_id = %s
+                        WHERE id = %s AND payment_status = 'unpaid';
+                    """, (stripe_session_id, int(order_id)))
+                    refund_conn.commit()
+                    refund_cur.close()
+                logger.warning("Paid order %s was outside its reservation window; refunded.", order_id)
                 return '', 200
 
             cur.execute("SELECT email FROM users WHERE username = %s;", (username,))
@@ -1548,73 +1645,56 @@ def stripe_webhook():
 
             cur.execute("""
                 SELECT oi.product_id, oi.quantity, oi.product_name, oi.price,
-                       p.quantity AS stock, p.seller_username
+                       p.seller_username
                 FROM order_items oi
-                JOIN products p ON p.id = oi.product_id
-                WHERE oi.order_id = %s
-                FOR UPDATE OF p;
+                LEFT JOIN products p ON p.id = oi.product_id
+                WHERE oi.order_id = %s;
             """, (int(order_id),))
             items = cur.fetchall()
 
-            if not items:
+            if not items or any(product_id is None for product_id, qty, name, price, seller in items):
                 conn.rollback()
                 cur.close()
+                logger.error("Order %s contains a deleted/missing product.", order_id)
                 return '', 409
 
             calculated_total = Decimal('0.00')
-            for product_id, qty, name, price, stock, seller in items:
+            for product_id, qty, name, price, seller in items:
                 if seller == username:
-                    conn.rollback()
-                    cur.close()
-                    return '', 409
-                if stock < qty:
-                    logger.error(
-                        "Insufficient stock while finalizing paid order %s: %s",
-                        order_id, name
-                    )
                     conn.rollback()
                     cur.close()
                     return '', 409
                 calculated_total += price * qty
 
-            # Make sure the amount stored by our server still matches the item snapshot.
             if calculated_total != order_total:
+                conn.rollback()
+                cur.close()
                 logger.error(
                     "Order total mismatch for order %s: stored=%s calculated=%s",
                     order_id, order_total, calculated_total
                 )
-                conn.rollback()
-                cur.close()
                 return '', 409
 
-            # Reduce stock only after Stripe confirms payment.
-            for product_id, qty, name, price, stock, seller in items:
-                cur.execute("""
-                    UPDATE products
-                    SET quantity = quantity - %s
-                    WHERE id = %s AND quantity >= %s;
-                """, (qty, product_id, qty))
-                if cur.rowcount != 1:
-                    conn.rollback()
-                    cur.close()
-                    return '', 409
-
+            # Stock was already reserved at order creation. Do NOT decrement it again.
             cur.execute("""
                 UPDATE orders
                 SET status = 'processing',
                     payment_status = 'paid',
+                    reservation_expires_at = NULL,
                     stripe_session_id = %s
-                WHERE id = %s;
+                WHERE id = %s AND payment_status = 'unpaid';
             """, (stripe_session_id, int(order_id)))
 
-            # Only clear the cart rows that still match the purchased quantities.
-            # The order is based on the cart snapshot, so a customer can add a new
-            # quantity while paying without having unrelated new rows deleted.
-            for product_id, qty, name, price, stock, seller in items:
+            if cur.rowcount != 1:
+                conn.rollback()
+                cur.close()
+                return '', 200
+
+            # Remove only the cart quantities that match the checkout snapshot.
+            for product_id, qty, name, price, seller in items:
                 cur.execute("""
                     DELETE FROM cart_items
-                    WHERE username = %s AND product_id = %s
-                      AND quantity = %s;
+                    WHERE username = %s AND product_id = %s AND quantity = %s;
                 """, (username, product_id, qty))
 
             conn.commit()
