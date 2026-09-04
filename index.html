@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -714,6 +715,29 @@
             .newsletter-form button { width:100%; }
         }
 
+        /* ---------- Customer Support / FAQ Plugin ---------- */
+        .support-widget { position:fixed; right:22px; bottom:22px; z-index:1000; font-family:var(--font-stack); }
+        .support-toggle { width:auto; min-width:58px; height:58px; margin:0; padding:0 18px; border:1px solid rgba(91,192,190,.35); border-radius:999px; background:linear-gradient(135deg,var(--accent-glow),#2d7f91); color:#07111f; font-weight:800; box-shadow:0 12px 30px rgba(0,0,0,.35); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; transition:transform .18s ease,box-shadow .18s ease; }
+        .support-toggle:hover { transform:translateY(-2px); box-shadow:0 16px 34px rgba(0,0,0,.42); }
+        .support-toggle svg { width:22px; height:22px; }
+        .support-panel { position:absolute; right:0; bottom:70px; width:min(360px,calc(100vw - 30px)); background:rgba(18,28,53,.98); border:1px solid var(--border-glow); border-radius:16px; box-shadow:0 20px 55px rgba(0,0,0,.5); overflow:hidden; opacity:0; visibility:hidden; transform:translateY(12px) scale(.98); transform-origin:bottom right; transition:opacity .18s ease,transform .18s ease,visibility .18s ease; }
+        .support-widget.open .support-panel { opacity:1; visibility:visible; transform:translateY(0) scale(1); }
+        .support-header { padding:18px 18px 16px; background:linear-gradient(135deg,rgba(91,192,190,.18),rgba(28,37,65,.55)); border-bottom:1px solid var(--border-glow); }
+        .support-header strong { display:block; font-size:1rem; margin-bottom:4px; }
+        .support-header span { color:var(--text-secondary); font-size:.78rem; line-height:1.45; }
+        .support-body { padding:14px; }
+        .support-search { margin:0 0 12px; }
+        .support-search input { margin:0; }
+        .support-faq { display:grid; gap:8px; max-height:235px; overflow-y:auto; }
+        .support-faq button { width:100%; margin:0; padding:11px 12px; text-align:left; background:rgba(11,19,41,.55); border:1px solid var(--border-glow); color:var(--text-primary); font-size:.82rem; line-height:1.35; cursor:pointer; }
+        .support-faq button:hover { border-color:rgba(91,192,190,.45); }
+        .support-answer { display:none; margin-top:10px; padding:12px; border-radius:10px; background:rgba(2,195,154,.08); border:1px solid rgba(2,195,154,.2); color:#dcefe9; font-size:.8rem; line-height:1.5; }
+        .support-answer.show { display:block; }
+        .support-contact { margin-top:12px; padding-top:12px; border-top:1px solid var(--border-glow); }
+        .support-contact a { display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 12px; border-radius:9px; background:rgba(91,192,190,.12); border:1px solid rgba(91,192,190,.2); color:var(--accent-glow); font-size:.8rem; font-weight:700; }
+        .support-contact a:hover { background:rgba(91,192,190,.18); }
+        @media (max-width:600px) { .support-widget{right:14px;bottom:14px}.support-toggle{width:54px;min-width:54px;height:54px;padding:0}.support-toggle span{display:none}.support-panel{bottom:64px} }
+
         @media (max-width: 600px) {
             header { padding: 14px 18px; flex-direction: column; align-items: flex-start; }
             .main-nav { padding: 0 14px; top: 96px; }
@@ -1021,6 +1045,40 @@
             <button class="image-modal-close" onclick="closeImageModal()">&times;</button>
             <img id="modal-image" src="" alt="Product image">
         </div>
+    </div>
+
+    <!-- Customer Support / FAQ Plugin -->
+    <div class="support-widget" id="support-widget">
+        <div class="support-panel" role="dialog" aria-label="BlueMart help and support" aria-hidden="true">
+            <div class="support-header">
+                <strong>How can we help?</strong>
+                <span>Find a quick answer before contacting support.</span>
+            </div>
+            <div class="support-body">
+                <div class="support-search">
+                    <label for="support-search" class="sr-only">Search help</label>
+                    <input type="search" id="support-search" placeholder="Search help..." autocomplete="off">
+                </div>
+                <div class="support-faq" id="support-faq">
+                    <button type="button" data-question="How do I add a product to my cart?" data-answer="Open the product you want and select Add to Cart. Then open the Cart tab to change quantities or remove items.">How do I add a product to my cart?</button>
+                    <button type="button" data-question="How does payment work?" data-answer="BlueMart uses Stripe Checkout. Select Checkout from your cart and complete the payment on Stripe's secure checkout page.">How does payment work?</button>
+                    <button type="button" data-question="Where can I see my orders?" data-answer="After signing in, open the Orders tab to see your recent orders and payment status.">Where can I see my orders?</button>
+                    <button type="button" data-question="Why can't I log in?" data-answer="Check your username and password and make sure your email has been verified. Repeated failed attempts can temporarily lock an account.">Why can't I log in?</button>
+                    <button type="button" data-question="How do I contact support?" data-answer="Use the Contact Support button below. Replace the demo support email in index.html with your real BlueMart support email before launch.">How do I contact support?</button>
+                </div>
+                <div class="support-answer" id="support-answer" role="status" aria-live="polite"></div>
+                <div class="support-contact">
+                    <a href="mailto:support@bluemart.example">✉ Contact Support</a>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="support-toggle" id="support-toggle" aria-label="Open BlueMart help" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-4-.9L3 20l1.3-4.2A8.2 8.2 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 9 8.4Z"/>
+                <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01"/>
+            </svg>
+            <span>Help</span>
+        </button>
     </div>
 
     <script>
@@ -1850,6 +1908,54 @@
             document.getElementById('image-modal').classList.remove('show');
             document.getElementById('modal-image').src = '';
         }
+
+        // ---------- Customer Support / FAQ Plugin ----------
+        (() => {
+            const widget = document.getElementById('support-widget');
+            const toggle = document.getElementById('support-toggle');
+            const panel = widget?.querySelector('.support-panel');
+            const search = document.getElementById('support-search');
+            const faq = document.getElementById('support-faq');
+            const answer = document.getElementById('support-answer');
+            if (!widget || !toggle || !panel || !search || !faq || !answer) return;
+
+            const setOpen = (open) => {
+                widget.classList.toggle('open', open);
+                toggle.setAttribute('aria-expanded', String(open));
+                panel.setAttribute('aria-hidden', String(!open));
+                toggle.setAttribute('aria-label', open ? 'Close BlueMart help' : 'Open BlueMart help');
+                if (open) setTimeout(() => search.focus(), 80);
+            };
+
+            toggle.addEventListener('click', () => setOpen(!widget.classList.contains('open')));
+
+            faq.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-answer]');
+                if (!button) return;
+                answer.textContent = button.dataset.answer || '';
+                answer.classList.add('show');
+            });
+
+            search.addEventListener('input', () => {
+                const query = search.value.trim().toLowerCase();
+                faq.querySelectorAll('button[data-question]').forEach((button) => {
+                    const text = `${button.dataset.question} ${button.dataset.answer}`.toLowerCase();
+                    button.hidden = Boolean(query && !text.includes(query));
+                });
+                if (query) answer.classList.remove('show');
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && widget.classList.contains('open')) {
+                    setOpen(false);
+                    toggle.focus();
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (widget.classList.contains('open') && !widget.contains(event.target)) setOpen(false);
+            });
+        })();
 
         checkExistingSession().then(handlePaymentReturn);
     </script>
