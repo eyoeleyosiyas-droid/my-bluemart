@@ -848,9 +848,18 @@
 
             #toast-container { left: 14px; right: 14px; max-width: none; top: 14px; }
         }
-    </style>
+    
+/* ---------- Accessibility polish ---------- */
+:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+.skip-link { position:fixed; top:-100px; left:16px; z-index:10000; padding:10px 16px; border-radius:8px; background:#111; color:#fff; text-decoration:none; font-weight:700; }
+.skip-link:focus { top:16px; }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
+
+</style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
     <div id="toast-container"></div>
     <div id="payment-banner" class="payment-banner"></div>
@@ -907,7 +916,7 @@
             </div>
         </header>
 
-        <main id="main-content">
+        <main id="main-content" id="main-content">
         <!-- Navigation -->
         <nav class="main-nav">
             <button class="nav-tab active" data-tab="marketplace" onclick="switchTab('marketplace')">
