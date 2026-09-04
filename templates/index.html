@@ -310,6 +310,139 @@
         .toast-success { border-left-color: var(--success-glow); }
         .toast-error { border-left-color: var(--danger-glow); }
 
+
+        /* ---------- Marketplace hero / storefront polish ---------- */
+        .marketplace-hero {
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1.35fr .65fr;
+            gap: 30px;
+            align-items: center;
+            padding: 34px;
+            margin-bottom: 24px;
+            border-radius: 20px;
+            background:
+                radial-gradient(circle at 85% 20%, rgba(91,192,190,.16), transparent 34%),
+                linear-gradient(135deg, rgba(28,37,65,.92), rgba(11,19,41,.82));
+            border: 1px solid rgba(91,192,190,.25);
+            box-shadow: 0 16px 45px rgba(0,0,0,.28);
+        }
+        .marketplace-hero::before {
+            content: '';
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            right: -120px;
+            bottom: -150px;
+            border-radius: 50%;
+            background: rgba(91,192,190,.07);
+            pointer-events: none;
+        }
+        .hero-copy { position: relative; z-index: 1; }
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 10px;
+            color: var(--accent-glow);
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+        .hero-eyebrow::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            box-shadow: 0 0 12px rgba(91,192,190,.7);
+        }
+        .marketplace-hero h1 {
+            margin: 0;
+            max-width: 700px;
+            font-size: clamp(2rem, 4vw, 3.25rem);
+            line-height: 1.05;
+            letter-spacing: -1.8px;
+            background: linear-gradient(135deg, #ffffff 15%, var(--accent-glow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-description {
+            max-width: 650px;
+            margin: 14px 0 20px;
+            color: var(--text-secondary);
+            font-size: .94rem;
+            line-height: 1.65;
+        }
+        .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .hero-actions button {
+            width: auto;
+            margin: 0;
+            padding: 11px 18px;
+        }
+        .hero-actions .hero-secondary {
+            background: transparent;
+            color: var(--accent-glow);
+            border: 1px solid rgba(91,192,190,.45);
+        }
+        .hero-actions .hero-secondary:hover { background: rgba(91,192,190,.1); }
+        .hero-visual {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .hero-feature {
+            min-height: 105px;
+            padding: 16px;
+            border-radius: 14px;
+            background: rgba(11,19,41,.55);
+            border: 1px solid rgba(255,255,255,.07);
+        }
+        .hero-feature-icon {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            background: rgba(91,192,190,.12);
+            color: var(--accent-glow);
+            font-size: 1rem;
+        }
+        .hero-feature strong { display: block; font-size: .78rem; margin-bottom: 4px; }
+        .hero-feature span {
+            color: var(--text-secondary);
+            font-size: .68rem;
+            line-height: 1.35;
+        }
+        .marketplace-heading-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        .marketplace-heading-row .section-subtitle { margin-bottom: 0; }
+        @media (max-width: 900px) {
+            .marketplace-hero { grid-template-columns: 1fr; padding: 28px; }
+            .hero-visual { max-width: 620px; }
+        }
+        @media (max-width: 600px) {
+            .marketplace-hero { padding: 22px; border-radius: 16px; }
+            .marketplace-hero h1 { font-size: 1.85rem; letter-spacing: -1px; }
+            .hero-description { font-size: .82rem; }
+            .hero-actions { flex-direction: column; }
+            .hero-actions button { width: 100%; }
+            .hero-visual { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .hero-feature { min-height: 92px; padding: 12px; }
+            .hero-feature-icon { width: 31px; height: 31px; margin-bottom: 7px; }
+            .marketplace-heading-row { align-items: flex-start; flex-direction: column; gap: 4px; }
+        }
+
         /* ---------- Marketplace controls ---------- */
         .marketplace-controls {
             display: flex;
@@ -944,8 +1077,49 @@
         <!-- MARKETPLACE TAB -->
         <div class="tab-panel active" id="tab-marketplace">
             <div class="page-wrap">
-                <h1 class="section-title">Marketplace</h1>
-                <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
+                <section class="marketplace-hero" aria-labelledby="marketplace-hero-title">
+                    <div class="hero-copy">
+                        <div class="hero-eyebrow">BlueMart Marketplace</div>
+                        <h1 id="marketplace-hero-title">Shop smarter. Sell easier.</h1>
+                        <p class="hero-description">
+                            Discover products from the BlueMart community, find what you need,
+                            and manage your own listings — all in one simple marketplace.
+                        </p>
+                        <div class="hero-actions">
+                            <button type="button" onclick="document.getElementById('search-bar').focus()">Explore Products</button>
+                            <button type="button" class="hero-secondary" onclick="switchTab('mystore')">Start Selling</button>
+                        </div>
+                    </div>
+                    <div class="hero-visual" aria-label="BlueMart features">
+                        <div class="hero-feature">
+                            <div class="hero-feature-icon">🛍️</div>
+                            <strong>Easy Shopping</strong>
+                            <span>Browse and add products to your cart in seconds.</span>
+                        </div>
+                        <div class="hero-feature">
+                            <div class="hero-feature-icon">🔒</div>
+                            <strong>Secure Checkout</strong>
+                            <span>Payments are handled securely through Stripe.</span>
+                        </div>
+                        <div class="hero-feature">
+                            <div class="hero-feature-icon">📦</div>
+                            <strong>Track Orders</strong>
+                            <span>Keep your purchases organized in one place.</span>
+                        </div>
+                        <div class="hero-feature">
+                            <div class="hero-feature-icon">☁️</div>
+                            <strong>Cloud Images</strong>
+                            <span>Product photos stay fast and reliable with Cloudinary.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="marketplace-heading-row">
+                    <div>
+                        <h2 class="section-title">Explore Products</h2>
+                        <p class="section-subtitle">Search, filter, and sort the latest listings.</p>
+                    </div>
+                </div>
 
                 <div class="marketplace-controls">
                     <input type="text" id="search-bar" placeholder="Search products..." oninput="applyMarketplaceFilters()">
