@@ -1,12 +1,21 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Mart Marketplace</title>
+    <meta name="description" content="BlueMart is a modern online marketplace where users can discover products, manage listings, shop securely, and track orders.">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#0b1329">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="BlueMart Marketplace">
+    <meta property="og:description" content="Discover products, shop securely, manage your listings, and track orders with BlueMart.">
+    <meta property="og:site_name" content="BlueMart">
+    <title>BlueMart Marketplace | Shop & Sell Online</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
     <style>
         :root {
             --bg-canvas: #0b1329;
@@ -898,6 +907,7 @@
             </div>
         </header>
 
+        <main id="main-content">
         <!-- Navigation -->
         <nav class="main-nav">
             <button class="nav-tab active" data-tab="marketplace" onclick="switchTab('marketplace')">
@@ -1113,6 +1123,7 @@
             </div>
         </section>
 
+        </main>
     </div>
 
     <!-- Image lightbox -->
@@ -1407,6 +1418,8 @@
                 const image = document.createElement('img');
                 image.src = imageUrl;
                 image.alt = name;
+                image.loading = 'lazy';
+                image.decoding = 'async';
                 image.className = 'product-image-large';
                 image.addEventListener('click', () => openImageModal(imageUrl));
                 media.appendChild(image);
@@ -1785,6 +1798,8 @@
                 const img = document.createElement('img');
                 img.className = 'cart-thumb';
                 img.alt = item.product_name;
+                img.loading = 'lazy';
+                img.decoding = 'async';
                 img.src = item.image_url || 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><rect width="100%" height="100%" fill="#1c2541"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" fill="#9aa5b1" font-size="10">No Image</text></svg>');
 
                 const info = document.createElement('div');
