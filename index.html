@@ -621,6 +621,38 @@
             flex-shrink: 0;
         }
 
+
+        .cart-count {
+            min-width: 20px; height: 20px; padding: 1px 6px; border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--accent-glow); color: #0b1329; font-size: .68rem; font-weight: 800;
+        }
+        .section-header-row { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+        .cart-layout { display:grid; grid-template-columns: 1fr 340px; gap:24px; align-items:start; }
+        .cart-item { display:grid; grid-template-columns:72px 1fr auto; gap:14px; align-items:center; padding:14px 0; border-bottom:1px solid var(--border-glow); }
+        .cart-item:last-child { border-bottom:0; }
+        .cart-thumb { width:72px; height:72px; object-fit:cover; border-radius:10px; background:rgba(11,19,41,.6); }
+        .cart-item-name { font-weight:600; margin-bottom:5px; }
+        .cart-item-price { color:var(--text-secondary); font-size:.78rem; }
+        .cart-item-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+        .cart-item-controls input { width:65px; margin:0; text-align:center; }
+        .cart-item-controls button { width:auto; margin:0; padding:8px 11px; font-size:.75rem; }
+        .summary-row { display:flex; justify-content:space-between; padding:10px 0; color:var(--text-secondary); }
+        .summary-row strong { color:var(--text-primary); }
+        .total-row { border-top:1px solid var(--border-glow); margin-top:8px; padding-top:18px; font-size:1.1rem; }
+        .total-row strong { color:var(--accent-glow); font-size:1.3rem; }
+        .order-card { border:1px solid var(--border-glow); border-radius:12px; padding:16px; margin-bottom:12px; background:rgba(11,19,41,.35); }
+        .order-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; }
+        .status-badge { display:inline-flex; padding:5px 9px; border-radius:20px; background:rgba(91,192,190,.12); color:var(--accent-glow); font-size:.7rem; font-weight:700; text-transform:uppercase; }
+        .status-paid { background:rgba(2,195,154,.15); color:var(--success-glow); }
+        .status-pending { background:rgba(255,255,255,.08); color:var(--text-secondary); }
+        .order-date { color:var(--text-secondary); font-size:.76rem; }
+        .order-total { margin-top:10px; font-size:1.05rem; font-weight:700; }
+        .payment-banner { margin-bottom:18px; padding:14px 16px; border-radius:10px; border:1px solid var(--success-glow); color:var(--success-glow); background:rgba(2,195,154,.08); display:none; }
+        .payment-banner.show { display:block; }
+        @media (max-width: 800px) { .cart-layout { grid-template-columns:1fr; } }
+        @media (max-width: 600px) { .section-header-row { align-items:stretch; } .cart-item { grid-template-columns:56px 1fr; } .cart-thumb { width:56px; height:56px; } .cart-item-controls { grid-column:1 / -1; justify-content:flex-start; } }
+
         @media (max-width: 992px) {
             .layout-split { grid-template-columns: 1fr; }
             .page-wrap { padding: 0 20px; }
@@ -656,6 +688,7 @@
 <body>
 
     <div id="toast-container"></div>
+    <div id="payment-banner" class="payment-banner"></div>
 
     <!-- Authentication Area -->
     <div id="auth-panel" class="card">
@@ -718,6 +751,12 @@
             <button class="nav-tab" data-tab="mystore" onclick="switchTab('mystore')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M8 13a2 2 0 1 0 4 0"/></svg>
                 My Store
+            </button>
+            <button class="nav-tab" data-tab="cart" onclick="switchTab('cart'); loadCart()">
+                🛒 Cart <span id="cart-count" class="cart-count">0</span>
+            </button>
+            <button class="nav-tab" data-tab="orders" onclick="switchTab('orders'); loadOrders()">
+                📦 Orders
             </button>
             <button class="nav-tab" data-tab="dashboard" onclick="switchTab('dashboard')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V4M16 19v-7M22 19H2"/></svg>
@@ -803,6 +842,48 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CART TAB -->
+        <div class="tab-panel" id="tab-cart">
+            <div class="page-wrap">
+                <div class="section-header-row">
+                    <div>
+                        <h1 class="section-title">Shopping Cart</h1>
+                        <p class="section-subtitle">Review your items and continue securely to Stripe Checkout.</p>
+                    </div>
+                    <button class="btn-secondary btn-small" onclick="loadCart()">Refresh</button>
+                </div>
+                <div class="cart-layout">
+                    <div class="card">
+                        <div id="cart-items"><div class="empty-state">Your cart is empty.</div></div>
+                    </div>
+                    <div class="card cart-summary">
+                        <h3>Order Summary</h3>
+                        <div class="summary-row"><span>Items</span><strong id="cart-item-count">0</strong></div>
+                        <div class="summary-row total-row"><span>Total</span><strong id="cart-total">$0.00</strong></div>
+                        <button id="checkout-btn" onclick="startCheckout()">Proceed to Checkout</button>
+                        <button class="btn-secondary" onclick="clearCart()">Clear Cart</button>
+                        <p class="hint">Payments are processed securely by Stripe. BlueMart never stores your card details.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORDERS TAB -->
+        <div class="tab-panel" id="tab-orders">
+            <div class="page-wrap">
+                <div class="section-header-row">
+                    <div>
+                        <h1 class="section-title">My Orders</h1>
+                        <p class="section-subtitle">Track your BlueMart purchases and payment status.</p>
+                    </div>
+                    <button class="btn-secondary btn-small" onclick="loadOrders()">Refresh</button>
+                </div>
+                <div class="card">
+                    <div id="orders-list"><div class="empty-state">No orders yet.</div></div>
                 </div>
             </div>
         </div>
@@ -1045,6 +1126,7 @@
                 applyMarketplaceFilters();
                 renderMyStore(allProducts);
                 renderCategoryBreakdown();
+                await loadCart();
 
                 const statsRes = await fetch('/api/statistics/mine');
                 const stats = await parseJSONResponse(statsRes);
@@ -1101,6 +1183,7 @@
             const card = document.createElement('div');
             card.className = 'product-card';
             card.dataset.name = name;
+            card.dataset.productId = String(product.id ?? '');
 
             const media = document.createElement('div');
             media.className = 'product-media';
@@ -1205,8 +1288,8 @@
 
                 const buyBtn = document.createElement('button');
                 buyBtn.className = 'buy-btn';
-                buyBtn.textContent = 'Buy';
-                buyBtn.addEventListener('click', () => buyProduct(buyBtn));
+                buyBtn.textContent = 'Add to Cart';
+                buyBtn.addEventListener('click', () => addToCart(buyBtn));
 
                 actions.append(qtyInput, buyBtn);
                 info.appendChild(actions);
@@ -1239,29 +1322,19 @@
             });
         }
 
-        async function buyProduct(btn) {
+        async function addToCart(btn) {
             const card = btn.closest('.product-card');
             if (!card) return;
-
-            const name = card.dataset.name;
+            const productId = Number(card.dataset.productId);
             const qty = Number.parseInt(card.querySelector('.qty-input').value, 10);
-
-            if (!Number.isInteger(qty) || qty < 1) {
-                showToast('Enter a valid quantity.', 'error');
-                return;
-            }
-
+            if (!Number.isInteger(productId) || productId < 1) return showToast('This product is missing its ID. Refresh and try again.', 'error');
+            if (!Number.isInteger(qty) || qty < 1) return showToast('Enter a valid quantity.', 'error');
             btn.disabled = true;
             try {
-                const res = await defAPI('/api/products/sell', { name, quantity: qty });
-                showToast(res.message || 'Purchase request completed.', res.success ? 'success' : 'error');
-                if (res.success) await refreshAll();
-            } catch (error) {
-                console.error('Purchase failed:', error);
-                showToast('Could not complete the purchase.', 'error');
-            } finally {
-                btn.disabled = false;
-            }
+                const res = await defAPI('/api/cart/add', { product_id: productId, quantity: qty });
+                showToast(res.message || 'Added to cart.', res.success ? 'success' : 'error');
+                if (res.success) await loadCart();
+            } finally { btn.disabled = false; }
         }
 
         // ---------- My Store ----------
@@ -1454,6 +1527,145 @@
             }
         }
 
+        // ---------- Cart + Orders + Stripe Checkout ----------
+        let cartData = { items: [], total: 0 };
+
+        async function loadCart() {
+            const res = await fetch('/api/cart');
+            const data = await parseJSONResponse(res);
+            if (!res.ok || !data.success) {
+                if (res.status === 401) return;
+                showToast(data.message || 'Could not load your cart.', 'error');
+                return;
+            }
+            cartData = { items: Array.isArray(data.items) ? data.items : [], total: Number(data.total || 0) };
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const countEl = document.getElementById('cart-count');
+            const itemCountEl = document.getElementById('cart-item-count');
+            const totalEl = document.getElementById('cart-total');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            const itemCount = cartData.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+            countEl.textContent = String(itemCount);
+            itemCountEl.textContent = String(itemCount);
+            totalEl.textContent = `$${cartData.total.toFixed(2)}`;
+            checkoutBtn.disabled = cartData.items.length === 0;
+            container.replaceChildren();
+
+            if (!cartData.items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'Your cart is empty. Add something from the Marketplace.';
+                container.appendChild(empty);
+                return;
+            }
+
+            cartData.items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'cart-item';
+                const img = document.createElement('img');
+                img.className = 'cart-thumb';
+                img.alt = item.product_name;
+                img.src = item.image_url || 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><rect width="100%" height="100%" fill="#1c2541"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" fill="#9aa5b1" font-size="10">No Image</text></svg>');
+
+                const info = document.createElement('div');
+                const name = document.createElement('div'); name.className = 'cart-item-name'; name.textContent = item.product_name;
+                const price = document.createElement('div'); price.className = 'cart-item-price'; price.textContent = `$${Number(item.price).toFixed(2)} each • ${item.available_stock} available`;
+                info.append(name, price);
+
+                const controls = document.createElement('div'); controls.className = 'cart-item-controls';
+                const qty = document.createElement('input'); qty.type='number'; qty.min='1'; qty.max=String(item.available_stock); qty.value=String(item.quantity); qty.setAttribute('aria-label', `Quantity for ${item.product_name}`);
+                const update = document.createElement('button'); update.className='btn-secondary'; update.textContent='Update'; update.onclick=()=>updateCartItem(item.product_id, qty.value);
+                const remove = document.createElement('button'); remove.className='btn-danger'; remove.textContent='Remove'; remove.onclick=()=>removeCartItem(item.product_id);
+                const subtotal = document.createElement('strong'); subtotal.textContent=`$${Number(item.subtotal).toFixed(2)}`;
+                controls.append(qty, update, remove, subtotal);
+                row.append(img, info, controls); container.appendChild(row);
+            });
+        }
+
+        async function updateCartItem(productId, quantity) {
+            const qty = Number.parseInt(quantity, 10);
+            if (!Number.isInteger(qty) || qty < 1) return showToast('Enter a valid quantity.', 'error');
+            const res = await fetch('/api/cart/update', { method:'PUT', headers:{'Content-Type':'application/json', ...(csrfToken ? {'X-CSRF-Token': csrfToken} : {})}, body:JSON.stringify({product_id:Number(productId), quantity:qty}) });
+            const data = await parseJSONResponse(res);
+            showToast(data.message || 'Cart updated.', data.success ? 'success' : 'error');
+            if (data.success) await loadCart();
+        }
+
+        async function removeCartItem(productId) {
+            const res = await fetch(`/api/cart/remove/${Number(productId)}`, { method:'DELETE', headers: csrfToken ? {'X-CSRF-Token': csrfToken} : {} });
+            const data = await parseJSONResponse(res);
+            showToast(data.message || 'Item removed.', data.success ? 'success' : 'error');
+            if (data.success) await loadCart();
+        }
+
+        async function clearCart() {
+            if (!cartData.items.length) return;
+            if (!confirm('Clear all items from your cart?')) return;
+            const res = await fetch('/api/cart/clear', { method:'DELETE', headers: csrfToken ? {'X-CSRF-Token': csrfToken} : {} });
+            const data = await parseJSONResponse(res);
+            showToast(data.message || 'Cart cleared.', data.success ? 'success' : 'error');
+            if (data.success) await loadCart();
+        }
+
+        async function startCheckout() {
+            if (!cartData.items.length) return showToast('Your cart is empty.', 'error');
+            const btn = document.getElementById('checkout-btn');
+            btn.disabled = true; btn.textContent = 'Preparing Checkout...';
+            try {
+                const res = await defAPI('/api/create-checkout-session', {});
+                if (!res.success || !res.checkout_url) {
+                    showToast(res.message || 'Could not start checkout.', 'error');
+                    return;
+                }
+                window.location.href = res.checkout_url;
+            } finally { btn.disabled = false; btn.textContent = 'Proceed to Checkout'; }
+        }
+
+        async function loadOrders() {
+            const res = await fetch('/api/orders');
+            const data = await parseJSONResponse(res);
+            if (!res.ok || !data.success) { showToast(data.message || 'Could not load orders.', 'error'); return; }
+            const container = document.getElementById('orders-list'); container.replaceChildren();
+            const orders = Array.isArray(data.orders) ? data.orders : [];
+            if (!orders.length) { const e=document.createElement('div'); e.className='empty-state'; e.textContent='You have not placed any orders yet.'; container.appendChild(e); return; }
+            orders.forEach(order => {
+                const card=document.createElement('div'); card.className='order-card';
+                const head=document.createElement('div'); head.className='order-head';
+                const title=document.createElement('strong'); title.textContent=`Order #${order.id}`;
+                const status=document.createElement('span'); status.className=`status-badge ${order.payment_status === 'paid' ? 'status-paid' : 'status-pending'}`; status.textContent=order.payment_status;
+                const date=document.createElement('span'); date.className='order-date'; date.textContent=new Date(order.created_at).toLocaleString();
+                head.append(title,status,date);
+                const total=document.createElement('div'); total.className='order-total'; total.textContent=`Total: $${Number(order.total).toFixed(2)}`;
+                card.append(head,total); container.appendChild(card);
+            });
+        }
+
+        function handlePaymentReturn() {
+            const params = new URLSearchParams(window.location.search);
+            const payment = params.get('payment');
+            const orderId = params.get('order_id');
+            if (!payment) return;
+            const banner=document.getElementById('payment-banner');
+            if (payment === 'success') {
+                banner.textContent=`Payment submitted successfully${orderId ? ` for order #${orderId}` : ''}. Stripe is confirming it now.`;
+                banner.classList.add('show');
+                switchTab('orders');
+                loadOrders();
+                loadCart();
+            } else if (payment === 'cancelled') {
+                banner.textContent=`Checkout was cancelled${orderId ? ` for order #${orderId}` : ''}. Your cart is still available.`;
+                banner.style.borderColor='var(--danger-glow)'; banner.style.color='var(--text-primary)'; banner.classList.add('show');
+                switchTab('cart');
+                loadCart();
+            }
+            history.replaceState({}, document.title, window.location.pathname);
+        }
+
         // ---------- Dashboard ----------
         function renderCategoryBreakdown() {
             const mine = Array.isArray(allProducts)
@@ -1516,7 +1728,7 @@
             document.getElementById('modal-image').src = '';
         }
 
-        checkExistingSession();
+        checkExistingSession().then(handlePaymentReturn);
     </script>
 </body>
 </html>
