@@ -42,12 +42,12 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB request limit
 
 BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
 RESEND_API_KEY = (os.getenv("RESEND_API_KEY") or "").strip()
-RESEND_FROM_EMAIL = (os.getenv("RESEND_FROM_EMAIL") or "BlueMart <onboarding@resend.dev>").strip()
 resend.api_key = RESEND_API_KEY or None
 
 STRIPE_SECRET_KEY = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
 STRIPE_WEBHOOK_SECRET = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
 stripe.api_key = STRIPE_SECRET_KEY or None
+PLATFORM_FEE_PERCENT = Decimal(os.getenv("PLATFORM_FEE_PERCENT", "5.0"))
 
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
@@ -70,71 +70,6 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 db_pool = None
 
 
-def _send_resend_email(to_email, subject, html_body, text_body):
-    """Send a transactional email through Resend without leaking email/API data to logs."""
-    if not RESEND_API_KEY:
-        logger.error("RESEND_API_KEY is not configured; cannot send email.")
-        return False
-
-    try:
-        params = {
-            "from": RESEND_FROM_EMAIL,
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-            "text": text_body,
-        }
-        response = resend.Emails.send(params)
-        logger.info("Resend email accepted for delivery: recipient=%s message_id=%s",
-                    to_email, getattr(response, "id", None) if response else None)
-        return True
-    except Exception:
-        logger.exception("Resend email failed: recipient=%s subject=%s", to_email, subject)
-        return False
-
-
-def _email_shell(preheader, content_html):
-    """Shared BlueMart transactional email layout."""
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>BlueMart</title>
-</head>
-<body style="margin:0;padding:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#182033;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{escape(preheader)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eef2f7;">
-        <tr>
-            <td align="center" style="padding:32px 14px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
-                       style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dfe5ee;">
-                    <tr>
-                        <td style="padding:22px 28px;background:#0b1329;">
-                            <div style="font-size:22px;font-weight:800;color:#ffffff;">Blue<span style="color:#5bc0be;">Mart</span></div>
-                            <div style="margin-top:4px;font-size:12px;color:#aeb8cc;">Shop smarter. Sell easier.</div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:32px 28px;">{content_html}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:20px 28px;background:#f7f9fc;color:#687386;font-size:12px;line-height:1.6;">
-                            You are receiving this email because you have an account or order with BlueMart.
-                            If you did not request this message, you can safely ignore it.
-                        </td>
-                    </tr>
-                </table>
-                <div style="padding:16px 8px;color:#8791a3;font-size:11px;">
-                    © BlueMart
-                </div>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>"""
-
-
 def send_verification_email(email, username, verification_token):
     try:
         if not BASE_URL:
@@ -144,38 +79,57 @@ def send_verification_email(email, username, verification_token):
             logger.error("RESEND_API_KEY is not configured; cannot send verification email.")
             return False
 
-        safe_username = escape(username)
         verification_url = f"{BASE_URL}/verify-email/{verification_token}"
 
-        content = f"""
-            <h1 style="margin:0 0 12px;font-size:26px;color:#182033;">Verify your BlueMart account</h1>
-            <p style="margin:0 0 18px;color:#596579;font-size:15px;line-height:1.7;">
-                Hi {safe_username}, thanks for joining BlueMart. Please verify your email address
-                to activate your account.
-            </p>
-            <p style="margin:0 0 24px;">
-                <a href="{verification_url}"
-                   style="display:inline-block;padding:13px 22px;background:#5bc0be;color:#0b1329;
-                          text-decoration:none;border-radius:8px;font-weight:800;font-size:14px;">
-                    Verify My Account
-                </a>
-            </p>
-            <p style="margin:0;color:#7a8495;font-size:12px;line-height:1.6;">
-                If the button does not work, copy and paste this link into your browser:<br>
-                <span style="word-break:break-all;">{verification_url}</span>
-            </p>
-        """
-        html_body = _email_shell("Verify your BlueMart account.", content)
-        text_body = (
-            f"Hi {username},\n\n"
-            "Thanks for joining BlueMart. Verify your email address to activate your account:\n"
-            f"{verification_url}\n\n"
-            "If you did not create this account, you can ignore this email."
-        )
-        return _send_resend_email(email, "Verify your BlueMart account", html_body, text_body)
+        params = {
+            "from": "BlueMart <onboarding@resend.dev>",
+            "to": [email],
+            "subject": "Verify your BlueMart account",
+            "html": f"""
+                <h2>Welcome to BlueMart, {username}!</h2>
 
-    except Exception:
-        logger.exception("Failed to prepare verification email.")
+                <p>Thanks for creating your account.</p>
+
+                <p>Please click the button below to verify your email address:</p>
+
+                <p>
+                    <a href="{verification_url}"
+                       style="
+                       display:inline-block;
+                       padding:12px 20px;
+                       background:#5bc0be;
+                       color:#0b1329;
+                       text-decoration:none;
+                       border-radius:6px;
+                       font-weight:bold;">
+                        Verify My Account
+                    </a>
+                </p>
+
+                <p>If you didn't create this account, you can ignore this email.</p>
+            """
+        }
+
+        print("=== RESEND: ABOUT TO SEND EMAIL ===")
+        print(f"Recipient: {email}")
+        logger.debug("Verification email prepared for %s", email)
+
+        response = resend.Emails.send(params)
+
+        print("=== RESEND RESPONSE ===")
+        print(response)
+
+        logger.info(f"Verification email sent to {email}")
+
+        return True
+
+    except Exception as e:
+        print("=== RESEND ERROR ===")
+        print(type(e).__name__)
+        print(str(e))
+
+        logger.exception("Failed to send verification email")
+
         return False
 
 
@@ -185,42 +139,24 @@ def send_order_confirmation_email(email, username, order_id, total):
             logger.error("Email configuration missing; cannot send order confirmation.")
             return False
 
-        safe_username = escape(username)
-        total_text = f"{total:.2f}"
-
-        content = f"""
-            <h1 style="margin:0 0 12px;font-size:26px;color:#182033;">Order confirmed 🎉</h1>
-            <p style="margin:0 0 18px;color:#596579;font-size:15px;line-height:1.7;">
-                Hi {safe_username}, your BlueMart order has been successfully confirmed.
-            </p>
-            <div style="padding:18px;background:#f5f8fb;border:1px solid #e1e7ef;border-radius:10px;margin-bottom:22px;">
-                <div style="font-size:12px;color:#7a8495;text-transform:uppercase;letter-spacing:.06em;">Order number</div>
-                <div style="margin-top:5px;font-size:22px;font-weight:800;color:#182033;">#{order_id}</div>
-                <div style="margin-top:14px;font-size:12px;color:#7a8495;text-transform:uppercase;letter-spacing:.06em;">Total paid</div>
-                <div style="margin-top:5px;font-size:20px;font-weight:800;color:#182033;">${total_text}</div>
-            </div>
-            <p style="margin:0;color:#596579;font-size:14px;line-height:1.7;">
-                Thank you for shopping with BlueMart. You can view your order anytime from the
-                <strong>Orders</strong> section of your account.
-            </p>
-        """
-        html_body = _email_shell(f"BlueMart order #{order_id} confirmed.", content)
-        text_body = (
-            f"Hi {username},\n\n"
-            f"Your BlueMart order #{order_id} has been confirmed.\n"
-            f"Total paid: ${total_text}\n\n"
-            "Thank you for shopping with BlueMart."
-        )
-        return _send_resend_email(
-            email,
-            f"BlueMart Order #{order_id} confirmed",
-            html_body,
-            text_body,
-        )
-
-    except Exception:
-        logger.exception("Failed to prepare order confirmation email for order %s.", order_id)
+        params = {
+            "from": "BlueMart <onboarding@resend.dev>",
+            "to": [email],
+            "subject": f"BlueMart Order #{order_id} confirmed",
+            "html": f"""
+                <h2>Thank you, {escape(username)}!</h2>
+                <p>Your BlueMart order <strong>#{order_id}</strong> has been confirmed.</p>
+                <p><strong>Total paid:</strong> ${total:.2f}</p>
+                <p>We appreciate your order.</p>
+            """
+        }
+        response = resend.Emails.send(params)
+        logger.info("Order confirmation email sent for order %s: %s", order_id, response)
+        return True
+    except Exception as e:
+        logger.exception("Failed to send order confirmation email for order %s: %s", order_id, e)
         return False
+
 
 def init_connection_pool():
     global db_pool
@@ -381,6 +317,69 @@ def init_db():
                 );
             """)
 
+            # Marketplace seller snapshot and delivery/payout workflow.
+            cur.execute("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS seller_username VARCHAR(100);")
+            cur.execute("""
+                UPDATE order_items oi
+                SET seller_username = p.seller_username
+                FROM products p
+                WHERE oi.product_id = p.id AND oi.seller_username IS NULL;
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS shipments (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    seller_username VARCHAR(100) NOT NULL,
+                    provider VARCHAR(100) NOT NULL,
+                    tracking_number VARCHAR(150) NOT NULL,
+                    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                    shipped_at TIMESTAMP,
+                    delivered_at TIMESTAMP,
+                    confirmed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(order_id, seller_username),
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (seller_username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_shipments_seller ON shipments(seller_username, status);")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS payouts (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    seller_username VARCHAR(100) NOT NULL,
+                    gross_amount NUMERIC(10, 2) NOT NULL,
+                    platform_fee NUMERIC(10, 2) NOT NULL DEFAULT 0,
+                    payout_amount NUMERIC(10, 2) NOT NULL,
+                    status VARCHAR(50) NOT NULL DEFAULT 'held',
+                    released_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(order_id, seller_username),
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (seller_username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_payouts_seller ON payouts(seller_username, status);")
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS disputes (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    opened_by VARCHAR(100) NOT NULL,
+                    reason TEXT NOT NULL,
+                    status VARCHAR(50) NOT NULL DEFAULT 'open',
+                    resolution_note TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP,
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (opened_by) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_disputes_order ON disputes(order_id, status);")
+
+            cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_confirmed_at TIMESTAMP;")
+
             # Newsletter / opt-in subscribers
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS newsletter_subscribers (
@@ -455,6 +454,13 @@ class UpdateCartSchema(Schema):
 
 class NewsletterSchema(Schema):
     email = fields.Email(required=True)
+
+class ShipmentSchema(Schema):
+    provider = fields.Str(required=True, validate=validate.Length(min=2, max=100))
+    tracking_number = fields.Str(required=True, validate=validate.Length(min=2, max=150))
+
+class DisputeSchema(Schema):
+    reason = fields.Str(required=True, validate=validate.Length(min=5, max=1000))
 
 
 def validate_json(schema_class):
@@ -1329,12 +1335,7 @@ def clear_cart():
 # -----------------------------------------------------------------------------
 
 def _create_reserved_order(username):
-    """Create an unpaid order and reserve its stock atomically for 30 minutes.
-
-    The reservation is represented by reducing products.quantity inside the same
-    transaction that creates the order. If checkout is abandoned, the Stripe
-    checkout.session.expired webhook releases the reservation.
-    """
+    """Create an unpaid multi-seller order and reserve stock atomically."""
     reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
 
     with get_db_connection() as conn:
@@ -1350,20 +1351,14 @@ def _create_reserved_order(username):
         items = cur.fetchall()
 
         if not items:
-            conn.rollback()
-            cur.close()
-            raise ValueError("Your cart is empty.")
+            conn.rollback(); cur.close(); raise ValueError("Your cart is empty.")
 
         total = Decimal('0.00')
         for product_id, qty, name, price, stock, seller in items:
             if seller == username:
-                conn.rollback()
-                cur.close()
-                raise ValueError(f"You cannot purchase your own product: {name}.")
+                conn.rollback(); cur.close(); raise ValueError(f"You cannot purchase your own product: {name}.")
             if qty > stock:
-                conn.rollback()
-                cur.close()
-                raise ValueError(f"Not enough stock for {name}. Only {stock} available.")
+                conn.rollback(); cur.close(); raise ValueError(f"Not enough stock for {name}. Only {stock} available.")
             total += price * qty
 
         cur.execute("""
@@ -1377,9 +1372,9 @@ def _create_reserved_order(username):
         for product_id, qty, name, price, stock, seller in items:
             cur.execute("""
                 INSERT INTO order_items
-                    (order_id, product_id, product_name, price, quantity)
-                VALUES (%s, %s, %s, %s, %s);
-            """, (order_id, product_id, name, price, qty))
+                    (order_id, product_id, product_name, price, quantity, seller_username)
+                VALUES (%s, %s, %s, %s, %s, %s);
+            """, (order_id, product_id, name, price, qty, seller))
 
             cur.execute("""
                 UPDATE products
@@ -1387,12 +1382,9 @@ def _create_reserved_order(username):
                 WHERE id = %s AND quantity >= %s;
             """, (qty, product_id, qty))
             if cur.rowcount != 1:
-                conn.rollback()
-                cur.close()
-                raise ValueError(f"Not enough stock for {name}.")
+                conn.rollback(); cur.close(); raise ValueError(f"Not enough stock for {name}.")
 
-        conn.commit()
-        cur.close()
+        conn.commit(); cur.close()
 
     return order_id, total, items, reservation_expires_at
 
@@ -1420,24 +1412,49 @@ def get_orders():
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("""
-                SELECT id, total_amount, status, payment_status, created_at
+                SELECT id, total_amount, status, payment_status, created_at, buyer_confirmed_at
                 FROM orders
                 WHERE username = %s
                 ORDER BY created_at DESC;
             """, (username,))
             rows = cur.fetchall()
-            cur.close()
 
-        orders = [{
-            "id": row["id"],
-            "total": float(row["total_amount"]),
-            "status": row["status"],
-            "payment_status": row["payment_status"],
-            "created_at": row["created_at"].isoformat()
-        } for row in rows]
-        return api_ok("Orders loaded.", orders=orders)
+            orders = []
+            for row in rows:
+                cur.execute("""
+                    SELECT oi.product_name, oi.price, oi.quantity, oi.seller_username,
+                           COALESCE(s.status, 'pending') AS shipment_status,
+                           s.provider, s.tracking_number, s.shipped_at, s.delivered_at
+                    FROM order_items oi
+                    LEFT JOIN shipments s
+                      ON s.order_id = oi.order_id AND s.seller_username = oi.seller_username
+                    WHERE oi.order_id = %s
+                    ORDER BY oi.id;
+                """, (row['id'],))
+                items = cur.fetchall()
+                orders.append({
+                    'id': row['id'],
+                    'total': float(row['total_amount']),
+                    'status': row['status'],
+                    'payment_status': row['payment_status'],
+                    'created_at': row['created_at'].isoformat(),
+                    'buyer_confirmed_at': row['buyer_confirmed_at'].isoformat() if row['buyer_confirmed_at'] else None,
+                    'items': [{
+                        'product_name': i['product_name'],
+                        'price': float(i['price']),
+                        'quantity': int(i['quantity']),
+                        'seller_username': i['seller_username'],
+                        'shipment_status': i['shipment_status'],
+                        'provider': i['provider'],
+                        'tracking_number': i['tracking_number'],
+                        'shipped_at': i['shipped_at'].isoformat() if i['shipped_at'] else None,
+                        'delivered_at': i['delivered_at'].isoformat() if i['delivered_at'] else None,
+                    } for i in items]
+                })
+            cur.close()
+        return api_ok('Orders loaded.', orders=orders)
     except Exception as e:
-        logger.exception("Get orders failed: %s", e)
+        logger.exception('Get orders failed: %s', e)
         return api_error("We couldn't load your orders.", 500)
 
 
@@ -1449,45 +1466,243 @@ def get_order(order_id):
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("""
-                SELECT id, total_amount, status, payment_status, created_at
-                FROM orders
-                WHERE id = %s AND username = %s;
+                SELECT id, total_amount, status, payment_status, created_at, buyer_confirmed_at
+                FROM orders WHERE id = %s AND username = %s;
             """, (order_id, username))
             order = cur.fetchone()
             if not order:
-                cur.close()
-                return api_error("Order not found.", 404)
+                cur.close(); return api_error('Order not found.', 404)
 
             cur.execute("""
-                SELECT product_id, product_name, price, quantity,
-                       price * quantity AS subtotal
-                FROM order_items
-                WHERE order_id = %s
-                ORDER BY id;
+                SELECT oi.product_id, oi.product_name, oi.price, oi.quantity, oi.seller_username,
+                       oi.price * oi.quantity AS subtotal,
+                       COALESCE(s.status, 'pending') AS shipment_status, s.provider, s.tracking_number,
+                       s.shipped_at, s.delivered_at
+                FROM order_items oi
+                LEFT JOIN shipments s ON s.order_id = oi.order_id AND s.seller_username = oi.seller_username
+                WHERE oi.order_id = %s ORDER BY oi.id;
             """, (order_id,))
             items = cur.fetchall()
             cur.close()
 
-        return api_ok(
-            "Order loaded.",
-            order={
-                "id": order["id"],
-                "total": float(order["total_amount"]),
-                "status": order["status"],
-                "payment_status": order["payment_status"],
-                "created_at": order["created_at"].isoformat(),
-                "items": [{
-                    "product_id": item["product_id"],
-                    "product_name": item["product_name"],
-                    "price": float(item["price"]),
-                    "quantity": item["quantity"],
-                    "subtotal": float(item["subtotal"])
-                } for item in items]
-            }
-        )
+        return api_ok('Order loaded.', order={
+            'id': order['id'], 'total': float(order['total_amount']), 'status': order['status'],
+            'payment_status': order['payment_status'],
+            'created_at': order['created_at'].isoformat(),
+            'buyer_confirmed_at': order['buyer_confirmed_at'].isoformat() if order['buyer_confirmed_at'] else None,
+            'items': [{
+                'product_id': i['product_id'], 'product_name': i['product_name'], 'price': float(i['price']),
+                'quantity': int(i['quantity']), 'subtotal': float(i['subtotal']),
+                'seller_username': i['seller_username'], 'shipment_status': i['shipment_status'],
+                'provider': i['provider'], 'tracking_number': i['tracking_number'],
+                'shipped_at': i['shipped_at'].isoformat() if i['shipped_at'] else None,
+                'delivered_at': i['delivered_at'].isoformat() if i['delivered_at'] else None
+            } for i in items]
+        })
     except Exception as e:
-        logger.exception("Get order failed: %s", e)
+        logger.exception('Get order failed: %s', e)
         return api_error("We couldn't load that order.", 500)
+
+
+@app.route('/api/orders/<int:order_id>/confirm', methods=['POST'])
+@require_login
+def confirm_order_delivery(order_id):
+    """Buyer confirms delivery; held seller payouts become released in the demo ledger."""
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT id, status, payment_status FROM orders WHERE id = %s AND username = %s FOR UPDATE;", (order_id, username))
+            order = cur.fetchone()
+            if not order:
+                cur.close(); return api_error('Order not found.', 404)
+            if order['payment_status'] != 'paid':
+                cur.close(); return api_error('Payment has not been confirmed yet.', 400)
+
+            cur.execute("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'delivered') AS delivered FROM shipments WHERE order_id = %s;", (order_id,))
+            shipment_counts = cur.fetchone()
+            if shipment_counts['total'] == 0 or shipment_counts['delivered'] != shipment_counts['total']:
+                cur.close(); return api_error('All seller shipments must be marked delivered before you confirm the order.', 400)
+
+            cur.execute("""
+                UPDATE shipments SET status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP
+                WHERE order_id = %s AND status = 'delivered';
+            """, (order_id,))
+            cur.execute("""
+                UPDATE payouts SET status = 'released', released_at = CURRENT_TIMESTAMP
+                WHERE order_id = %s AND status = 'held';
+            """, (order_id,))
+            cur.execute("""
+                UPDATE orders SET status = 'completed', buyer_confirmed_at = CURRENT_TIMESTAMP
+                WHERE id = %s;
+            """, (order_id,))
+            conn.commit(); cur.close()
+        return api_ok('Delivery confirmed. Seller payouts are now released in the BlueMart payout ledger.')
+    except Exception as e:
+        logger.exception('Confirm order failed: %s', e)
+        return api_error("We couldn't confirm this order.", 500)
+
+
+@app.route('/api/orders/<int:order_id>/dispute', methods=['POST'])
+@require_login
+@validate_json(DisputeSchema)
+def open_dispute(order_id):
+    username = session['username']
+    reason = request.validated_data['reason'].strip()
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, payment_status, status FROM orders WHERE id = %s AND username = %s FOR UPDATE;", (order_id, username))
+            order = cur.fetchone()
+            if not order:
+                cur.close(); return api_error('Order not found.', 404)
+            if order[1] != 'paid':
+                cur.close(); return api_error('Only paid orders can be disputed.', 400)
+            cur.execute("SELECT 1 FROM disputes WHERE order_id = %s AND status = 'open' LIMIT 1;", (order_id,))
+            if cur.fetchone():
+                cur.close(); return api_error('This order already has an open dispute.', 409)
+            cur.execute("INSERT INTO disputes (order_id, opened_by, reason) VALUES (%s, %s, %s);", (order_id, username, reason))
+            cur.execute("UPDATE orders SET status = 'disputed' WHERE id = %s AND status <> 'completed';", (order_id,))
+            cur.execute("UPDATE payouts SET status = 'held' WHERE order_id = %s AND status <> 'released';", (order_id,))
+            conn.commit(); cur.close()
+        return api_ok('Dispute opened. Seller payouts remain held while the order is reviewed.')
+    except Exception as e:
+        logger.exception('Open dispute failed: %s', e)
+        return api_error("We couldn't open the dispute.", 500)
+
+
+# -----------------------------------------------------------------------------
+# SELLER FULFILLMENT + PAYOUT API
+# -----------------------------------------------------------------------------
+
+@app.route('/api/seller/orders', methods=['GET'])
+@require_login
+def seller_orders():
+    seller = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT DISTINCT o.id, o.username AS buyer_username, o.total_amount, o.status,
+                       o.payment_status, o.created_at,
+                       COALESCE(s.status, 'pending') AS shipment_status, s.provider, s.tracking_number,
+                       p.status AS payout_status, p.gross_amount, p.platform_fee, p.payout_amount
+                FROM orders o
+                JOIN order_items oi ON oi.order_id = o.id AND oi.seller_username = %s
+                LEFT JOIN shipments s ON s.order_id = o.id AND s.seller_username = %s
+                LEFT JOIN payouts p ON p.order_id = o.id AND p.seller_username = %s
+                ORDER BY o.created_at DESC;
+            """, (seller, seller, seller))
+            orders = cur.fetchall()
+            result = []
+            for row in orders:
+                cur.execute("""SELECT product_name, price, quantity FROM order_items
+                               WHERE order_id = %s AND seller_username = %s ORDER BY id;""", (row['id'], seller))
+                items = cur.fetchall()
+                result.append({
+                    'id': row['id'], 'buyer_username': row['buyer_username'], 'total': float(row['total_amount']),
+                    'status': row['status'], 'payment_status': row['payment_status'],
+                    'created_at': row['created_at'].isoformat(), 'shipment_status': row['shipment_status'],
+                    'provider': row['provider'], 'tracking_number': row['tracking_number'],
+                    'payout_status': row['payout_status'],
+                    'gross_amount': float(row['gross_amount']) if row['gross_amount'] is not None else None,
+                    'platform_fee': float(row['platform_fee']) if row['platform_fee'] is not None else None,
+                    'payout_amount': float(row['payout_amount']) if row['payout_amount'] is not None else None,
+                    'items': [{'product_name': i['product_name'], 'price': float(i['price']), 'quantity': int(i['quantity'])} for i in items]
+                })
+            cur.close()
+        return api_ok('Seller orders loaded.', orders=result)
+    except Exception as e:
+        logger.exception('Seller orders failed: %s', e)
+        return api_error("We couldn't load your seller orders.", 500)
+
+
+@app.route('/api/seller/orders/<int:order_id>/ship', methods=['POST'])
+@require_login
+@validate_json(ShipmentSchema)
+def seller_ship_order(order_id):
+    seller = session['username']
+    provider = request.validated_data['provider'].strip()
+    tracking = request.validated_data['tracking_number'].strip()
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                WHERE oi.order_id = %s AND oi.seller_username = %s AND o.payment_status = 'paid';
+            """, (order_id, seller))
+            if not cur.fetchone():
+                cur.close(); return api_error('Paid seller order not found.', 404)
+            cur.execute("""
+                INSERT INTO shipments (order_id, seller_username, provider, tracking_number, status, shipped_at)
+                VALUES (%s, %s, %s, %s, 'shipped', CURRENT_TIMESTAMP)
+                ON CONFLICT (order_id, seller_username) DO UPDATE SET
+                    provider = EXCLUDED.provider, tracking_number = EXCLUDED.tracking_number,
+                    status = 'shipped', shipped_at = CURRENT_TIMESTAMP, delivered_at = NULL, confirmed_at = NULL;
+            """, (order_id, seller, provider, tracking))
+            cur.execute("""
+                SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status IN ('shipped','delivered','confirmed')) AS fulfilled
+                FROM shipments WHERE order_id = %s;
+            """, (order_id,))
+            shipment_counts = cur.fetchone()
+            if shipment_counts[0] and shipment_counts[0] == shipment_counts[1]:
+                cur.execute("UPDATE orders SET status = 'shipped' WHERE id = %s AND status IN ('processing','shipped');", (order_id,))
+            conn.commit(); cur.close()
+        return api_ok('Shipment saved. The buyer can now track this shipment.')
+    except Exception as e:
+        logger.exception('Seller ship failed: %s', e)
+        return api_error("We couldn't save the shipment.", 500)
+
+
+@app.route('/api/seller/orders/<int:order_id>/delivered', methods=['POST'])
+@require_login
+def seller_mark_delivered(order_id):
+    """Demo/manual delivery update. A real provider integration should replace this later."""
+    seller = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE shipments SET status = 'delivered', delivered_at = CURRENT_TIMESTAMP
+                WHERE order_id = %s AND seller_username = %s AND status = 'shipped';
+            """, (order_id, seller))
+            if cur.rowcount != 1:
+                cur.close(); return api_error('Shipment must be marked shipped first.', 400)
+            cur.execute("""
+                SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'delivered') AS delivered
+                FROM shipments WHERE order_id = %s;
+            """, (order_id,))
+            counts = cur.fetchone()
+            if counts[0] and counts[0] == counts[1]:
+                cur.execute("UPDATE orders SET status = 'delivered' WHERE id = %s AND status <> 'disputed';", (order_id,))
+            conn.commit(); cur.close()
+        return api_ok('Shipment marked delivered. Buyer confirmation is required before payout release.')
+    except Exception as e:
+        logger.exception('Seller delivered update failed: %s', e)
+        return api_error("We couldn't update delivery status.", 500)
+
+
+@app.route('/api/seller/payouts', methods=['GET'])
+@require_login
+def seller_payouts():
+    seller = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT order_id, gross_amount, platform_fee, payout_amount, status, created_at, released_at
+                FROM payouts WHERE seller_username = %s ORDER BY created_at DESC;
+            """, (seller,))
+            rows = cur.fetchall(); cur.close()
+        return api_ok('Payout ledger loaded.', payouts=[{
+            'order_id': r['order_id'], 'gross_amount': float(r['gross_amount']),
+            'platform_fee': float(r['platform_fee']), 'payout_amount': float(r['payout_amount']),
+            'status': r['status'], 'created_at': r['created_at'].isoformat(),
+            'released_at': r['released_at'].isoformat() if r['released_at'] else None
+        } for r in rows])
+    except Exception as e:
+        logger.exception('Seller payouts failed: %s', e)
+        return api_error("We couldn't load your payout ledger.", 500)
 
 
 @app.route('/api/create-checkout-session', methods=['POST'])
@@ -1709,15 +1924,13 @@ def stripe_webhook():
             email = user_row[0] if user_row else None
 
             cur.execute("""
-                SELECT oi.product_id, oi.quantity, oi.product_name, oi.price,
-                       p.seller_username
+                SELECT oi.product_id, oi.quantity, oi.product_name, oi.price, oi.seller_username
                 FROM order_items oi
-                LEFT JOIN products p ON p.id = oi.product_id
                 WHERE oi.order_id = %s;
             """, (int(order_id),))
             items = cur.fetchall()
 
-            if not items or any(product_id is None for product_id, qty, name, price, seller in items):
+            if not items or any(product_id is None or not seller for product_id, qty, name, price, seller in items):
                 conn.rollback()
                 cur.close()
                 logger.error("Order %s contains a deleted/missing product.", order_id)
@@ -1754,6 +1967,28 @@ def stripe_webhook():
                 conn.rollback()
                 cur.close()
                 return '', 200
+
+            # Create one held payout ledger entry per seller. This is NOT a money transfer:
+            # it is the marketplace's accounting state that can later be connected to
+            # a licensed marketplace payout provider.
+            seller_totals = {}
+            for product_id, qty, name, price, seller in items:
+                seller_totals[seller] = seller_totals.get(seller, Decimal('0.00')) + (price * qty)
+
+            for seller, gross in seller_totals.items():
+                fee = (gross * PLATFORM_FEE_PERCENT / Decimal('100')).quantize(Decimal('0.01'))
+                payout_amount = gross - fee
+                cur.execute("""
+                    INSERT INTO payouts (order_id, seller_username, gross_amount, platform_fee, payout_amount, status)
+                    VALUES (%s, %s, %s, %s, %s, 'held')
+                    ON CONFLICT (order_id, seller_username) DO NOTHING;
+                """, (int(order_id), seller, gross, fee, payout_amount))
+
+                cur.execute("""
+                    INSERT INTO shipments (order_id, seller_username, provider, tracking_number, status)
+                    VALUES (%s, %s, 'Not selected', 'Not shipped', 'pending')
+                    ON CONFLICT (order_id, seller_username) DO NOTHING;
+                """, (int(order_id), seller))
 
             # Remove only the cart quantities that match the checkout snapshot.
             for product_id, qty, name, price, seller in items:
