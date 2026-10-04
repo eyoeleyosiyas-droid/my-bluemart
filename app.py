@@ -1,6 +1,7 @@
 import resend
 import secrets
 import datetime
+import json
 import cloudinary
 import cloudinary.uploader
 import os
@@ -31,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+IS_DEV = os.environ.get('FLASK_ENV') == 'development'
+
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
     # Never use a predictable production secret. A random fallback keeps local
@@ -39,15 +42,29 @@ if not FLASK_SECRET_KEY:
     logger.warning("FLASK_SECRET_KEY is not set; using a temporary random secret. Set it in production.")
 app.secret_key = FLASK_SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB request limit
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    # Secure cookies need HTTPS; keep them off only for local development.
+    SESSION_COOKIE_SECURE=not IS_DEV,
+)
 
 BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
 RESEND_API_KEY = (os.getenv("RESEND_API_KEY") or "").strip()
+RESEND_FROM_EMAIL = (os.getenv("RESEND_FROM_EMAIL") or "BlueMart <onboarding@resend.dev>").strip()
 resend.api_key = RESEND_API_KEY or None
 
 STRIPE_SECRET_KEY = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
 STRIPE_WEBHOOK_SECRET = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
 stripe.api_key = STRIPE_SECRET_KEY or None
 PLATFORM_FEE_PERCENT = Decimal(os.getenv("PLATFORM_FEE_PERCENT", "5.0"))
+
+# Stripe requires a Checkout Session to live at least 30 minutes, so the stock
+# reservation is a little longer than that to avoid landing under the minimum.
+RESERVATION_MINUTES = 35
+# Extra time after expiry before an abandoned reservation is released by the
+# built-in safety net (the Stripe "expired" webhook normally does this first).
+STALE_RESERVATION_GRACE_MINUTES = 10
 
 MIN_PASSWORD_LENGTH = 6
 MAX_USERNAME_LENGTH = 100
@@ -70,6 +87,75 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 db_pool = None
 
 
+# -----------------------------------------------------------------------------
+# EMAIL
+# -----------------------------------------------------------------------------
+
+def _send_resend_email(to_email, subject, html_body, text_body):
+    """Send a transactional email through Resend without leaking email/API data to logs."""
+    if not RESEND_API_KEY:
+        logger.error("RESEND_API_KEY is not configured; cannot send email.")
+        return False
+
+    try:
+        params = {
+            "from": RESEND_FROM_EMAIL,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+            "text": text_body,
+        }
+        response = resend.Emails.send(params)
+        logger.info("Resend email accepted for delivery: message_id=%s",
+                    getattr(response, "id", None) if response else None)
+        return True
+    except Exception:
+        logger.exception("Resend email failed: subject=%s", subject)
+        return False
+
+
+def _email_shell(preheader, content_html):
+    """Shared BlueMart transactional email layout."""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>BlueMart</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#182033;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{escape(preheader)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eef2f7;">
+        <tr>
+            <td align="center" style="padding:32px 14px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                       style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dfe5ee;">
+                    <tr>
+                        <td style="padding:22px 28px;background:#0b1329;">
+                            <div style="font-size:22px;font-weight:800;color:#ffffff;">Blue<span style="color:#5bc0be;">Mart</span></div>
+                            <div style="margin-top:4px;font-size:12px;color:#aeb8cc;">Shop smarter. Sell easier.</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px 28px;">{content_html}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:20px 28px;background:#f7f9fc;color:#687386;font-size:12px;line-height:1.6;">
+                            You are receiving this email because you have an account or order with BlueMart.
+                            If you did not request this message, you can safely ignore it.
+                        </td>
+                    </tr>
+                </table>
+                <div style="padding:16px 8px;color:#8791a3;font-size:11px;">
+                    &copy; BlueMart
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+
 def send_verification_email(email, username, verification_token):
     try:
         if not BASE_URL:
@@ -79,57 +165,38 @@ def send_verification_email(email, username, verification_token):
             logger.error("RESEND_API_KEY is not configured; cannot send verification email.")
             return False
 
+        safe_username = escape(username)
         verification_url = f"{BASE_URL}/verify-email/{verification_token}"
 
-        params = {
-            "from": "BlueMart <onboarding@resend.dev>",
-            "to": [email],
-            "subject": "Verify your BlueMart account",
-            "html": f"""
-                <h2>Welcome to BlueMart, {username}!</h2>
+        content = f"""
+            <h1 style="margin:0 0 12px;font-size:26px;color:#182033;">Verify your BlueMart account</h1>
+            <p style="margin:0 0 18px;color:#596579;font-size:15px;line-height:1.7;">
+                Hi {safe_username}, thanks for joining BlueMart. Please verify your email address
+                to activate your account.
+            </p>
+            <p style="margin:0 0 24px;">
+                <a href="{verification_url}"
+                   style="display:inline-block;padding:13px 22px;background:#5bc0be;color:#0b1329;
+                          text-decoration:none;border-radius:8px;font-weight:800;font-size:14px;">
+                    Verify My Account
+                </a>
+            </p>
+            <p style="margin:0;color:#7a8495;font-size:12px;line-height:1.6;">
+                If the button does not work, copy and paste this link into your browser:<br>
+                <span style="word-break:break-all;">{verification_url}</span>
+            </p>
+        """
+        html_body = _email_shell("Verify your BlueMart account.", content)
+        text_body = (
+            f"Hi {username},\n\n"
+            "Thanks for joining BlueMart. Verify your email address to activate your account:\n"
+            f"{verification_url}\n\n"
+            "If you did not create this account, you can ignore this email."
+        )
+        return _send_resend_email(email, "Verify your BlueMart account", html_body, text_body)
 
-                <p>Thanks for creating your account.</p>
-
-                <p>Please click the button below to verify your email address:</p>
-
-                <p>
-                    <a href="{verification_url}"
-                       style="
-                       display:inline-block;
-                       padding:12px 20px;
-                       background:#5bc0be;
-                       color:#0b1329;
-                       text-decoration:none;
-                       border-radius:6px;
-                       font-weight:bold;">
-                        Verify My Account
-                    </a>
-                </p>
-
-                <p>If you didn't create this account, you can ignore this email.</p>
-            """
-        }
-
-        print("=== RESEND: ABOUT TO SEND EMAIL ===")
-        print(f"Recipient: {email}")
-        logger.debug("Verification email prepared for %s", email)
-
-        response = resend.Emails.send(params)
-
-        print("=== RESEND RESPONSE ===")
-        print(response)
-
-        logger.info(f"Verification email sent to {email}")
-
-        return True
-
-    except Exception as e:
-        print("=== RESEND ERROR ===")
-        print(type(e).__name__)
-        print(str(e))
-
-        logger.exception("Failed to send verification email")
-
+    except Exception:
+        logger.exception("Failed to prepare verification email.")
         return False
 
 
@@ -139,24 +206,47 @@ def send_order_confirmation_email(email, username, order_id, total):
             logger.error("Email configuration missing; cannot send order confirmation.")
             return False
 
-        params = {
-            "from": "BlueMart <onboarding@resend.dev>",
-            "to": [email],
-            "subject": f"BlueMart Order #{order_id} confirmed",
-            "html": f"""
-                <h2>Thank you, {escape(username)}!</h2>
-                <p>Your BlueMart order <strong>#{order_id}</strong> has been confirmed.</p>
-                <p><strong>Total paid:</strong> ${total:.2f}</p>
-                <p>We appreciate your order.</p>
-            """
-        }
-        response = resend.Emails.send(params)
-        logger.info("Order confirmation email sent for order %s: %s", order_id, response)
-        return True
-    except Exception as e:
-        logger.exception("Failed to send order confirmation email for order %s: %s", order_id, e)
+        safe_username = escape(username)
+        total_text = f"{total:.2f}"
+
+        content = f"""
+            <h1 style="margin:0 0 12px;font-size:26px;color:#182033;">Order confirmed</h1>
+            <p style="margin:0 0 18px;color:#596579;font-size:15px;line-height:1.7;">
+                Hi {safe_username}, your BlueMart order has been successfully confirmed.
+            </p>
+            <div style="padding:18px;background:#f5f8fb;border:1px solid #e1e7ef;border-radius:10px;margin-bottom:22px;">
+                <div style="font-size:12px;color:#7a8495;text-transform:uppercase;letter-spacing:.06em;">Order number</div>
+                <div style="margin-top:5px;font-size:22px;font-weight:800;color:#182033;">#{order_id}</div>
+                <div style="margin-top:14px;font-size:12px;color:#7a8495;text-transform:uppercase;letter-spacing:.06em;">Total paid</div>
+                <div style="margin-top:5px;font-size:20px;font-weight:800;color:#182033;">${total_text}</div>
+            </div>
+            <p style="margin:0;color:#596579;font-size:14px;line-height:1.7;">
+                Thank you for shopping with BlueMart. You can view your order anytime from the
+                <strong>Orders</strong> section of your account.
+            </p>
+        """
+        html_body = _email_shell(f"BlueMart order #{order_id} confirmed.", content)
+        text_body = (
+            f"Hi {username},\n\n"
+            f"Your BlueMart order #{order_id} has been confirmed.\n"
+            f"Total paid: ${total_text}\n\n"
+            "Thank you for shopping with BlueMart."
+        )
+        return _send_resend_email(
+            email,
+            f"BlueMart Order #{order_id} confirmed",
+            html_body,
+            text_body,
+        )
+
+    except Exception:
+        logger.exception("Failed to prepare order confirmation email for order %s.", order_id)
         return False
 
+
+# -----------------------------------------------------------------------------
+# DATABASE
+# -----------------------------------------------------------------------------
 
 def init_connection_pool():
     global db_pool
@@ -221,10 +311,8 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;")
 
-            # Email had no uniqueness check at all before this - two accounts
-            # could silently share the same address. Postgres allows multiple
-            # NULLs under a UNIQUE constraint, so this is safe to add even if
-            # older rows have no email yet.
+            # Postgres allows multiple NULLs under a UNIQUE constraint, so this is
+            # safe to add even if older rows have no email yet.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -430,10 +518,6 @@ class EditProductSchema(Schema):
     category = fields.Str(allow_none=True, validate=validate.OneOf(ALLOWED_PRODUCT_CATEGORIES))
     quantity = fields.Int(allow_none=True, validate=validate.Range(min=0))
 
-class SellProductSchema(Schema):
-    name = fields.Str(required=True)
-    quantity = fields.Int(required=True, validate=validate.Range(min=1))
-
 class RestockProductSchema(Schema):
     name = fields.Str(required=True)
     quantity = fields.Int(required=True, validate=validate.Range(min=1))
@@ -505,6 +589,21 @@ def api_ok(message, status=200, **extra):
 def api_error(message, status=400, **extra):
     """Consistent shape for every failed API response."""
     return jsonify({"success": False, "message": message, **extra}), status
+
+
+@app.before_request
+def csrf_protect():
+    """Require the per-session CSRF token on every state-changing request
+    made by a signed-in user. The Stripe webhook is exempt: it is protected
+    by its own signature check instead."""
+    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and 'username' in session:
+        if request.path == '/api/stripe/webhook':
+            return None
+        sent = request.headers.get('X-CSRF-Token', '')
+        expected = session.get('csrf_token', '')
+        if not sent or not expected or not secrets.compare_digest(sent, expected):
+            return api_error("Security token missing or invalid. Please refresh the page and try again.", 403)
+    return None
 
 
 @app.after_request
@@ -701,48 +800,6 @@ class ProductManager:
             logger.error(f"Error adding product {product_name}: {e}")
             return False, "We couldn't add that product right now. Please try again."
 
-    def sell_product(self, product_name, quantity, buyer_username):
-        try:
-            quantity = int(quantity)
-            if quantity <= 0:
-                return False, "Quantity must be greater than 0."
-
-            with get_db_connection() as conn:
-                cur = conn.cursor()
-
-                cur.execute(
-                    "SELECT id, quantity, seller_username FROM products WHERE LOWER(product_name) = LOWER(%s);",
-                    (product_name,)
-                )
-                row = cur.fetchone()
-
-                if not row:
-                    cur.close()
-                    return False, "Product not found."
-
-                product_id, current_qty, seller_username = row
-
-                if seller_username == buyer_username:
-                    cur.close()
-                    logger.warning(f"Self-purchase attempt by {buyer_username} for {product_name}")
-                    return False, "You cannot purchase your own product."
-
-                if current_qty < quantity:
-                    cur.close()
-                    return False, f"Only {current_qty} left in stock - you asked for {quantity}."
-
-                new_qty = current_qty - quantity
-                cur.execute("UPDATE products SET quantity = %s WHERE id = %s;", (new_qty, product_id))
-                conn.commit()
-                cur.close()
-                logger.info(f"Sale: {buyer_username} purchased {quantity} units of {product_name}")
-                return True, f"Purchase successful! Bought {quantity} unit(s) of {product_name}."
-        except ValueError:
-            return False, "Invalid quantity."
-        except Exception as e:
-            logger.error(f"Error selling product {product_name}: {e}")
-            return False, "We couldn't complete that purchase. Please try again."
-
     def restock_product(self, product_name, quantity, seller_username):
         try:
             quantity = int(quantity)
@@ -866,20 +923,25 @@ class ProductManager:
 
                 product_id = row[0]
 
+                # Block deletion while a customer is mid-checkout, and while a paid
+                # order containing this product has not been shipped yet.
                 cur.execute("""
                     SELECT 1
                     FROM order_items oi
                     JOIN orders o ON o.id = oi.order_id
                     WHERE oi.product_id = %s
-                      AND o.payment_status = 'unpaid'
-                      AND o.status = 'pending'
-                      AND (o.reservation_expires_at IS NULL OR o.reservation_expires_at > CURRENT_TIMESTAMP)
+                      AND (
+                            (o.payment_status = 'unpaid'
+                             AND o.status = 'pending'
+                             AND (o.reservation_expires_at IS NULL OR o.reservation_expires_at > CURRENT_TIMESTAMP))
+                         OR (o.payment_status = 'paid' AND o.status = 'processing')
+                      )
                     LIMIT 1;
                 """, (product_id,))
                 if cur.fetchone():
                     conn.rollback()
                     cur.close()
-                    return False, "This product is currently reserved for a customer checkout and cannot be deleted yet."
+                    return False, "This product is part of an active order (checkout or not yet shipped) and cannot be deleted yet."
 
                 cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
                 conn.commit()
@@ -957,6 +1019,48 @@ def email_already_registered(email):
         return False
 
 
+def release_stale_reservations():
+    """Safety net: cancel unpaid orders whose reservation (plus a grace period)
+    has passed and put their stock back. The Stripe 'expired' webhook normally
+    does this first; this covers a missed or failed webhook delivery."""
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                WITH stale AS (
+                    SELECT id FROM orders
+                    WHERE payment_status = 'unpaid'
+                      AND status = 'pending'
+                      AND reservation_expires_at IS NOT NULL
+                      AND reservation_expires_at < (NOW() AT TIME ZONE 'UTC') - make_interval(mins => %s)
+                    FOR UPDATE SKIP LOCKED
+                ), cancelled AS (
+                    UPDATE orders o
+                    SET status = 'cancelled', reservation_expires_at = NULL
+                    FROM stale
+                    WHERE o.id = stale.id
+                    RETURNING o.id
+                )
+                UPDATE products p
+                SET quantity = p.quantity + s.qty
+                FROM (
+                    SELECT oi.product_id, SUM(oi.quantity) AS qty
+                    FROM order_items oi
+                    JOIN cancelled c ON c.id = oi.order_id
+                    WHERE oi.product_id IS NOT NULL
+                    GROUP BY oi.product_id
+                ) s
+                WHERE p.id = s.product_id;
+            """, (STALE_RESERVATION_GRACE_MINUTES,))
+            released = cur.rowcount
+            conn.commit()
+            cur.close()
+        if released:
+            logger.info("Released stock for %s stale reservation line(s).", released)
+    except Exception:
+        logger.exception("Stale reservation cleanup failed.")
+
+
 # --- ROUTES ---
 
 @app.route('/')
@@ -991,8 +1095,6 @@ def register():
     return api_ok("Account created. Check your email to verify your account before signing in.", 201)
 
 
-# This route was missing entirely - the email links to it, but nothing
-# handled the request, so verification could never actually complete.
 @app.route('/verify-email/<token>')
 def verify_email(token):
     try:
@@ -1023,7 +1125,7 @@ def verify_email(token):
             f"Thanks, {username} - your email is verified. You can close this tab and sign in."
         )
     except Exception as e:
-        logger.error(f"Email verification failed for token {token}: {e}")
+        logger.error(f"Email verification failed: {e}")
         return _verification_page(
             "Something went wrong",
             "We couldn't verify your email right now. Please try the link again shortly.",
@@ -1101,7 +1203,8 @@ def login():
         if success:
             session.clear()
             session['username'] = user.username
-            return api_ok(msg, 200, username=user.username)
+            session['csrf_token'] = secrets.token_urlsafe(32)
+            return api_ok(msg, 200, username=user.username, csrf_token=session['csrf_token'])
         return api_error(msg, 401)
     except Exception as e:
         logger.error(f"Login error for {username}: {e}")
@@ -1115,11 +1218,19 @@ def logout():
 @app.route('/api/session', methods=['GET'])
 def check_session():
     if 'username' in session:
-        return jsonify({"logged_in": True, "username": session['username']}), 200
+        # Sessions created before CSRF protection existed get a token here.
+        if not session.get('csrf_token'):
+            session['csrf_token'] = secrets.token_urlsafe(32)
+        return jsonify({
+            "logged_in": True,
+            "username": session['username'],
+            "csrf_token": session['csrf_token']
+        }), 200
     return jsonify({"logged_in": False}), 200
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
+    release_stale_reservations()
     try:
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -1141,7 +1252,6 @@ def get_products():
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
 
-      
 
 # -----------------------------------------------------------------------------
 # CART API
@@ -1336,7 +1446,10 @@ def clear_cart():
 
 def _create_reserved_order(username):
     """Create an unpaid multi-seller order and reserve stock atomically."""
-    reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+    # Free up stock held by abandoned checkouts before checking availability.
+    release_stale_reservations()
+
+    reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=RESERVATION_MINUTES)
 
     with get_db_connection() as conn:
         cur = conn.cursor()
@@ -1389,14 +1502,58 @@ def _create_reserved_order(username):
     return order_id, total, items, reservation_expires_at
 
 
+def _refund_and_cancel_order(order_id, payment_intent, stripe_session_id):
+    """Refund a paid order that cannot be fulfilled, cancel it, and return its
+    reserved stock to inventory exactly once. Safe to call again on a webhook
+    retry: the Stripe refund uses an idempotency key and the database changes
+    only apply while the order is still marked unpaid."""
+    if payment_intent:
+        stripe.Refund.create(
+            payment_intent=payment_intent,
+            reason='requested_by_customer',
+            idempotency_key=f"bluemart-refund-order-{order_id}"
+        )
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT status, payment_status FROM orders WHERE id = %s FOR UPDATE;",
+            (order_id,)
+        )
+        row = cur.fetchone()
+        if row and row[1] == 'unpaid':
+            current_status = row[0]
+            # If the order was already cancelled, its stock was already released.
+            if current_status != 'cancelled':
+                cur.execute("""
+                    UPDATE products p
+                    SET quantity = p.quantity + s.qty
+                    FROM (
+                        SELECT product_id, SUM(quantity) AS qty
+                        FROM order_items
+                        WHERE order_id = %s AND product_id IS NOT NULL
+                        GROUP BY product_id
+                    ) s
+                    WHERE p.id = s.product_id;
+                """, (order_id,))
+            cur.execute("""
+                UPDATE orders
+                SET status = 'cancelled', payment_status = 'refunded',
+                    reservation_expires_at = NULL, stripe_session_id = %s
+                WHERE id = %s;
+            """, (stripe_session_id, order_id))
+        conn.commit()
+        cur.close()
+
+
 @app.route('/api/orders/create', methods=['POST'])
 @require_login
 def create_order():
-    """Create an unpaid order and reserve its stock for 30 minutes."""
+    """Create an unpaid order and reserve its stock for the reservation window."""
     username = session['username']
     try:
         order_id, total, items, _ = _create_reserved_order(username)
-        return api_ok("Order created and stock reserved for 30 minutes.", order_id=order_id, total=float(total))
+        return api_ok("Order created and stock reserved.", order_id=order_id, total=float(total))
     except ValueError as e:
         return api_error(str(e), 400)
     except Exception as e:
@@ -1507,7 +1664,7 @@ def get_order(order_id):
 @app.route('/api/orders/<int:order_id>/confirm', methods=['POST'])
 @require_login
 def confirm_order_delivery(order_id):
-    """Buyer confirms delivery; held seller payouts become released in the demo ledger."""
+    """Buyer confirms delivery; held seller payouts become released in the payout ledger."""
     username = session['username']
     try:
         with get_db_connection() as conn:
@@ -1518,6 +1675,13 @@ def confirm_order_delivery(order_id):
                 cur.close(); return api_error('Order not found.', 404)
             if order['payment_status'] != 'paid':
                 cur.close(); return api_error('Payment has not been confirmed yet.', 400)
+            if order['status'] == 'completed':
+                cur.close(); return api_ok('This order is already confirmed.')
+
+            # A buyer cannot release payouts while a dispute is being reviewed.
+            cur.execute("SELECT 1 FROM disputes WHERE order_id = %s AND status = 'open' LIMIT 1;", (order_id,))
+            if cur.fetchone():
+                cur.close(); return api_error('This order has an open dispute and cannot be confirmed until it is resolved.', 409)
 
             cur.execute("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'delivered') AS delivered FROM shipments WHERE order_id = %s;", (order_id,))
             shipment_counts = cur.fetchone()
@@ -1633,13 +1797,22 @@ def seller_ship_order(order_id):
             """, (order_id, seller))
             if not cur.fetchone():
                 cur.close(); return api_error('Paid seller order not found.', 404)
+
+            # Only a pending or already-shipped shipment may be (re)saved. Once it
+            # is delivered or confirmed it is locked, so a seller cannot reset a
+            # shipment after the buyer has confirmed it and payout was released.
             cur.execute("""
                 INSERT INTO shipments (order_id, seller_username, provider, tracking_number, status, shipped_at)
                 VALUES (%s, %s, %s, %s, 'shipped', CURRENT_TIMESTAMP)
                 ON CONFLICT (order_id, seller_username) DO UPDATE SET
                     provider = EXCLUDED.provider, tracking_number = EXCLUDED.tracking_number,
-                    status = 'shipped', shipped_at = CURRENT_TIMESTAMP, delivered_at = NULL, confirmed_at = NULL;
+                    status = 'shipped', shipped_at = CURRENT_TIMESTAMP, delivered_at = NULL, confirmed_at = NULL
+                WHERE shipments.status IN ('pending', 'shipped');
             """, (order_id, seller, provider, tracking))
+            if cur.rowcount != 1:
+                conn.rollback(); cur.close()
+                return api_error('This shipment is already delivered or confirmed and can no longer be changed.', 409)
+
             cur.execute("""
                 SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status IN ('shipped','delivered','confirmed')) AS fulfilled
                 FROM shipments WHERE order_id = %s;
@@ -1708,7 +1881,7 @@ def seller_payouts():
 @app.route('/api/create-checkout-session', methods=['POST'])
 @require_login
 def create_checkout_session():
-    """Create a Stripe Checkout session backed by a 30-minute stock reservation."""
+    """Create a Stripe Checkout session backed by a stock reservation."""
     username = session['username']
 
     if not STRIPE_SECRET_KEY:
@@ -1716,6 +1889,7 @@ def create_checkout_session():
     if not BASE_URL:
         return api_error("BASE_URL is not configured yet.", 503)
 
+    order_id = None
     try:
         order_id, total, items, reservation_expires_at = _create_reserved_order(username)
 
@@ -1766,30 +1940,32 @@ def create_checkout_session():
 
         # If Stripe session creation failed after the reservation was made,
         # release the reservation so inventory is not stranded.
-        try:
-            if 'order_id' in locals():
+        if order_id is not None:
+            try:
                 with get_db_connection() as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        SELECT product_id, quantity
-                        FROM order_items
-                        WHERE order_id = %s;
-                    """, (order_id,))
-                    reserved_items = cur.fetchall()
-                    for product_id, qty in reserved_items:
-                        cur.execute(
-                            "UPDATE products SET quantity = quantity + %s WHERE id = %s;",
-                            (qty, product_id)
-                        )
-                    cur.execute("""
                         UPDATE orders
                         SET status = 'cancelled', reservation_expires_at = NULL
-                        WHERE id = %s AND payment_status = 'unpaid';
+                        WHERE id = %s AND payment_status = 'unpaid' AND status <> 'cancelled'
+                        RETURNING id;
                     """, (order_id,))
+                    if cur.fetchone():
+                        cur.execute("""
+                            UPDATE products p
+                            SET quantity = p.quantity + s.qty
+                            FROM (
+                                SELECT product_id, SUM(quantity) AS qty
+                                FROM order_items
+                                WHERE order_id = %s AND product_id IS NOT NULL
+                                GROUP BY product_id
+                            ) s
+                            WHERE p.id = s.product_id;
+                        """, (order_id,))
                     conn.commit()
                     cur.close()
-        except Exception:
-            logger.exception("Failed to release reservation after checkout creation failure for order %s", order_id)
+            except Exception:
+                logger.exception("Failed to release reservation after checkout creation failure for order %s", order_id)
 
         return api_error("We couldn't start the payment process.", 502)
 
@@ -1804,20 +1980,26 @@ def stripe_webhook():
     payload = request.get_data()
     signature = request.headers.get('Stripe-Signature', '')
 
+    # Verify the signature first. Then read the payload as plain JSON: recent
+    # stripe-python versions return StripeObject, which no longer behaves like a
+    # dict (no .get()), so working with a plain dict is version-independent.
     try:
-        event = stripe.Webhook.construct_event(
-            payload, signature, STRIPE_WEBHOOK_SECRET
-        )
+        stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
     except ValueError:
         return '', 400
-    except stripe.error.SignatureVerificationError:
+    except stripe.SignatureVerificationError:
         return '', 400
 
-    event_type = event["type"]
+    try:
+        event = json.loads(payload)
+    except ValueError:
+        return '', 400
+
+    event_type = event.get('type')
     if event_type not in {'checkout.session.completed', 'checkout.session.expired'}:
         return '', 200
 
-    checkout = event['data']['object']
+    checkout = (event.get('data') or {}).get('object') or {}
     metadata = checkout.get('metadata') or {}
     order_id = metadata.get('order_id')
     username = metadata.get('username')
@@ -1825,6 +2007,12 @@ def stripe_webhook():
 
     if not order_id or not username or not stripe_session_id:
         logger.error("Stripe webhook missing order metadata.")
+        return '', 400
+
+    try:
+        order_id = int(order_id)
+    except (TypeError, ValueError):
+        logger.error("Stripe webhook has a non-numeric order id.")
         return '', 400
 
     try:
@@ -1840,7 +2028,7 @@ def stripe_webhook():
                 FROM orders
                 WHERE id = %s
                 FOR UPDATE;
-            """, (int(order_id),))
+            """, (order_id,))
             order = cur.fetchone()
 
             if not order:
@@ -1855,35 +2043,34 @@ def stripe_webhook():
                 cur.close()
                 return '', 403
 
-            # Duplicate completion delivery: already finalized.
-            if event_type == 'checkout.session.completed' and current_payment_status == 'paid':
+            # Duplicate completion delivery: already finalized or already refunded.
+            if event_type == 'checkout.session.completed' and current_payment_status in ('paid', 'refunded'):
                 cur.close()
                 return '', 200
 
             # Expired checkout: release the reserved stock exactly once.
             if event_type == 'checkout.session.expired':
-                if current_payment_status == 'paid':
+                if current_payment_status in ('paid', 'refunded'):
                     cur.close()
                     return '', 200
 
-                cur.execute("""
-                    SELECT product_id, quantity
-                    FROM order_items
-                    WHERE order_id = %s;
-                """, (int(order_id),))
-                items = cur.fetchall()
-
                 if current_status != 'cancelled':
-                    for product_id, qty in items:
-                        cur.execute(
-                            "UPDATE products SET quantity = quantity + %s WHERE id = %s;",
-                            (qty, product_id)
-                        )
+                    cur.execute("""
+                        UPDATE products p
+                        SET quantity = p.quantity + s.qty
+                        FROM (
+                            SELECT product_id, SUM(quantity) AS qty
+                            FROM order_items
+                            WHERE order_id = %s AND product_id IS NOT NULL
+                            GROUP BY product_id
+                        ) s
+                        WHERE p.id = s.product_id;
+                    """, (order_id,))
                     cur.execute("""
                         UPDATE orders
                         SET status = 'cancelled', reservation_expires_at = NULL
                         WHERE id = %s AND payment_status = 'unpaid';
-                    """, (int(order_id),))
+                    """, (order_id,))
 
                 conn.commit()
                 cur.close()
@@ -1894,28 +2081,19 @@ def stripe_webhook():
                 cur.close()
                 return '', 200
 
-            # A paid session must still be within its reservation window. If it is
-            # somehow completed after expiry, do not fulfill it: refund the payment.
+            # A paid session must still hold a live reservation. If the order was
+            # already cancelled (its stock released) or the window has passed, we
+            # cannot fulfil it: refund the payment and restore any held stock.
             now = datetime.datetime.utcnow()
-            if reservation_expires_at and reservation_expires_at < now:
+            if current_status == 'cancelled' or (reservation_expires_at and reservation_expires_at < now):
                 payment_intent = checkout.get('payment_intent')
                 conn.rollback()
                 cur.close()
-                if payment_intent:
-                    try:
-                        stripe.Refund.create(payment_intent=payment_intent, reason='requested_by_customer')
-                    except Exception:
-                        logger.exception("Automatic refund failed for expired paid order %s", order_id)
-                        return '', 500
-                with get_db_connection() as refund_conn:
-                    refund_cur = refund_conn.cursor()
-                    refund_cur.execute("""
-                        UPDATE orders
-                        SET status = 'cancelled', payment_status = 'refunded', reservation_expires_at = NULL, stripe_session_id = %s
-                        WHERE id = %s AND payment_status = 'unpaid';
-                    """, (stripe_session_id, int(order_id)))
-                    refund_conn.commit()
-                    refund_cur.close()
+                try:
+                    _refund_and_cancel_order(order_id, payment_intent, stripe_session_id)
+                except Exception:
+                    logger.exception("Automatic refund failed for late paid order %s", order_id)
+                    return '', 500
                 logger.warning("Paid order %s was outside its reservation window; refunded.", order_id)
                 return '', 200
 
@@ -1927,14 +2105,22 @@ def stripe_webhook():
                 SELECT oi.product_id, oi.quantity, oi.product_name, oi.price, oi.seller_username
                 FROM order_items oi
                 WHERE oi.order_id = %s;
-            """, (int(order_id),))
+            """, (order_id,))
             items = cur.fetchall()
 
+            # A product deleted after payment cannot be fulfilled: refund instead
+            # of leaving the customer charged and the webhook retrying forever.
             if not items or any(product_id is None or not seller for product_id, qty, name, price, seller in items):
+                payment_intent = checkout.get('payment_intent')
                 conn.rollback()
                 cur.close()
-                logger.error("Order %s contains a deleted/missing product.", order_id)
-                return '', 409
+                logger.error("Order %s contains a deleted/missing product; refunding.", order_id)
+                try:
+                    _refund_and_cancel_order(order_id, payment_intent, stripe_session_id)
+                except Exception:
+                    logger.exception("Automatic refund failed for order %s with a missing product", order_id)
+                    return '', 500
+                return '', 200
 
             calculated_total = Decimal('0.00')
             for product_id, qty, name, price, seller in items:
@@ -1961,7 +2147,7 @@ def stripe_webhook():
                     reservation_expires_at = NULL,
                     stripe_session_id = %s
                 WHERE id = %s AND payment_status = 'unpaid';
-            """, (stripe_session_id, int(order_id)))
+            """, (stripe_session_id, order_id))
 
             if cur.rowcount != 1:
                 conn.rollback()
@@ -1982,13 +2168,13 @@ def stripe_webhook():
                     INSERT INTO payouts (order_id, seller_username, gross_amount, platform_fee, payout_amount, status)
                     VALUES (%s, %s, %s, %s, %s, 'held')
                     ON CONFLICT (order_id, seller_username) DO NOTHING;
-                """, (int(order_id), seller, gross, fee, payout_amount))
+                """, (order_id, seller, gross, fee, payout_amount))
 
                 cur.execute("""
                     INSERT INTO shipments (order_id, seller_username, provider, tracking_number, status)
                     VALUES (%s, %s, 'Not selected', 'Not shipped', 'pending')
                     ON CONFLICT (order_id, seller_username) DO NOTHING;
-                """, (int(order_id), seller))
+                """, (order_id, seller))
 
             # Remove only the cart quantities that match the checkout snapshot.
             for product_id, qty, name, price, seller in items:
@@ -2002,7 +2188,7 @@ def stripe_webhook():
 
         if email:
             send_order_confirmation_email(
-                email, username, int(order_id), float(order_total)
+                email, username, order_id, float(order_total)
             )
 
         logger.info("Stripe payment completed for order #%s", order_id)
@@ -2113,17 +2299,6 @@ def delete_product():
     success, msg = pm.delete_product(name, session['username'])
     return jsonify({"success": success, "message": msg}), (200 if success else 400)
 
-@app.route('/api/products/sell', methods=['POST'])
-@require_login
-@validate_json(SellProductSchema)
-def sell_product():
-    name = request.validated_data['name'].strip()
-    quantity = request.validated_data['quantity']
-
-    pm = ProductManager()
-    success, msg = pm.sell_product(name, quantity, session['username'])
-    return jsonify({"success": success, "message": msg}), (200 if success else 400)
-
 @app.route('/api/products/restock', methods=['POST'])
 @require_login
 @validate_json(RestockProductSchema)
@@ -2204,5 +2379,4 @@ except Exception as e:
     logger.error(f"Failed to initialize database on startup: {e}")
 
 if __name__ == '__main__':
-    debug_mode = os.environ.get('FLASK_ENV') == 'development'
-    app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(debug=IS_DEV, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
