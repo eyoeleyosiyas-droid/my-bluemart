@@ -1813,7 +1813,7 @@ def stripe_webhook():
     except stripe.error.SignatureVerificationError:
         return '', 400
 
-    event_type = event.get('type')
+    event_type = event["type"]
     if event_type not in {'checkout.session.completed', 'checkout.session.expired'}:
         return '', 200
 
