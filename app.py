@@ -467,6 +467,41 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_disputes_order ON disputes(order_id, status);")
 
             cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_confirmed_at TIMESTAMP;")
+            cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(255);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_payment_intent ON orders(stripe_payment_intent_id);")
+
+            # Seller trust/profile data and buyer reviews. These are portfolio/demo
+            # features now; real identity verification/KYC can be connected later.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS seller_profiles (
+                    username VARCHAR(100) PRIMARY KEY,
+                    verified BOOLEAN NOT NULL DEFAULT FALSE,
+                    rating_average NUMERIC(3,2) NOT NULL DEFAULT 0,
+                    rating_count INT NOT NULL DEFAULT 0,
+                    completed_orders INT NOT NULL DEFAULT 0,
+                    on_time_shipments INT NOT NULL DEFAULT 0,
+                    total_shipments INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS seller_reviews (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    seller_username VARCHAR(100) NOT NULL,
+                    buyer_username VARCHAR(100) NOT NULL,
+                    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                    review_text TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(order_id, seller_username),
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (seller_username) REFERENCES users(username) ON DELETE CASCADE,
+                    FOREIGN KEY (buyer_username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_reviews_seller ON seller_reviews(seller_username, created_at DESC);")
+
 
             # Newsletter / opt-in subscribers
             cur.execute("""
@@ -545,6 +580,12 @@ class ShipmentSchema(Schema):
 
 class DisputeSchema(Schema):
     reason = fields.Str(required=True, validate=validate.Length(min=5, max=1000))
+
+class ReviewSchema(Schema):
+    seller_username = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    rating = fields.Int(required=True, validate=validate.Range(min=1, max=5))
+    review_text = fields.Str(required=False, allow_none=True, load_default='', validate=validate.Length(max=1000))
+
 
 
 def validate_json(schema_class):
@@ -1855,6 +1896,135 @@ def seller_mark_delivered(order_id):
         return api_error("We couldn't update delivery status.", 500)
 
 
+@app.route('/api/seller/orders/<int:order_id>/cancel', methods=['POST'])
+@require_login
+def seller_cancel_order(order_id):
+    """Seller cannot fulfill: refund the paid order and restore reserved stock."""
+    seller = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT o.id, o.payment_status, o.status, o.stripe_payment_intent_id
+                FROM orders o
+                WHERE o.id = %s AND EXISTS (
+                    SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.seller_username = %s
+                ) FOR UPDATE;
+            """, (order_id, seller))
+            order = cur.fetchone()
+            if not order:
+                cur.close(); return api_error('Seller order not found.', 404)
+            if order['payment_status'] != 'paid':
+                cur.close(); return api_error('Only paid orders can be cancelled here.', 400)
+            if order['status'] in ('shipped', 'delivered', 'completed'):
+                cur.close(); return api_error('This order can no longer be cancelled by the seller.', 409)
+
+            # A multi-seller order is cancelled as a whole in this demo because
+            # Stripe Checkout charged one payment. Partial seller refunds can be
+            # added later with a real marketplace payout provider.
+            payment_intent = order['stripe_payment_intent_id']
+            cur.execute("SELECT product_id, quantity FROM order_items WHERE order_id = %s AND product_id IS NOT NULL;", (order_id,))
+            items = cur.fetchall()
+            conn.rollback(); cur.close()
+
+        if not payment_intent or not STRIPE_SECRET_KEY:
+            return api_error('The payment reference is unavailable, so the refund cannot be started.', 503)
+
+        stripe.Refund.create(payment_intent=payment_intent, reason='requested_by_customer')
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE products p SET quantity = p.quantity + s.qty
+                FROM (SELECT product_id, SUM(quantity) qty FROM order_items WHERE order_id = %s AND product_id IS NOT NULL GROUP BY product_id) s
+                WHERE p.id = s.product_id;
+            """, (order_id,))
+            cur.execute("UPDATE payouts SET status = 'cancelled' WHERE order_id = %s AND status = 'held';", (order_id,))
+            cur.execute("UPDATE shipments SET status = 'cancelled' WHERE order_id = %s AND status = 'pending';", (order_id,))
+            cur.execute("""UPDATE orders SET status = 'cancelled', payment_status = 'refunded', reservation_expires_at = NULL WHERE id = %s;""", (order_id,))
+            conn.commit(); cur.close()
+        return api_ok('Order cancelled and payment refunded. Reserved stock was restored.')
+    except Exception as e:
+        logger.exception('Seller cancellation failed: %s', e)
+        return api_error("We couldn't cancel and refund this order.", 500)
+
+
+@app.route('/api/sellers/<username>', methods=['GET'])
+def seller_profile(username):
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT u.username, COALESCE(sp.verified, FALSE) verified,
+                       COALESCE(sp.rating_average, 0) rating_average, COALESCE(sp.rating_count, 0) rating_count,
+                       COALESCE(sp.completed_orders, 0) completed_orders,
+                       COALESCE(sp.on_time_shipments, 0) on_time_shipments,
+                       COALESCE(sp.total_shipments, 0) total_shipments
+                FROM users u LEFT JOIN seller_profiles sp ON sp.username = u.username
+                WHERE u.username = %s;
+            """, (username,))
+            profile = cur.fetchone()
+            if not profile:
+                cur.close(); return api_error('Seller not found.', 404)
+            cur.execute("""
+                SELECT rating, review_text, buyer_username, created_at
+                FROM seller_reviews WHERE seller_username = %s ORDER BY created_at DESC LIMIT 10;
+            """, (username,))
+            reviews = cur.fetchall(); cur.close()
+        total_shipments = int(profile['total_shipments'])
+        on_time = int(profile['on_time_shipments'])
+        return api_ok('Seller profile loaded.', seller={
+            'username': profile['username'], 'verified': bool(profile['verified']),
+            'rating_average': float(profile['rating_average']), 'rating_count': int(profile['rating_count']),
+            'completed_orders': int(profile['completed_orders']),
+            'on_time_rate': round((on_time / total_shipments) * 100, 1) if total_shipments else 0,
+            'reviews': [{
+                'rating': int(r['rating']), 'review_text': r['review_text'] or '',
+                'buyer_username': r['buyer_username'], 'created_at': r['created_at'].isoformat()
+            } for r in reviews]
+        })
+    except Exception as e:
+        logger.exception('Seller profile failed: %s', e)
+        return api_error("We couldn't load the seller profile.", 500)
+
+
+@app.route('/api/orders/<int:order_id>/review', methods=['POST'])
+@require_login
+@validate_json(ReviewSchema)
+def review_seller(order_id):
+    buyer = session['username']
+    data = request.validated_data
+    seller = data['seller_username'].strip()
+    review_text = (data.get('review_text') or '').strip()
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT payment_status, status FROM orders WHERE id = %s AND username = %s;", (order_id, buyer))
+            order = cur.fetchone()
+            if not order or order[0] != 'paid' or order[1] != 'completed':
+                cur.close(); return api_error('You can review a seller only after the order is completed.', 400)
+            cur.execute("SELECT 1 FROM order_items WHERE order_id = %s AND seller_username = %s LIMIT 1;", (order_id, seller))
+            if not cur.fetchone():
+                cur.close(); return api_error('That seller is not part of this order.', 400)
+            cur.execute("SELECT 1 FROM seller_reviews WHERE order_id = %s AND seller_username = %s;", (order_id, seller))
+            if cur.fetchone():
+                cur.close(); return api_error('You already reviewed this seller for this order.', 409)
+            cur.execute("""INSERT INTO seller_reviews (order_id, seller_username, buyer_username, rating, review_text) VALUES (%s,%s,%s,%s,%s);""", (order_id,seller,buyer,data['rating'],review_text))
+            cur.execute("""
+                INSERT INTO seller_profiles (username) VALUES (%s) ON CONFLICT (username) DO NOTHING;
+                UPDATE seller_profiles sp SET
+                    rating_count = x.cnt, rating_average = x.avg_rating,
+                    completed_orders = (SELECT COUNT(DISTINCT oi.order_id) FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.seller_username=sp.username AND o.status='completed' AND o.payment_status='paid')
+                FROM (SELECT seller_username, COUNT(*) cnt, ROUND(AVG(rating)::numeric,2) avg_rating FROM seller_reviews WHERE seller_username=%s GROUP BY seller_username) x
+                WHERE sp.username=x.seller_username;
+            """, (seller,seller))
+            conn.commit(); cur.close()
+        return api_ok('Seller review submitted.')
+    except Exception as e:
+        logger.exception('Seller review failed: %s', e)
+        return api_error("We couldn't submit the review.", 500)
+
+
 @app.route('/api/seller/payouts', methods=['GET'])
 @require_login
 def seller_payouts():
@@ -2140,14 +2310,16 @@ def stripe_webhook():
                 return '', 409
 
             # Stock was already reserved at order creation. Do NOT decrement it again.
+            payment_intent = checkout.get('payment_intent')
             cur.execute("""
                 UPDATE orders
                 SET status = 'processing',
                     payment_status = 'paid',
                     reservation_expires_at = NULL,
-                    stripe_session_id = %s
+                    stripe_session_id = %s,
+                    stripe_payment_intent_id = %s
                 WHERE id = %s AND payment_status = 'unpaid';
-            """, (stripe_session_id, order_id))
+            """, (stripe_session_id, payment_intent, order_id))
 
             if cur.rowcount != 1:
                 conn.rollback()
@@ -2276,6 +2448,15 @@ def add_product():
 
         pm = ProductManager()
         success, msg = pm.add_product(name, price_val, category, quantity_val, session['username'], image_url)
+        if success:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO seller_profiles (username, verified)
+                    SELECT username, email_verified FROM users WHERE username = %s
+                    ON CONFLICT (username) DO UPDATE SET verified = seller_profiles.verified OR EXCLUDED.verified;
+                """, (session['username'],))
+                conn.commit(); cur.close()
         status_code = 201 if success else 400
         return jsonify({"success": success, "message": msg, "image_url": image_url}), status_code
 
