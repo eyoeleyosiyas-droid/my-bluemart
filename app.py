@@ -1794,20 +1794,9 @@ def create_checkout_session():
         return api_error("We couldn't start the payment process.", 502)
 
 
-@app.route('/api/stripe/webhook', methods=['GET', 'POST'])
+@app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    """Process signed Stripe events and finalize or release inventory reservations.
-
-    Stripe sends POST requests. GET is intentionally supported only as a simple
-    health check so opening the endpoint in a browser does not look like a
-    missing route.
-    """
-    if request.method == 'GET':
-        return jsonify({
-            "success": True,
-            "message": "BlueMart Stripe webhook endpoint is active. Stripe uses POST requests here."
-        }), 200
-
+    """Process signed Stripe events and finalize or release inventory reservations."""
     if not STRIPE_WEBHOOK_SECRET:
         logger.error("STRIPE_WEBHOOK_SECRET is missing.")
         return '', 500
@@ -1829,10 +1818,10 @@ def stripe_webhook():
         return '', 200
 
     checkout = event['data']['object']
-    metadata = checkout['metadata'] or {}
+    metadata = checkout.get('metadata') or {}
     order_id = metadata.get('order_id')
     username = metadata.get('username')
-    stripe_session_id = checkout['id']
+    stripe_session_id = checkout.get('id')
 
     if not order_id or not username or not stripe_session_id:
         logger.error("Stripe webhook missing order metadata.")
@@ -1901,7 +1890,7 @@ def stripe_webhook():
                 logger.info("Stripe checkout expired; reservation released for order #%s", order_id)
                 return '', 200
 
-            if checkout['payment_status'] != 'paid':
+            if checkout.get('payment_status') != 'paid':
                 cur.close()
                 return '', 200
 
@@ -1909,7 +1898,7 @@ def stripe_webhook():
             # somehow completed after expiry, do not fulfill it: refund the payment.
             now = datetime.datetime.utcnow()
             if reservation_expires_at and reservation_expires_at < now:
-                payment_intent = checkout['payment_intent']
+                payment_intent = checkout.get('payment_intent')
                 conn.rollback()
                 cur.close()
                 if payment_intent:
