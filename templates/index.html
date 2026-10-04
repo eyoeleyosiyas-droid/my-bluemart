@@ -310,139 +310,6 @@
         .toast-success { border-left-color: var(--success-glow); }
         .toast-error { border-left-color: var(--danger-glow); }
 
-
-        /* ---------- Marketplace hero / storefront polish ---------- */
-        .marketplace-hero {
-            position: relative;
-            overflow: hidden;
-            display: grid;
-            grid-template-columns: 1.35fr .65fr;
-            gap: 30px;
-            align-items: center;
-            padding: 34px;
-            margin-bottom: 24px;
-            border-radius: 20px;
-            background:
-                radial-gradient(circle at 85% 20%, rgba(91,192,190,.16), transparent 34%),
-                linear-gradient(135deg, rgba(28,37,65,.92), rgba(11,19,41,.82));
-            border: 1px solid rgba(91,192,190,.25);
-            box-shadow: 0 16px 45px rgba(0,0,0,.28);
-        }
-        .marketplace-hero::before {
-            content: '';
-            position: absolute;
-            width: 280px;
-            height: 280px;
-            right: -120px;
-            bottom: -150px;
-            border-radius: 50%;
-            background: rgba(91,192,190,.07);
-            pointer-events: none;
-        }
-        .hero-copy { position: relative; z-index: 1; }
-        .hero-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            margin-bottom: 10px;
-            color: var(--accent-glow);
-            font-size: .72rem;
-            font-weight: 800;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-        }
-        .hero-eyebrow::before {
-            content: '';
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--accent-glow);
-            box-shadow: 0 0 12px rgba(91,192,190,.7);
-        }
-        .marketplace-hero h1 {
-            margin: 0;
-            max-width: 700px;
-            font-size: clamp(2rem, 4vw, 3.25rem);
-            line-height: 1.05;
-            letter-spacing: -1.8px;
-            background: linear-gradient(135deg, #ffffff 15%, var(--accent-glow));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .hero-description {
-            max-width: 650px;
-            margin: 14px 0 20px;
-            color: var(--text-secondary);
-            font-size: .94rem;
-            line-height: 1.65;
-        }
-        .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .hero-actions button {
-            width: auto;
-            margin: 0;
-            padding: 11px 18px;
-        }
-        .hero-actions .hero-secondary {
-            background: transparent;
-            color: var(--accent-glow);
-            border: 1px solid rgba(91,192,190,.45);
-        }
-        .hero-actions .hero-secondary:hover { background: rgba(91,192,190,.1); }
-        .hero-visual {
-            position: relative;
-            z-index: 1;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        .hero-feature {
-            min-height: 105px;
-            padding: 16px;
-            border-radius: 14px;
-            background: rgba(11,19,41,.55);
-            border: 1px solid rgba(255,255,255,.07);
-        }
-        .hero-feature-icon {
-            width: 36px;
-            height: 36px;
-            display: grid;
-            place-items: center;
-            margin-bottom: 10px;
-            border-radius: 10px;
-            background: rgba(91,192,190,.12);
-            color: var(--accent-glow);
-            font-size: 1rem;
-        }
-        .hero-feature strong { display: block; font-size: .78rem; margin-bottom: 4px; }
-        .hero-feature span {
-            color: var(--text-secondary);
-            font-size: .68rem;
-            line-height: 1.35;
-        }
-        .marketplace-heading-row {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 14px;
-        }
-        .marketplace-heading-row .section-subtitle { margin-bottom: 0; }
-        @media (max-width: 900px) {
-            .marketplace-hero { grid-template-columns: 1fr; padding: 28px; }
-            .hero-visual { max-width: 620px; }
-        }
-        @media (max-width: 600px) {
-            .marketplace-hero { padding: 22px; border-radius: 16px; }
-            .marketplace-hero h1 { font-size: 1.85rem; letter-spacing: -1px; }
-            .hero-description { font-size: .82rem; }
-            .hero-actions { flex-direction: column; }
-            .hero-actions button { width: 100%; }
-            .hero-visual { grid-template-columns: 1fr 1fr; gap: 8px; }
-            .hero-feature { min-height: 92px; padding: 12px; }
-            .hero-feature-icon { width: 31px; height: 31px; margin-bottom: 7px; }
-            .marketplace-heading-row { align-items: flex-start; flex-direction: column; gap: 4px; }
-        }
-
         /* ---------- Marketplace controls ---------- */
         .marketplace-controls {
             display: flex;
@@ -984,25 +851,6 @@
             #toast-container { left: 14px; right: 14px; max-width: none; top: 14px; }
         }
     
-/* ---------- Marketplace trust / fulfillment ---------- */
-.trust-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:16px 0 0; }
-.trust-card { padding:13px 14px; border:1px solid var(--border-glow); border-radius:12px; background:rgba(18,28,53,.55); }
-.trust-card strong { display:block; font-size:.82rem; margin-bottom:4px; }
-.trust-card span { color:var(--text-secondary); font-size:.72rem; line-height:1.45; }
-.fulfillment-list { display:grid; gap:14px; margin-top:14px; }
-.fulfillment-card { border:1px solid var(--border-glow); border-radius:13px; padding:15px; background:rgba(11,19,41,.4); }
-.fulfillment-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-.fulfillment-meta { color:var(--text-secondary); font-size:.75rem; line-height:1.5; }
-.fulfillment-items { margin:12px 0; display:grid; gap:7px; }
-.fulfillment-item { display:flex; justify-content:space-between; gap:12px; padding:9px 10px; border-radius:9px; background:rgba(28,37,65,.45); font-size:.8rem; }
-.fulfillment-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-.fulfillment-actions input { margin:0; flex:1 1 150px; min-width:130px; }
-.fulfillment-actions button { width:auto; margin:0; }
-.payout-box { margin-top:12px; padding:10px 12px; border-radius:9px; background:rgba(2,195,154,.07); border:1px solid rgba(2,195,154,.18); font-size:.78rem; line-height:1.55; }
-.protected-note { margin-top:12px; padding:10px 12px; border-radius:9px; background:rgba(91,192,190,.07); border:1px solid rgba(91,192,190,.16); color:var(--text-secondary); font-size:.76rem; line-height:1.5; }
-.order-item-tracking { margin-top:8px; padding:9px 10px; border-left:2px solid var(--accent-glow); background:rgba(91,192,190,.05); font-size:.75rem; color:var(--text-secondary); }
-@media (max-width:700px){ .trust-strip{grid-template-columns:1fr}.fulfillment-item{flex-direction:column;gap:4px} }
-
 /* ---------- Accessibility polish ---------- */
 :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
 .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
@@ -1077,7 +925,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6A1 1 0 0 0 5.6 19H17M17 13v6M9 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0M17 19a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/></svg>
                 Marketplace
             </button>
-            <button class="nav-tab" data-tab="mystore" onclick="switchTab('mystore'); loadSellerOrders()">
+            <button class="nav-tab" data-tab="mystore" onclick="switchTab('mystore')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18M8 13a2 2 0 1 0 4 0"/></svg>
                 My Store
             </button>
@@ -1086,6 +934,9 @@
             </button>
             <button class="nav-tab" data-tab="orders" onclick="switchTab('orders'); loadOrders()">
                 📦 Orders
+            </button>
+            <button class="nav-tab" data-tab="seller" onclick="switchTab('seller'); loadSellerCenter()">
+                🏪 Seller Center
             </button>
             <button class="nav-tab" data-tab="dashboard" onclick="switchTab('dashboard')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V10M10 19V4M16 19v-7M22 19H2"/></svg>
@@ -1096,49 +947,8 @@
         <!-- MARKETPLACE TAB -->
         <div class="tab-panel active" id="tab-marketplace">
             <div class="page-wrap">
-                <section class="marketplace-hero" aria-labelledby="marketplace-hero-title">
-                    <div class="hero-copy">
-                        <div class="hero-eyebrow">BlueMart Marketplace</div>
-                        <h1 id="marketplace-hero-title">Shop smarter. Sell easier.</h1>
-                        <p class="hero-description">
-                            Discover products from the BlueMart community, find what you need,
-                            and manage your own listings — all in one simple marketplace.
-                        </p>
-                        <div class="hero-actions">
-                            <button type="button" onclick="document.getElementById('search-bar').focus()">Explore Products</button>
-                            <button type="button" class="hero-secondary" onclick="switchTab('mystore')">Start Selling</button>
-                        </div>
-                    </div>
-                    <div class="hero-visual" aria-label="BlueMart features">
-                        <div class="hero-feature">
-                            <div class="hero-feature-icon">🛍️</div>
-                            <strong>Easy Shopping</strong>
-                            <span>Browse and add products to your cart in seconds.</span>
-                        </div>
-                        <div class="hero-feature">
-                            <div class="hero-feature-icon">🔒</div>
-                            <strong>Protected Payments</strong>
-                            <span>Payment is held until delivery is confirmed.</span>
-                        </div>
-                        <div class="hero-feature">
-                            <div class="hero-feature-icon">📦</div>
-                            <strong>Track Orders</strong>
-                            <span>Follow seller shipments and confirm delivery.</span>
-                        </div>
-                        <div class="hero-feature">
-                            <div class="hero-feature-icon">☁️</div>
-                            <strong>Cloud Images</strong>
-                            <span>Product photos stay fast and reliable with Cloudinary.</span>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="marketplace-heading-row">
-                    <div>
-                        <h2 class="section-title">Explore Products</h2>
-                        <p class="section-subtitle">Search, filter, and sort the latest listings.</p>
-                    </div>
-                </div>
+                <h1 class="section-title">Marketplace</h1>
+                <p class="section-subtitle">Browse everything for sale. You can buy from any seller except yourself.</p>
 
                 <div class="marketplace-controls">
                     <input type="text" id="search-bar" placeholder="Search products..." oninput="applyMarketplaceFilters()">
@@ -1163,11 +973,6 @@
                 <div class="product-grid" id="marketplace-grid">
                     <!-- cards injected by applyMarketplaceFilters() -->
                 </div>
-                <div class="trust-strip" aria-label="BlueMart marketplace protections">
-                    <div class="trust-card"><strong>🔒 Payment Protected</strong><span>Checkout is handled by Stripe. Seller payout stays held until delivery is confirmed.</span></div>
-                    <div class="trust-card"><strong>📦 Seller Fulfillment</strong><span>Every seller can attach a delivery provider and tracking number to a paid order.</span></div>
-                    <div class="trust-card"><strong>⚖️ Buyer Protection</strong><span>Buyers can confirm delivery or open a dispute when an order has a problem.</span></div>
-                </div>
             </div>
         </div>
 
@@ -1175,7 +980,7 @@
         <div class="tab-panel" id="tab-mystore">
             <div class="page-wrap">
                 <h1 class="section-title">My Store</h1>
-                <p class="section-subtitle">List products, fulfill paid orders, and manage your seller shipments.</p>
+                <p class="section-subtitle">List new products and manage the items you're selling.</p>
 
                 <div class="layout-split">
                     <div>
@@ -1218,20 +1023,6 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="card" style="margin-top:20px;">
-                    <div class="section-header-row">
-                        <div>
-                            <h3 style="margin-bottom:4px;">Seller Fulfillment</h3>
-                            <p class="hint" style="margin:0;">Paid orders are protected. Add delivery details, ship the order, then mark it delivered when the package reaches the buyer.</p>
-                        </div>
-                        <button class="btn-secondary btn-small" onclick="loadSellerOrders()">Refresh</button>
-                    </div>
-                    <div id="seller-orders-list" class="fulfillment-list">
-                        <div class="empty-state">No seller orders yet.</div>
-                    </div>
-                    <div class="protected-note">💰 <strong>Payment protection:</strong> seller payout is held in the BlueMart demo ledger after Stripe payment and released only after the buyer confirms delivery.</div>
-                </div>
             </div>
         </div>
 
@@ -1255,7 +1046,7 @@
                         <div class="summary-row total-row"><span>Total</span><strong id="cart-total">$0.00</strong></div>
                         <button id="checkout-btn" onclick="startCheckout()">Proceed to Checkout</button>
                         <button class="btn-secondary" onclick="clearCart()">Clear Cart</button>
-                        <p class="hint">Payments are processed securely by Stripe. Your payment is recorded as protected until seller fulfillment and delivery confirmation.</p>
+                        <p class="hint">Payments are processed securely by Stripe. BlueMart never stores your card details.</p>
                     </div>
                 </div>
             </div>
@@ -1273,6 +1064,26 @@
                 </div>
                 <div class="card">
                     <div id="orders-list"><div class="empty-state">No orders yet.</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SELLER CENTER TAB -->
+        <div class="tab-panel" id="tab-seller">
+            <div class="page-wrap">
+                <div class="section-head">
+                    <div>
+                        <h1 class="section-title">Seller Center</h1>
+                        <p class="section-subtitle">Manage paid orders, shipping, delivery, and your held/released payout ledger.</p>
+                    </div>
+                    <button class="btn-secondary btn-small" onclick="loadSellerCenter()">Refresh</button>
+                </div>
+                <div id="seller-orders-list"></div>
+                <div class="card" style="margin-top:18px;">
+                    <div class="section-head" style="margin-bottom:10px;">
+                        <div><h2 style="margin:0;">Payout Ledger</h2><p class="section-subtitle">Held until buyer confirmation; released after the delivery workflow is completed.</p></div>
+                    </div>
+                    <div id="seller-payouts-list"><div class="empty-state">No payout records yet.</div></div>
                 </div>
             </div>
         </div>
@@ -1371,8 +1182,8 @@
                 </div>
                 <div class="support-faq" id="support-faq">
                     <button type="button" data-question="How do I add a product to my cart?" data-answer="Open the product you want and select Add to Cart. Then open the Cart tab to change quantities or remove items.">How do I add a product to my cart?</button>
-                    <button type="button" data-question="How does payment work?" data-answer="BlueMart uses Stripe Checkout. Your payment is confirmed by Stripe, then held in the BlueMart marketplace workflow until seller fulfillment and delivery confirmation.">How does payment work?</button>
-                    <button type="button" data-question="Where can I see my orders?" data-answer="After signing in, open Orders to track each seller shipment, view tracking details, confirm delivery, or report a problem.">Where can I see my orders?</button>
+                    <button type="button" data-question="How does payment work?" data-answer="BlueMart uses Stripe Checkout. Select Checkout from your cart and complete the payment on Stripe's secure checkout page.">How does payment work?</button>
+                    <button type="button" data-question="Where can I see my orders?" data-answer="After signing in, open the Orders tab to see your recent orders and payment status.">Where can I see my orders?</button>
                     <button type="button" data-question="Why can't I log in?" data-answer="Check your username and password and make sure your email has been verified. Repeated failed attempts can temporarily lock an account.">Why can't I log in?</button>
                     <button type="button" data-question="How do I contact support?" data-answer="Use the Contact Support button below. Replace the demo support email in index.html with your real BlueMart support email before launch.">How do I contact support?</button>
                 </div>
@@ -1576,7 +1387,6 @@
                 renderMyStore(allProducts);
                 renderCategoryBreakdown();
                 await loadCart();
-                await loadSellerOrders();
 
                 const statsRes = await fetch('/api/statistics/mine');
                 const stats = await parseJSONResponse(statsRes);
@@ -2093,149 +1903,77 @@
             const res = await fetch('/api/orders');
             const data = await parseJSONResponse(res);
             if (!res.ok || !data.success) { showToast(data.message || 'Could not load orders.', 'error'); return; }
-            const container = document.getElementById('orders-list');
-            container.replaceChildren();
+            const container = document.getElementById('orders-list'); container.replaceChildren();
             const orders = Array.isArray(data.orders) ? data.orders : [];
-            if (!orders.length) {
-                const e=document.createElement('div'); e.className='empty-state';
-                e.textContent='You have not placed any orders yet.'; container.appendChild(e); return;
-            }
+            if (!orders.length) { const e=document.createElement('div'); e.className='empty-state'; e.textContent='You have not placed any orders yet.'; container.appendChild(e); return; }
 
+            const steps=['processing','shipped','delivered','completed'];
             orders.forEach(order => {
-                const card=document.createElement('div'); card.className='order-card';
-                const head=document.createElement('div'); head.className='order-head';
+                const card=document.createElement('div'); card.className='market-order-card';
+                const top=document.createElement('div'); top.className='market-order-top';
                 const title=document.createElement('strong'); title.textContent=`Order #${order.id}`;
-                const status=document.createElement('span');
-                status.className=`status-badge ${order.payment_status === 'paid' ? 'status-paid' : 'status-pending'}`;
-                status.textContent=order.payment_status;
-                const date=document.createElement('span'); date.className='order-date'; date.textContent=new Date(order.created_at).toLocaleString();
-                head.append(title,status,date);
-                const total=document.createElement('div'); total.className='order-total'; total.textContent=`Total: $${Number(order.total).toFixed(2)}`;
-                card.append(head,total);
-
-                const itemsWrap=document.createElement('div'); itemsWrap.className='fulfillment-items';
-                (order.items || []).forEach(item => {
-                    const row=document.createElement('div'); row.className='fulfillment-item';
-                    const left=document.createElement('div');
-                    const name=document.createElement('strong'); name.textContent=`${item.product_name} × ${item.quantity}`;
-                    const seller=document.createElement('div'); seller.className='fulfillment-meta'; seller.textContent=`Seller: ${item.seller_username}`;
-                    left.append(name,seller);
-                    const right=document.createElement('div'); right.className='fulfillment-meta';
-                    right.textContent=`${item.shipment_status}${item.provider ? ` • ${item.provider}` : ''}`;
-                    row.append(left,right);
-                    if (item.tracking_number && item.tracking_number !== 'Not shipped') {
-                        const track=document.createElement('div'); track.className='order-item-tracking';
-                        track.textContent=`Tracking: ${item.tracking_number}`;
-                        row.appendChild(track);
-                    }
-                    itemsWrap.appendChild(row);
+                const badge=document.createElement('span'); badge.className='status-badge '+(order.payment_status==='paid'?'status-paid':'status-pending'); badge.textContent=(order.payment_status==='paid' ? order.status : order.payment_status);
+                top.append(title,badge); card.appendChild(top);
+                const timeline=document.createElement('div'); timeline.className='order-timeline';
+                const rank={processing:0,shipped:1,delivered:2,completed:3,disputed:-1,cancelled:-1,refunded:-1};
+                const current=rank[order.status] ?? -1;
+                steps.forEach((step,i)=>{const x=document.createElement('div');x.className='timeline-step'+(current>=i?' active':'');x.textContent=step.replace('_',' ');timeline.appendChild(x);});
+                card.appendChild(timeline);
+                (order.items||[]).forEach(item=>{
+                    const row=document.createElement('div'); row.className='order-item-row';
+                    const left=document.createElement('div'); left.innerHTML=`<strong>${escapeHTML(item.product_name)}</strong><div class="section-subtitle">Seller: ${escapeHTML(item.seller_username)} · Qty ${item.quantity}</div>`;
+                    const right=document.createElement('div'); right.innerHTML=`<strong>$${Number(item.price*item.quantity).toFixed(2)}</strong><div class="section-subtitle">${escapeHTML(item.shipment_status||'pending')}${item.tracking_number && item.tracking_number!=='Not shipped' ? ` · ${escapeHTML(item.tracking_number)}`:''}</div>`;
+                    row.append(left,right); card.appendChild(row);
                 });
-                card.appendChild(itemsWrap);
-
-                const allDelivered = (order.items || []).length > 0 && order.items.every(i => i.shipment_status === 'delivered');
-                const confirmed = Boolean(order.buyer_confirmed_at);
-                if (allDelivered && !confirmed) {
-                    const confirmBtn=document.createElement('button'); confirmBtn.className='btn-small'; confirmBtn.textContent='Confirm Delivery & Release Seller Payout';
-                    confirmBtn.onclick=()=>confirmDelivery(order.id);
-                    card.appendChild(confirmBtn);
-                }
-                if (order.payment_status === 'paid' && !confirmed && order.status !== 'completed') {
-                    const disputeBtn=document.createElement('button'); disputeBtn.className='btn-secondary btn-small'; disputeBtn.style.marginLeft='8px'; disputeBtn.textContent='Report a Problem';
-                    disputeBtn.onclick=()=>openOrderDispute(order.id);
-                    card.appendChild(disputeBtn);
-                }
-                const note=document.createElement('div'); note.className='protected-note';
-                note.textContent = confirmed
-                    ? '✓ Delivery confirmed. Seller payout has been released in the BlueMart ledger.'
-                    : 'Payment is protected while this order is being fulfilled.';
-                card.appendChild(note);
-                container.appendChild(card);
+                const total=document.createElement('div'); total.style.marginTop='14px'; total.innerHTML=`<strong>Total: $${Number(order.total).toFixed(2)}</strong>`; card.appendChild(total);
+                const actions=document.createElement('div'); actions.className='order-actions';
+                if(order.status==='delivered' && order.payment_status==='paid') actions.appendChild(makeAction('Confirm Delivery','success',()=>confirmDelivery(order.id)));
+                if(order.payment_status==='paid' && !['completed','cancelled','disputed'].includes(order.status)) actions.appendChild(makeAction('Report a Problem','danger',()=>openDispute(order.id)));
+                if(order.status==='completed') actions.appendChild(makeAction('Rate Seller', 'secondary',()=>reviewSeller(order)));
+                card.appendChild(actions); container.appendChild(card);
             });
         }
 
-        async function confirmDelivery(orderId) {
-            if (!confirm('Confirm that you received all items in this order? This releases the held seller payout in the BlueMart demo ledger.')) return;
-            const res = await defAPI(`/api/orders/${Number(orderId)}/confirm`, {});
-            const data = await parseJSONResponse(res);
-            showToast(data.message || 'Delivery confirmation failed.', data.success ? 'success' : 'error');
-            if (data.success) await loadOrders();
+        function escapeHTML(value){ const d=document.createElement('div'); d.textContent=value==null?'':String(value); return d.innerHTML; }
+        function makeAction(text,type,fn){ const b=document.createElement('button'); b.className=type==='success'?'btn-primary':type==='danger'?'btn-danger':'btn-secondary'; b.classList.add('btn-small'); b.textContent=text; b.onclick=fn; return b; }
+
+        async function confirmDelivery(orderId){
+            if(!confirm('Confirm that you received every item in this order? This releases the seller payout ledger.')) return;
+            const res=await defAPI(`/api/orders/${orderId}/confirm`,{}); showToast(res.message||'Updated.',res.success?'success':'error'); if(res.success) await loadOrders();
+        }
+        async function openDispute(orderId){
+            const reason=prompt('What is wrong with this order?'); if(!reason) return;
+            const res=await defAPI(`/api/orders/${orderId}/dispute`,{reason}); showToast(res.message||'Updated.',res.success?'success':'error'); if(res.success) await loadOrders();
+        }
+        async function reviewSeller(order){
+            const seller=order.items?.[0]?.seller_username; if(!seller) return;
+            const rating=Number(prompt(`Rate ${seller} from 1 to 5:`)); if(!Number.isInteger(rating)||rating<1||rating>5) return;
+            const review_text=prompt('Optional review:')||'';
+            const res=await defAPI(`/api/orders/${order.id}/review`,{seller_username:seller,rating,review_text}); showToast(res.message||'Updated.',res.success?'success':'error');
         }
 
-        async function openOrderDispute(orderId) {
-            const reason = prompt('Describe the problem with this order:');
-            if (!reason || reason.trim().length < 5) return;
-            const res = await defAPI(`/api/orders/${Number(orderId)}/dispute`, {reason: reason.trim()});
-            const data = await parseJSONResponse(res);
-            showToast(data.message || 'Could not open dispute.', data.success ? 'success' : 'error');
-            if (data.success) await loadOrders();
-        }
-
-        async function loadSellerOrders() {
-            const container = document.getElementById('seller-orders-list');
-            if (!container) return;
-            const res = await fetch('/api/seller/orders');
-            const data = await parseJSONResponse(res);
-            if (!res.ok || !data.success) {
-                showToast(data.message || 'Could not load seller orders.', 'error'); return;
-            }
-            container.replaceChildren();
-            const orders = Array.isArray(data.orders) ? data.orders : [];
-            if (!orders.length) {
-                const e=document.createElement('div'); e.className='empty-state';
-                e.textContent='No paid orders contain your products yet.'; container.appendChild(e); return;
-            }
-
-            orders.forEach(order => {
-                const card=document.createElement('div'); card.className='fulfillment-card';
-                const head=document.createElement('div'); head.className='fulfillment-head';
-                const title=document.createElement('strong'); title.textContent=`Order #${order.id}`;
-                const meta=document.createElement('div'); meta.className='fulfillment-meta';
-                meta.textContent=`Buyer: ${order.buyer_username} • ${order.payment_status} • ${order.shipment_status}`;
-                head.append(title,meta); card.appendChild(head);
-
-                const items=document.createElement('div'); items.className='fulfillment-items';
-                (order.items || []).forEach(item => {
-                    const row=document.createElement('div'); row.className='fulfillment-item';
-                    const left=document.createElement('span'); left.textContent=`${item.product_name} × ${item.quantity}`;
-                    const right=document.createElement('strong'); right.textContent=`$${(Number(item.price)*Number(item.quantity)).toFixed(2)}`;
-                    row.append(left,right); items.appendChild(row);
-                });
-                card.appendChild(items);
-
-                if (order.payout_amount !== null) {
-                    const payout=document.createElement('div'); payout.className='payout-box';
-                    payout.textContent=`Payout: $${Number(order.payout_amount).toFixed(2)} • Platform fee: $${Number(order.platform_fee).toFixed(2)} • ${order.payout_status || 'pending'}`;
-                    card.appendChild(payout);
-                }
-
-                if (order.payment_status === 'paid' && order.shipment_status !== 'confirmed') {
-                    const actions=document.createElement('div'); actions.className='fulfillment-actions';
-                    const provider=document.createElement('input'); provider.placeholder='Delivery provider'; provider.value=order.provider && order.provider !== 'Not selected' ? order.provider : '';
-                    provider.setAttribute('aria-label',`Delivery provider for order ${order.id}`);
-                    const tracking=document.createElement('input'); tracking.placeholder='Tracking number'; tracking.value=order.tracking_number && order.tracking_number !== 'Not shipped' ? order.tracking_number : '';
-                    tracking.setAttribute('aria-label',`Tracking number for order ${order.id}`);
-                    const ship=document.createElement('button'); ship.className='btn-small'; ship.textContent=order.shipment_status === 'pending' ? 'Mark Shipped' : 'Update Shipment';
-                    ship.onclick=async()=>{
-                        if (!provider.value.trim() || !tracking.value.trim()) { showToast('Enter a delivery provider and tracking number.', 'error'); return; }
-                        const res=await defAPI(`/api/seller/orders/${Number(order.id)}/ship`,{provider:provider.value.trim(),tracking_number:tracking.value.trim()});
-                        const data=await parseJSONResponse(res); showToast(data.message || 'Shipment update failed.',data.success?'success':'error');
-                        if(data.success) loadSellerOrders();
-                    };
-                    actions.append(provider,tracking,ship); card.appendChild(actions);
-
-                    if (order.shipment_status === 'shipped') {
-                        const delivered=document.createElement('button'); delivered.className='btn-secondary btn-small'; delivered.style.marginTop='8px'; delivered.textContent='Mark Delivered (Demo)';
-                        delivered.onclick=async()=>{
-                            const res=await defAPI(`/api/seller/orders/${Number(order.id)}/delivered`,{});
-                            const data=await parseJSONResponse(res); showToast(data.message || 'Delivery update failed.',data.success?'success':'error');
-                            if(data.success) loadSellerOrders();
-                        };
-                        card.appendChild(delivered);
-                    }
-                }
-                container.appendChild(card);
+        async function loadSellerCenter(){
+            const res=await fetch('/api/seller/orders'); const data=await parseJSONResponse(res);
+            const box=document.getElementById('seller-orders-list'); box.replaceChildren();
+            if(!res.ok||!data.success){ const e=document.createElement('div');e.className='empty-state';e.textContent=data.message||'Could not load seller orders.';box.appendChild(e);return; }
+            if(!data.orders.length){ const e=document.createElement('div');e.className='empty-state';e.textContent='No paid orders contain your products yet.';box.appendChild(e); }
+            data.orders.forEach(o=>{
+                const card=document.createElement('div');card.className='seller-order-card';
+                card.innerHTML=`<div class="market-order-top"><strong>Order #${o.id}</strong><span class="status-badge status-paid">${escapeHTML(o.payment_status)}</span></div><div class="section-subtitle">Buyer: ${escapeHTML(o.buyer_username)} · Payout: <strong>$${Number(o.payout_amount||0).toFixed(2)}</strong> · <span class="${o.payout_status==='released'?'payout-released':'payout-held'}">${escapeHTML(o.payout_status||'held')}</span></div>`;
+                (o.items||[]).forEach(i=>{const r=document.createElement('div');r.className='order-item-row';r.innerHTML=`<span>${escapeHTML(i.product_name)} × ${i.quantity}</span><strong>$${(Number(i.price)*Number(i.quantity)).toFixed(2)}</strong>`;card.appendChild(r);});
+                const status=document.createElement('div');status.className='section-subtitle';status.style.marginTop='10px';status.textContent=`Shipment: ${o.shipment_status}${o.provider&&o.provider!=='Not selected'?' · '+o.provider:''}${o.tracking_number&&o.tracking_number!=='Not shipped'?' · '+o.tracking_number:''}`;card.appendChild(status);
+                const actions=document.createElement('div');actions.className='order-actions';
+                if(['pending','shipped'].includes(o.shipment_status)){ const form=document.createElement('div');form.className='seller-form';form.innerHTML=`<input class="input-field" id="provider-${o.id}" placeholder="Delivery provider" value="${escapeHTML(o.provider==='Not selected'?'':o.provider||'')}"><input class="input-field" id="tracking-${o.id}" placeholder="Tracking number" value="${escapeHTML(o.tracking_number==='Not shipped'?'':o.tracking_number||'')}">`;const ship=makeAction('Mark Shipped','success',()=>shipSellerOrder(o.id));form.appendChild(ship);actions.appendChild(form);}
+                if(o.shipment_status==='shipped') actions.appendChild(makeAction('Mark Delivered','success',()=>markSellerDelivered(o.id)));
+                if(o.payment_status==='paid' && ['pending','shipped'].includes(o.shipment_status) && o.status!=='disputed') actions.appendChild(makeAction('Cannot Fulfill — Refund','danger',()=>cancelSellerOrder(o.id)));
+                card.appendChild(actions);box.appendChild(card);
             });
+            loadSellerPayouts();
         }
+        async function shipSellerOrder(id){ const provider=document.getElementById(`provider-${id}`)?.value.trim(); const tracking=document.getElementById(`tracking-${id}`)?.value.trim(); if(!provider||!tracking)return showToast('Enter the delivery provider and tracking number.','error'); const res=await defAPI(`/api/seller/orders/${id}/ship`,{provider,tracking_number:tracking});showToast(res.message||'Updated.',res.success?'success':'error');if(res.success)loadSellerCenter(); }
+        async function markSellerDelivered(id){const res=await defAPI(`/api/seller/orders/${id}/delivered`,{});showToast(res.message||'Updated.',res.success?'success':'error');if(res.success)loadSellerCenter();}
+        async function cancelSellerOrder(id){if(!confirm('This will cancel the order and issue a Stripe test-mode refund. Continue?'))return;const res=await defAPI(`/api/seller/orders/${id}/cancel`,{});showToast(res.message||'Updated.',res.success?'success':'error');if(res.success)loadSellerCenter();}
+        async function loadSellerPayouts(){const res=await fetch('/api/seller/payouts');const data=await parseJSONResponse(res);const box=document.getElementById('seller-payouts-list');box.replaceChildren();if(!res.ok||!data.success){box.textContent=data.message||'Could not load payouts.';return;}if(!data.payouts.length){box.textContent='No payout records yet.';return;}data.payouts.forEach(p=>{const row=document.createElement('div');row.className='order-item-row';row.innerHTML=`<span>Order #${p.order_id} · ${p.status}</span><strong>$${Number(p.payout_amount).toFixed(2)}</strong>`;box.appendChild(row);});}
 
         function handlePaymentReturn() {
             const params = new URLSearchParams(window.location.search);
