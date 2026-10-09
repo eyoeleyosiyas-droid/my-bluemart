@@ -2,6 +2,7 @@ import resend
 import secrets
 import datetime
 import json
+import time
 import cloudinary
 import cloudinary.uploader
 import os
@@ -469,9 +470,11 @@ def init_db():
             cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_confirmed_at TIMESTAMP;")
             cur.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(255);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_payment_intent ON orders(stripe_payment_intent_id);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_seller ON order_items(seller_username, order_id);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);")
 
-            # Seller trust/profile data and buyer reviews. These are portfolio/demo
-            # features now; real identity verification/KYC can be connected later.
+            # Seller trust/profile data and buyer reviews.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS seller_profiles (
                     username VARCHAR(100) PRIMARY KEY,
@@ -501,7 +504,6 @@ def init_db():
                 );
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_reviews_seller ON seller_reviews(seller_username, created_at DESC);")
-
 
             # Newsletter / opt-in subscribers
             cur.execute("""
@@ -585,7 +587,6 @@ class ReviewSchema(Schema):
     seller_username = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     rating = fields.Int(required=True, validate=validate.Range(min=1, max=5))
     review_text = fields.Str(required=False, allow_none=True, load_default='', validate=validate.Length(max=1000))
-
 
 
 def validate_json(schema_class):
@@ -1060,10 +1061,18 @@ def email_already_registered(email):
         return False
 
 
-def release_stale_reservations():
+_last_stale_release = 0.0
+
+
+def release_stale_reservations(force=False):
     """Safety net: cancel unpaid orders whose reservation (plus a grace period)
     has passed and put their stock back. The Stripe 'expired' webhook normally
     does this first; this covers a missed or failed webhook delivery."""
+    global _last_stale_release
+    now = time.time()
+    if not force and now - _last_stale_release < 60:
+        return
+    _last_stale_release = now
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
@@ -1288,7 +1297,10 @@ def get_products():
                 )
             rows = cur.fetchall()
             cur.close()
-        return jsonify(rows), 200
+        resp = jsonify(rows)
+        resp.add_etag()
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp.make_conditional(request)
     except Exception as e:
         logger.error(f"Error retrieving products: {e}")
         return api_error("We couldn't load the marketplace right now. Please refresh.", 503)
@@ -1488,7 +1500,7 @@ def clear_cart():
 def _create_reserved_order(username):
     """Create an unpaid multi-seller order and reserve stock atomically."""
     # Free up stock held by abandoned checkouts before checking availability.
-    release_stale_reservations()
+    release_stale_reservations(force=True)
 
     reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=RESERVATION_MINUTES)
 
@@ -1790,12 +1802,15 @@ def seller_orders():
             cur.execute("""
                 SELECT DISTINCT o.id, o.username AS buyer_username, o.total_amount, o.status,
                        o.payment_status, o.created_at,
-                       COALESCE(s.status, 'pending') AS shipment_status, s.provider, s.tracking_number,
+                       COALESCE(s.status, 'pending') AS shipment_status,
+                       NULLIF(s.provider, 'Not selected') AS provider,
+                       NULLIF(s.tracking_number, 'Not shipped') AS tracking_number,
                        p.status AS payout_status, p.gross_amount, p.platform_fee, p.payout_amount
                 FROM orders o
                 JOIN order_items oi ON oi.order_id = o.id AND oi.seller_username = %s
                 LEFT JOIN shipments s ON s.order_id = o.id AND s.seller_username = %s
                 LEFT JOIN payouts p ON p.order_id = o.id AND p.seller_username = %s
+                WHERE o.payment_status = 'paid'
                 ORDER BY o.created_at DESC;
             """, (seller, seller, seller))
             orders = cur.fetchall()
@@ -1899,7 +1914,7 @@ def seller_mark_delivered(order_id):
 @app.route('/api/seller/orders/<int:order_id>/cancel', methods=['POST'])
 @require_login
 def seller_cancel_order(order_id):
-    """Seller cannot fulfill: refund the paid order and restore reserved stock."""
+    """Seller cannot fulfil a single-seller paid order: refund it and restore stock."""
     seller = session['username']
     try:
         with get_db_connection() as conn:
@@ -1916,21 +1931,28 @@ def seller_cancel_order(order_id):
                 cur.close(); return api_error('Seller order not found.', 404)
             if order['payment_status'] != 'paid':
                 cur.close(); return api_error('Only paid orders can be cancelled here.', 400)
-            if order['status'] in ('shipped', 'delivered', 'completed'):
+            if order['status'] in ('shipped', 'delivered', 'completed', 'disputed'):
                 cur.close(); return api_error('This order can no longer be cancelled by the seller.', 409)
 
-            # A multi-seller order is cancelled as a whole in this demo because
-            # Stripe Checkout charged one payment. Partial seller refunds can be
-            # added later with a real marketplace payout provider.
+            # Stripe Checkout took one payment for the whole order, so a single
+            # seller cannot refund only their own items. Multi-seller orders must
+            # go through support until real marketplace payouts exist.
+            cur.execute("SELECT COUNT(DISTINCT seller_username) AS n FROM order_items WHERE order_id = %s;", (order_id,))
+            if cur.fetchone()['n'] > 1:
+                cur.close()
+                return api_error('This order has items from several sellers, so one seller cannot cancel it. Please contact support.', 409)
+
             payment_intent = order['stripe_payment_intent_id']
-            cur.execute("SELECT product_id, quantity FROM order_items WHERE order_id = %s AND product_id IS NOT NULL;", (order_id,))
-            items = cur.fetchall()
             conn.rollback(); cur.close()
 
         if not payment_intent or not STRIPE_SECRET_KEY:
             return api_error('The payment reference is unavailable, so the refund cannot be started.', 503)
 
-        stripe.Refund.create(payment_intent=payment_intent, reason='requested_by_customer')
+        stripe.Refund.create(
+            payment_intent=payment_intent,
+            reason='requested_by_customer',
+            idempotency_key=f"bluemart-seller-cancel-{order_id}"
+        )
 
         with get_db_connection() as conn:
             cur = conn.cursor()
@@ -1941,7 +1963,7 @@ def seller_cancel_order(order_id):
             """, (order_id,))
             cur.execute("UPDATE payouts SET status = 'cancelled' WHERE order_id = %s AND status = 'held';", (order_id,))
             cur.execute("UPDATE shipments SET status = 'cancelled' WHERE order_id = %s AND status = 'pending';", (order_id,))
-            cur.execute("""UPDATE orders SET status = 'cancelled', payment_status = 'refunded', reservation_expires_at = NULL WHERE id = %s;""", (order_id,))
+            cur.execute("UPDATE orders SET status = 'cancelled', payment_status = 'refunded', reservation_expires_at = NULL WHERE id = %s;", (order_id,))
             conn.commit(); cur.close()
         return api_ok('Order cancelled and payment refunded. Reserved stock was restored.')
     except Exception as e:
@@ -1980,7 +2002,9 @@ def seller_profile(username):
             'on_time_rate': round((on_time / total_shipments) * 100, 1) if total_shipments else 0,
             'reviews': [{
                 'rating': int(r['rating']), 'review_text': r['review_text'] or '',
-                'buyer_username': r['buyer_username'], 'created_at': r['created_at'].isoformat()
+                # Public page: show only the first letter of the buyer's name.
+                'buyer_username': (r['buyer_username'][:1] + '***'),
+                'created_at': r['created_at'].isoformat()
             } for r in reviews]
         })
     except Exception as e:
@@ -2009,15 +2033,18 @@ def review_seller(order_id):
             cur.execute("SELECT 1 FROM seller_reviews WHERE order_id = %s AND seller_username = %s;", (order_id, seller))
             if cur.fetchone():
                 cur.close(); return api_error('You already reviewed this seller for this order.', 409)
-            cur.execute("""INSERT INTO seller_reviews (order_id, seller_username, buyer_username, rating, review_text) VALUES (%s,%s,%s,%s,%s);""", (order_id,seller,buyer,data['rating'],review_text))
+            cur.execute("INSERT INTO seller_reviews (order_id, seller_username, buyer_username, rating, review_text) VALUES (%s,%s,%s,%s,%s);",
+                        (order_id, seller, buyer, data['rating'], review_text))
+            cur.execute("INSERT INTO seller_profiles (username) VALUES (%s) ON CONFLICT (username) DO NOTHING;", (seller,))
             cur.execute("""
-                INSERT INTO seller_profiles (username) VALUES (%s) ON CONFLICT (username) DO NOTHING;
                 UPDATE seller_profiles sp SET
                     rating_count = x.cnt, rating_average = x.avg_rating,
-                    completed_orders = (SELECT COUNT(DISTINCT oi.order_id) FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.seller_username=sp.username AND o.status='completed' AND o.payment_status='paid')
-                FROM (SELECT seller_username, COUNT(*) cnt, ROUND(AVG(rating)::numeric,2) avg_rating FROM seller_reviews WHERE seller_username=%s GROUP BY seller_username) x
-                WHERE sp.username=x.seller_username;
-            """, (seller,seller))
+                    completed_orders = (SELECT COUNT(DISTINCT oi.order_id) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                                        WHERE oi.seller_username = sp.username AND o.status = 'completed' AND o.payment_status = 'paid')
+                FROM (SELECT seller_username, COUNT(*) cnt, ROUND(AVG(rating)::numeric, 2) avg_rating
+                      FROM seller_reviews WHERE seller_username = %s GROUP BY seller_username) x
+                WHERE sp.username = x.seller_username;
+            """, (seller,))
             conn.commit(); cur.close()
         return api_ok('Seller review submitted.')
     except Exception as e:
