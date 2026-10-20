@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>BlueMart | Shop &amp; Sell Online</title>
+    <meta name="description" content="BlueMart is an online marketplace to discover products, sell your own and track every order." />
+    <meta name="theme-color" content="#070d1f" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <!-- Apply the saved theme before first paint (dark is the default). Same key as the legal pages. -->
+    <script>
+      (function () {
+        try {
+          var dark = localStorage.getItem('bm_theme') !== 'light';
+          var root = document.documentElement;
+          root.classList.toggle('dark', dark);
+          root.setAttribute('data-theme', dark ? 'dark' : 'light');
+          if (!dark) document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f1f5f9');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
