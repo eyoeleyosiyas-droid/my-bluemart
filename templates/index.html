@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BlueMart</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0f1b2d;
+      --panel-2: #152947;
+      --text: #edf3ff;
+      --muted: #a7b7d6;
+      --accent: #39d0c1;
+      --accent-2: #67c7ff;
+      --danger: #ff6b6b;
+      --success: #2ec27e;
+      --line: rgba(255,255,255,0.08);
+      --shadow: rgba(0,0,0,0.25);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    a { color: var(--accent); }
+    .topbar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7,17,31,0.92);
+      backdrop-filter: blur(10px);
+      z-index: 20;
+    }
+    .brand { font-weight: 800; font-size: 1.5rem; color: var(--text); text-decoration: none; }
+    .brand span { color: var(--accent); }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 700;
+      background: var(--accent); color: #05151d;
+    }
+    .btn.secondary { background: transparent; border: 1px solid var(--line); color: var(--text); }
+    .btn.danger { background: var(--danger); color: white; }
+    .nav {
+      display: flex; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--line);
+      background: rgba(15,27,45,0.9);
+      overflow-x: auto;
+    }
+    .nav button {
+      border: 0; background: transparent; color: var(--muted); padding: 10px 14px; border-radius: 999px;
+      font-weight: 700; cursor: pointer;
+    }
+    .nav button.active {
+      background: var(--accent); color: #07111f;
+    }
+    main { padding: 20px; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .hero {
+      margin-bottom: 18px; padding: 24px; border-radius: 20px; background: linear-gradient(135deg, rgba(57,208,193,0.18), rgba(103,199,255,0.1)); border: 1px solid var(--line);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 3rem); }
+    .hero p { color: var(--muted); margin: 0 0 16px; }
+    .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .controls {
+      display: grid; gap: 12px; margin-bottom: 18px;
+    }
+    .controls input, .controls select {
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.02); color: var(--text);
+    }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      display: inline-block; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+    }
+    .chip.active { background: var(--accent); color: #05151d; border-color: var(--accent); }
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px;
+    }
+    .product {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+      box-shadow: 0 5px 20px var(--shadow);
+    }
+    .product-image {
+      display: grid; place-items: center; height: 180px; background: linear-gradient(135deg, var(--panel-2), var(--panel)); color: var(--muted); font-weight: 700;
+      overflow: hidden;
+    }
+    .product-image img { width: 100%; height: 100%; object-fit: cover; }
+    .product-body { padding: 14px; }
+    .product-row { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .product h3 { margin: 0; font-size: 1rem; }
+    .price { font-size: 1.15rem; font-weight: 800; }
+    .meta { margin-top: 8px; color: var(--muted); font-size: 0.85rem; }
+    .product button { width: 100%; margin-top: 12px; }
+    .empty {
+      padding: 32px; border-radius: 14px; border: 1px dashed var(--line); color: var(--muted); background: rgba(255,255,255,0.02);
+    }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 12px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .cart-drawer {
+      position: fixed; right: 0; top: 0; bottom: 0; width: min(430px, 100%); background: #0d1a2a; border-left: 1px solid var(--line); transform: translateX(110%); transition: transform 0.2s ease; z-index: 100;
+    }
+    .cart-drawer.open { transform: translateX(0); }
+    .cart-header, .cart-footer { padding: 18px; border-bottom: 1px solid var(--line); }
+    .cart-list { padding: 18px; overflow: auto; height: calc(100% - 160px); }
+    .cart-item { display: grid; grid-template-columns: 60px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .cart-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 10px; }
+    .muted { color: var(--muted); }
+    .toast-container { position: fixed; top: 16px; right: 16px; z-index: 200; display: grid; gap: 10px; }
+    .toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 12px 14px; border-radius: 10px; box-shadow: 0 12px 24px var(--shadow); }
+    .toast.error { border-left-color: var(--danger); }
+    dialog {
+      width: min(540px, calc(100vw - 24px)); border-radius: 16px; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 18px; }
+    dialog::backdrop { background: rgba(0,0,0,0.6); }
+    form { display: grid; gap: 10px; }
+    label { font-size: 0.9rem; color: var(--muted); }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.02); color: var(--text);
+    }
+    button[type="submit"] { width: 100%; }
+    .hidden { display: none !important; }
+    #cookie { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, calc(100vw - 20px)); }
+    .cookie-box {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(15,27,45,0.97);
+    }
+    .cookie-box p { margin: 0; color: var(--muted); }
+    @media (max-width: 720px) {
+      .topbar { padding: 10px 14px; }
+      main { padding: 14px; }
+      .cookie-box { flex-direction: column; align-items: stretch; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#">Blue<span>Mart</span></a>
+    <div class="actions">
+      <button class="btn secondary" type="button" id="btn-theme">Theme</button>
+      <button class="btn secondary" type="button" id="btn-cart">Cart <span id="cart-count">0</span></button>
+      <button class="btn" type="button" id="btn-acct">Sign in</button>
+    </div>
+  </header>
+
+  <nav class="nav" aria-label="Main navigation">
+    <button type="button" class="active" data-view="shop">Shop</button>
+    <button type="button" data-view="orders">Orders</button>
+    <button type="button" data-view="sell">Sell</button>
+  </nav>
+
+  <main>
+    <section class="view active" id="v-shop">
+      <div class="hero">
+        <h1>Shop smarter. Sell easier.</h1>
+        <p>Discover trusted products from the BlueMart community.</p>
+        <div class="hero-actions">
+          <button class="btn" type="button" id="hero-browse">Explore products</button>
+          <button class="btn secondary" type="button" id="hero-sell">Start selling</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="search" type="search" placeholder="Search products" aria-label="Search products">
+        <div class="chips" id="category-chips"></div>
+        <div class="row">
+          <span class="muted" id="product-count">0 products</span>
+          <select id="sort-by" aria-label="Sort products">
+            <option value="name">Name A–Z</option>
+            <option value="low">Price: low to high</option>
+            <option value="high">Price: high to low</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="view" id="v-orders">
+      <div id="orders"></div>
+    </section>
+
+    <section class="view" id="v-sell">
+      <div id="sell-body"></div>
+    </section>
+  </main>
+
+  <aside class="cart-drawer" id="cart-drawer" aria-label="Shopping cart">
+    <div class="cart-header row" style="justify-content: space-between;">
+      <h2 style="margin: 0;">Your cart</h2>
+      <button class="btn secondary" type="button" id="close-cart">Close</button>
+    </div>
+    <div class="cart-list" id="cart-list"></div>
+    <div class="cart-footer">
+      <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
+        <strong>Total</strong>
+        <strong id="cart-total">$0.00</strong>
+      </div>
+      <button class="btn" type="button" id="checkout-btn">Checkout with Stripe</button>
+      <button class="btn secondary" type="button" id="clear-cart" style="margin-top: 10px;">Clear cart</button>
+    </div>
+  </aside>
+
+  <div id="cookie" class="hidden">
+    <div class="cookie-box">
+      <p>BlueMart uses a necessary session cookie to keep you signed in. We do not use ad analytics cookies.</p>
+      <button class="btn" type="button" id="cookie-ok">OK</button>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toasts"></div>
+
+  <dialog id="auth-dialog">
+    <h2 style="margin-top: 0;">Welcome to BlueMart</h2>
+    <form id="auth-form">
+      <label for="auth-username">Username</label>
+      <input id="auth-username" name="username" required>
+
+      <div id="auth-email-wrap" class="hidden">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" name="email" type="email">
+      </div>
+
+      <label for="auth-password">Password</label>
+      <input id="auth-password" name="password" type="password" required>
+
+      <div id="auth-consents" class="hidden">
+        <label><input type="checkbox" id="age-check"> I am 18+.</label>
+        <label><input type="checkbox" id="terms-check"> I accept the terms and privacy policy.</label>
+      </div>
+
+      <button type="submit" class="btn" id="auth-submit">Sign in</button>
+      <p class="muted" id="auth-resend" style="display:none;">Didn't get the email? <a href="#" id="resend-link">Resend verification</a></p>
+    </form>
+  </dialog>
+
+  <dialog id="account-dialog">
+    <h2 style="margin-top: 0;">Your account</h2>
+    <p id="account-name" class="muted"></p>
+    <form id="delete-account-form">
+      <label for="delete-password">Confirm password</label>
+      <input id="delete-password" type="password" required>
+      <button class="btn danger" type="submit">Delete my account</button>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog">
+    <h2 id="confirm-title" style="margin-top: 0;">Confirm</h2>
+    <p id="confirm-message" class="muted"></p>
+    <div class="row" style="justify-content: flex-end;">
+      <button class="btn secondary" type="button" id="confirm-cancel">Cancel</button>
+      <button class="btn danger" type="button" id="confirm-ok">Confirm</button>
+    </div>
+  </dialog>
+
+  <dialog id="review-dialog">
+    <h2 style="margin-top: 0;">Rate this seller</h2>
+    <form id="review-form">
+      <label for="review-rating">Rating</label>
+      <select id="review-rating">
+        <option value="5">★★★★★ Excellent</option>
+        <option value="4">★★★★ Great</option>
+        <option value="3">★★★ Okay</option>
+        <option value="2">★★ Poor</option>
+        <option value="1">★ Terrible</option>
+      </select>
+      <label for="review-text">Review</label>
+      <textarea id="review-text" rows="4" placeholder="Optional feedback"></textarea>
+      <button class="btn" type="submit">Submit review</button>
+    </form>
+  </dialog>
+
+  <script>
+    const state = {
+      user: null,
+      csrf: '',
+      products: [],
+      cart: [],
+      mode: 'shop',
+      category: 'all',
+      query: '',
+      sort: 'name',
+      authMode: 'login',
+      cfg: {},
+      pendingReview: null,
+      pendingConfirm: null
+    };
+
+    const money = v => '$' + Number(v || 0).toFixed(2);
+
+    function toast(message, kind = 'info') {
+      const t = document.createElement('div');
+      t.className = 'toast ' + (kind === 'error' ? 'error' : '');
+      t.textContent = message;
+      document.getElementById('toasts').appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    async function api(url, options = {}) {
+      const method = options.method || 'GET';
+      const headers = { ...(options.headers || {}) };
+      const body = options.body;
+      if (method !== 'GET' && state.csrf) headers['X-CSRF-Token'] = state.csrf;
+      if (body instanceof FormData) {
+        const r = await fetch(url, { method, headers, body });
+        return r.json();
+      }
+      if (body && typeof body === 'object') {
+        headers['Content-Type'] = 'application/json';
+        return fetch(url, { method, headers, body: JSON.stringify(body) }).then(r => r.json());
+      }
+      return fetch(url, { method, headers }).then(r => r.json());
+    }
+
+    function setUser(username, csrfToken) {
+      state.user = username;
+      state.csrf = csrfToken || '';
+      document.getElementById('btn-acct').textContent = username || 'Sign in';
+    }
+
+    function showView(view) {
+      state.mode = view;
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `v-${view}`));
+      document.querySelectorAll('[data-view]').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
+      if (view === 'orders') loadOrders();
+      if (view === 'sell') loadSell();
+    }
+
+    function filterProducts() {
+      const list = state.products.filter(p => {
+        const byCategory = state.category === 'all' || p.Category === state.category;
+        const byText = (p['Product Name'] || '').toLowerCase().includes(state.query.toLowerCase());
+        return byCategory && byText;
+      });
+      const sorted = [...list].sort((a, b) => {
+        if (state.sort === 'low') return Number(a.Price) - Number(b.Price);
+        if (state.sort === 'high') return Number(b.Price) - Number(a.Price);
+        return (a['Product Name'] || '').localeCompare(b['Product Name'] || '');
+      });
+      return sorted;
+    }
+
+    function renderProducts() {
+      const list = filterProducts();
+      const grid = document.getElementById('grid');
+      document.getElementById('product-count').textContent = `${list.length} product${list.length === 1 ? '' : 's'}`;
+      grid.innerHTML = '';
+      if (!list.length) {
+        grid.innerHTML = '<div class="empty">No products match your search.</div>';
+        return;
+      }
+
+      for (const product of list) {
+        const article = document.createElement('article');
+        article.className = 'product';
+        const status = Number(product.Quantity) <= 0 ? '<span style="color:#ff6b6b;">Sold out</span>' : Number(product.Quantity) <= 3 ? '<span style="color:#f5d76d;">Only a few left</span>' : '<span style="color:#2ec27e;">In stock</span>';
+        article.innerHTML = `
+          <div class="product-image">
+            ${product.image_url ? `<img src="${product.image_url}" alt="${product['Product Name']}">` : 'No image'}
+          </div>
+          <div class="product-body">
+            <div class="product-row">
+              <h3>${product['Product Name']}</h3>
+              <div class="price">${money(product.Price)}</div>
+            </div>
+            <div class="meta">${product.Category || 'General'} · by ${product.Seller}</div>
+            <div class="meta">${status}</div>
+            <button class="btn" type="button" data-add="${product.id}" ${Number(product.Quantity) <= 0 ? 'disabled' : ''}>Add to cart</button>
+          </div>
+        `;
+        grid.appendChild(article);
+      }
+    }
+
+    async function loadProducts() {
+      const data = await api('/api/products');
+      if (Array.isArray(data)) {
+        state.products = data;
+        renderProducts();
+      } else {
+        toast(data.message || 'Could not load products.', 'error');
+      }
+    }
+
+    function renderCategoryButtons() {
+      const container = document.getElementById('category-chips');
+      const categories = ['all', 'Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Other'];
+      container.innerHTML = '';
+      for (const item of categories) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip ' + (state.category === item ? 'active' : '');
+        btn.textContent = item === 'all' ? 'All' : item;
+        btn.addEventListener('click', () => {
+          state.category = item;
+          renderCategoryButtons();
+          renderProducts();
+        });
+        container.appendChild(btn);
+      }
+    }
+
+    function renderCart() {
+      const cart = document.getElementById('cart-list');
+      const total = state.cart.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
+      document.getElementById('cart-total').textContent = money(total);
+      document.getElementById('cart-count').textContent = state.cart.reduce((sum, item) => sum + Number(item.quantity), 0);
+      if (!state.cart.length) {
+        cart.innerHTML = '<div class="empty">Your cart is empty.</div>';
+        return;
+      }
+      cart.innerHTML = '';
+      for (const item of state.cart) {
+        const row = document.createElement('div');
+        row.className = 'cart-item';
+        row.innerHTML = `
+          <div>${item.image_url ? `<img src="${item.image_url}" alt="${item.product_name}">` : 'IMG'}</div>
+          <div>
+            <strong>${item.product_name}</strong><br>
+            <span class="muted">${money(item.price)} each</span>
+          </div>
+          <div><strong>${money(Number(item.price) * Number(item.quantity))}</strong></div>
+        `;
+        cart.appendChild(row);
+      }
+    }
+
+    async function loadCart() {
+      if (!state.user) {
+        state.cart = [];
+        renderCart();
+        return;
+      }
+      const result = await api('/api/cart');
+      if (result.success) {
+        state.cart = result.items || [];
+        renderCart();
+      } else {
+        toast(result.message || 'Could not load cart.', 'error');
+      }
+    }
+
+    async function addToCart(productId, quantity = 1) {
+      if (!state.user) {
+        toast('Please sign in to add items to your cart.', 'error');
+        openAuth('login');
+        return;
+      }
+      const result = await api('/api/cart/add', { method: 'POST', body: { product_id: Number(productId), quantity: Number(quantity) } });
+      if (result.success) {
+        toast(result.message, 'info');
+        await loadCart();
+        document.getElementById('cart-drawer').classList.add('open');
+      } else {
+        toast(result.message || 'Could not add product.', 'error');
+      }
+    }
+
+    async function checkout() {
+      const result = await api('/api/create-checkout-session', { method: 'POST', body: {} });
+      if (result.success && result.checkout_url) {
+        window.location.href = result.checkout_url;
+      } else {
+        toast(result.message || 'Could not start checkout.', 'error');
+      }
+    }
+
+    function openAuth(mode = 'login') {
+      state.authMode = mode;
+      const form = document.getElementById('auth-form');
+      form.reset();
+      document.getElementById('auth-email-wrap').classList.toggle('hidden', mode !== 'register');
+      document.getElementById('auth-consents').classList.toggle('hidden', mode !== 'register');
+      document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+      document.getElementById('auth-dialog').showModal();
+    }
+
+    async function submitAuth(event) {
+      event.preventDefault();
+      const username = document.getElementById('auth-username').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const email = document.getElementById('auth-email').value.trim();
+      if (!username || !password) {
+        toast('Username and password are required.', 'error');
+        return;
+      }
+      if (state.authMode === 'register' && (!email || !document.getElementById('age-check').checked || !document.getElementById('terms-check').checked)) {
+        toast('Please provide an email and accept the terms.', 'error');
+        return;
+      }
+
+      const payload = state.authMode === 'login'
+        ? { username, password }
+        : { username, password, email, accept_terms: true, age_confirmed: true };
+
+      const result = await api(`/api/${state.authMode}`, { method: 'POST', body: payload });
+      if (result.success) {
+        toast(result.message, 'info');
+        if (state.authMode === 'login') {
+          document.getElementById('auth-dialog').close();
+          setUser(username, result.csrf_token);
+          await loadCart();
+          loadProducts();
+        } else {
+          state.authMode = 'login';
+          openAuth('login');
+        }
+      } else {
+        toast(result.message || 'Authentication failed.', 'error');
+      }
+    }
+
+    async function logout() {
+      await api('/api/logout', { method: 'POST' });
+      setUser(null, '');
+      state.cart = [];
+      renderCart();
+      toast('You have been signed out.', 'info');
+    }
+
+    async function loadOrders() {
+      const el = document.getElementById('orders');
+      if (!state.user) {
+        el.innerHTML = '<div class="empty">Sign in to view your orders.</div>';
+        return;
+      }
+      const result = await api('/api/orders');
+      if (!result.success) {
+        el.innerHTML = `<div class="empty">${result.message}</div>`;
+        return;
+      }
+      const orders = result.orders || [];
+      if (!orders.length) {
+        el.innerHTML = '<div class="empty">No orders yet.</div>';
+        return;
+      }
+      el.innerHTML = '';
+      orders.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h3>Order #${order.id}</h3>
+          <p class="muted">Status: ${order.status} · Total: ${money(order.total)}</p>
+          <ul>${(order.items || []).map(item => `<li>${item.product_name} × ${item.quantity}</li>`).join('')}</ul>
+        `;
+        el.appendChild(card);
+      });
+    }
+
+    async function loadSell() {
+      const root = document.getElementById('sell-body');
+      if (!state.user) {
+        root.innerHTML = '<div class="empty">Sign in to manage your store.</div>';
+        return;
+      }
+      const result = await api('/api/products');
+      const mine = (Array.isArray(result) ? result : []).filter(item => item.Seller === state.user);
+      root.innerHTML = `
+        <div class="card">
+          <h2>My listings</h2>
+          ${mine.length ? mine.map(item => `<div class="row" style="justify-content: space-between; border-bottom: 1px solid var(--line); padding: 10px 0;"><span>${item['Product Name']}</span><span>${money(item.Price)}</span></div>`).join('') : '<p class="muted">You have not listed any products yet.</p>'}
+        </div>
+      `;
+    }
+
+    function initAuth() {
+      document.getElementById('auth-form').addEventListener('submit', submitAuth);
+      document.getElementById('btn-acct').addEventListener('click', () => {
+        if (state.user) {
+          document.getElementById('account-name').textContent = `Signed in as ${state.user}`;
+          document.getElementById('account-dialog').showModal();
+        } else {
+          openAuth('login');
+        }
+      });
+      document.getElementById('resend-link').addEventListener('click', async e => {
+        e.preventDefault();
+        const username = document.getElementById('auth-username').value.trim();
+        if (!username) return toast('Enter your username first.', 'error');
+        const result = await api('/api/resend-verification', { method: 'POST', body: { username } });
+        toast(result.message || 'Verification email sent.', result.success ? 'info' : 'error');
+      });
+      document.getElementById('delete-account-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const password = document.getElementById('delete-password').value;
+        const result = await api('/api/account/delete', { method: 'POST', body: { password } });
+        toast(result.message || 'Account deletion result.', result.success ? 'info' : 'error');
+        if (result.success) {
+          document.getElementById('account-dialog').close();
+          setUser(null, '');
+        }
+      });
+    }
+
+    async function initSession() {
+      const session = await api('/api/session');
+      if (session.logged_in) {
+        setUser(session.username, session.csrf_token);
+      }
+      await loadCart();
+    }
+
+    document.getElementById('btn-theme').addEventListener('click', () => {
+      document.body.style.filter = document.body.style.filter ? '' : 'invert(0.05)';
+      toast('Theme toggle is available; dark mode remains default.', 'info');
+    });
+
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => showView(btn.dataset.view));
+    });
+    document.getElementById('hero-browse').addEventListener('click', () => showView('shop'));
+    document.getElementById('hero-sell').addEventListener('click', () => showView('sell'));
+    document.getElementById('search').addEventListener('input', e => {
+      state.query = e.target.value;
+      renderProducts();
+    });
+    document.getElementById('sort-by').addEventListener('change', e => {
+      state.sort = e.target.value;
+      renderProducts();
+    });
+    document.getElementById('btn-cart').addEventListener('click', () => {
+      document.getElementById('cart-drawer').classList.add('open');
+    });
+    document.getElementById('close-cart').addEventListener('click', () => {
+      document.getElementById('cart-drawer').classList.remove('open');
+    });
+    document.getElementById('checkout-btn').addEventListener('click', checkout);
+    document.getElementById('clear-cart').addEventListener('click', async () => {
+      const result = await api('/api/cart/clear', { method: 'DELETE' });
+      toast(result.message || 'Cart cleared.', result.success ? 'info' : 'error');
+      if (result.success) {
+        state.cart = [];
+        renderCart();
+      }
+    });
+    document.getElementById('grid').addEventListener('click', e => {
+      const target = e.target.closest('[data-add]');
+      if (target) addToCart(target.dataset.add, 1);
+    });
+    document.getElementById('cookie-ok').addEventListener('click', () => {
+      document.getElementById('cookie').classList.add('hidden');
+    });
+
+    async function bootstrap() {
+      renderCategoryButtons();
+      document.getElementById('cookie').classList.remove('hidden');
+      initAuth();
+      await initSession();
+      await loadProducts();
+      renderProducts();
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
