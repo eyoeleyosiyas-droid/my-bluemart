@@ -1,3 +1,5 @@
+import os
+
 # Business details shown in the footer, legal pages and emails. Set these in
 # your hosting environment; the bracketed defaults are visible placeholders.
 BUSINESS = {
