@@ -60,13 +60,14 @@ STRIPE_WEBHOOK_SECRET = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
 stripe.api_key = STRIPE_SECRET_KEY or None
 PLATFORM_FEE_PERCENT = Decimal(os.getenv("PLATFORM_FEE_PERCENT", "5.0"))
 
-# Business details shown in the footer, legal pages and emails. Set these in
-# your hosting environment; the bracketed defaults are visible placeholders.
+# Business details shown in the footer, legal pages and emails. These are
+# mock-up defaults; set the BUSINESS_* / SUPPORT_EMAIL environment variables
+# in your hosting environment to override them.
 BUSINESS = {
-    "name": os.getenv("BUSINESS_NAME", "[Your business name]").strip(),
-    "address": os.getenv("BUSINESS_ADDRESS", "[Your business address]").strip(),
-    "country": os.getenv("BUSINESS_COUNTRY", "[Your country]").strip(),
-    "email": os.getenv("SUPPORT_EMAIL", "[support@yourdomain.com]").strip(),
+    "name": os.getenv("BUSINESS_NAME", "BlueMart").strip(),
+    "address": os.getenv("BUSINESS_ADDRESS", "Addis Ababa").strip(),
+    "country": os.getenv("BUSINESS_COUNTRY", "Ethiopia").strip(),
+    "email": os.getenv("SUPPORT_EMAIL", "eyoeleyosiyas@gmail.com").strip(),
 }
 LEGAL_VERSION = "2026-10-17"
 REFUND_WINDOW_DAYS = os.getenv("REFUND_WINDOW_DAYS", "14").strip()
@@ -1086,7 +1087,7 @@ def email_already_registered(email):
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT 1 FROM users WHERE email = %s;", (email,))
+            cur.execute("SELECT 1 FROM users WHERE LOWER(email) = LOWER(%s);", (email,))
             exists = cur.fetchone() is not None
             cur.close()
             return exists
@@ -1186,7 +1187,9 @@ def index():
 def register():
     username = request.validated_data['username'].strip()
     password = request.validated_data['password']
-    email = request.validated_data['email'].strip()
+    # Emails are stored lowercase so the same address cannot register twice
+    # with different capitalisation.
+    email = request.validated_data['email'].strip().lower()
 
     user = Useraccount(username)
     if not user.is_new:
