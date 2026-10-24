@@ -1935,7 +1935,10 @@ def _thread_access(cur, order_id, username, seller_param):
 
     Threads are keyed by (order, seller). The buyer chooses which seller to talk
     to; a seller can only ever open their own thread. Returns (thread_seller,
-    None) on success or (None, (message, http_status)) on failure."""
+    None) on success or (None, (message, http_status)) on failure.
+
+    NOTE: rows are read by position, so `cur` must be a plain cursor, not a
+    RealDictCursor."""
     cur.execute("SELECT username, payment_status FROM orders WHERE id = %s;", (order_id,))
     order = cur.fetchone()
     if not order:
@@ -1967,10 +1970,15 @@ def get_order_messages(order_id):
     username = session['username']
     try:
         with get_db_connection() as conn:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            seller, err = _thread_access(cur, order_id, username, request.args.get('seller'))
+            # Access check uses a plain cursor (positional rows); the message
+            # query below uses a dict cursor. Mixing them caused a KeyError.
+            plain = conn.cursor()
+            seller, err = _thread_access(plain, order_id, username, request.args.get('seller'))
+            plain.close()
             if err:
-                cur.close(); return api_error(err[0], err[1])
+                return api_error(err[0], err[1])
+
+            cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("""
                 SELECT sender_username, body, created_at FROM (
                     SELECT id, sender_username, body, created_at
@@ -2092,12 +2100,15 @@ def seller_ship_order(order_id):
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
+            # Only paid orders that are still active can be shipped: not
+            # cancelled/refunded, under dispute, or already completed.
             cur.execute("""
                 SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
-                WHERE oi.order_id = %s AND oi.seller_username = %s AND o.payment_status = 'paid';
+                WHERE oi.order_id = %s AND oi.seller_username = %s AND o.payment_status = 'paid'
+                  AND o.status NOT IN ('cancelled', 'disputed', 'completed');
             """, (order_id, seller))
             if not cur.fetchone():
-                cur.close(); return api_error('Paid seller order not found.', 404)
+                cur.close(); return api_error('Paid seller order not found, or it can no longer be shipped (cancelled, disputed or completed).', 404)
 
             # Only a pending or already-shipped shipment may be (re)saved. Once it
             # is delivered or confirmed it is locked, so a seller cannot reset a
@@ -2413,6 +2424,79 @@ def create_checkout_session():
                 logger.exception("Failed to release reservation after checkout creation failure for order %s", order_id)
 
         return api_error("We couldn't start the payment process.", 502)
+
+
+@app.route('/api/orders/<int:order_id>/cancel-checkout', methods=['POST'])
+@require_login
+def cancel_checkout(order_id):
+    """The buyer backed out of Stripe Checkout: expire the session and give the
+    reserved stock back immediately instead of waiting out the reservation window.
+    Safe to call repeatedly; it does nothing once the order is paid or cancelled."""
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT payment_status, status, stripe_session_id FROM orders WHERE id = %s AND username = %s;",
+                (order_id, username)
+            )
+            row = cur.fetchone()
+            cur.close()
+        if not row:
+            return api_error("Order not found.", 404)
+
+        payment_status, status, stripe_session_id = row
+        if payment_status != 'unpaid' or status != 'pending':
+            return api_ok("Nothing to release.")
+
+        # Close the Stripe session first so the buyer cannot pay for an order
+        # whose stock we are about to release.
+        if stripe_session_id and STRIPE_SECRET_KEY:
+            try:
+                stripe.checkout.Session.expire(stripe_session_id)
+            except Exception:
+                # Already completed or expired. If it was actually paid, leave the
+                # order to the webhook; otherwise continue and release it.
+                try:
+                    if stripe.checkout.Session.retrieve(stripe_session_id).payment_status == 'paid':
+                        return api_ok("Your payment is being confirmed.")
+                except Exception:
+                    logger.exception("Could not check Stripe session for order %s", order_id)
+                    return api_error("We couldn't release your items right now.", 502)
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT payment_status, status FROM orders WHERE id = %s AND username = %s FOR UPDATE;",
+                (order_id, username)
+            )
+            current = cur.fetchone()
+            # Status and stock change in one transaction, so the 'expired' webhook
+            # and the stale-reservation sweeper (both skip cancelled orders)
+            # can never release the same stock twice.
+            if current and current[0] == 'unpaid' and current[1] == 'pending':
+                cur.execute("""
+                    UPDATE products p
+                    SET quantity = p.quantity + s.qty
+                    FROM (
+                        SELECT product_id, SUM(quantity) AS qty
+                        FROM order_items
+                        WHERE order_id = %s AND product_id IS NOT NULL
+                        GROUP BY product_id
+                    ) s
+                    WHERE p.id = s.product_id;
+                """, (order_id,))
+                cur.execute("""
+                    UPDATE orders
+                    SET status = 'cancelled', reservation_expires_at = NULL
+                    WHERE id = %s;
+                """, (order_id,))
+            conn.commit()
+            cur.close()
+        return api_ok("Your reserved items were released.")
+    except Exception as e:
+        logger.exception("Cancel checkout failed: %s", e)
+        return api_error("We couldn't release your items right now.", 500)
 
 
 @app.route('/api/stripe/webhook', methods=['POST'])
