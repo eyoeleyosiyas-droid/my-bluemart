@@ -94,6 +94,9 @@ USERNAME_PATTERN = r'^[a-zA-Z0-9_]{3,100}$'
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 
+# Maximum messages stored per order conversation (buyer <-> one seller).
+MAX_MESSAGES_PER_THREAD = 500
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -409,6 +412,19 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_username ON orders(username);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_orders_reservation_expiry ON orders(reservation_expires_at) WHERE payment_status = 'unpaid';")
 
+            # Delivery destination entered by the buyer at checkout. Only the
+            # buyer and the seller(s) of a PAID order can ever read it.
+            for _col, _type in (
+                ("ship_name", "VARCHAR(120)"),
+                ("ship_phone", "VARCHAR(30)"),
+                ("ship_address", "VARCHAR(255)"),
+                ("ship_city", "VARCHAR(100)"),
+                ("ship_region", "VARCHAR(100)"),
+                ("ship_country", "VARCHAR(100)"),
+                ("ship_notes", "VARCHAR(300)"),
+            ):
+                cur.execute(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {_col} {_type};")
+
             # Order items keep a price/name snapshot so old orders do not change
             # when the product is later edited. product_id can become NULL if a
             # product is deleted after the order.
@@ -493,6 +509,23 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_seller ON order_items(seller_username, order_id);")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);")
+
+            # Buyer <-> seller conversation, one thread per (order, seller) so
+            # sellers in a multi-seller order never see each other's messages.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS order_messages (
+                    id SERIAL PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    seller_username VARCHAR(100) NOT NULL,
+                    sender_username VARCHAR(100) NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (seller_username) REFERENCES users(username) ON DELETE CASCADE,
+                    FOREIGN KEY (sender_username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_order_messages_thread ON order_messages(order_id, seller_username, id);")
 
             # Seller trust/profile data and buyer reviews.
             cur.execute("""
@@ -623,6 +656,25 @@ class ReviewSchema(Schema):
     review_text = fields.Str(required=False, allow_none=True, load_default='', validate=validate.Length(max=1000))
 
 
+class ShippingSchema(Schema):
+    """Delivery destination the buyer gives at checkout."""
+    full_name = fields.Str(required=True, validate=validate.Length(min=2, max=120))
+    phone = fields.Str(required=True, validate=validate.Length(min=5, max=30))
+    address = fields.Str(required=True, validate=validate.Length(min=5, max=255))
+    city = fields.Str(required=True, validate=validate.Length(min=2, max=100))
+    region = fields.Str(required=False, allow_none=True, load_default='', validate=validate.Length(max=100))
+    country = fields.Str(required=True, validate=validate.Length(min=2, max=100))
+    notes = fields.Str(required=False, allow_none=True, load_default='', validate=validate.Length(max=300))
+
+
+class CheckoutSchema(Schema):
+    shipping = fields.Nested(ShippingSchema, required=True)
+
+
+class MessageSchema(Schema):
+    body = fields.Str(required=True, validate=validate.Length(min=1, max=1000))
+
+
 def validate_json(schema_class):
     def decorator(f):
         @wraps(f)
@@ -639,6 +691,9 @@ def validate_json(schema_class):
                 # Surface the first concrete field error so the person sees
                 # something actionable instead of a generic message.
                 first_error = next(iter(err.messages.values()))
+                if isinstance(first_error, dict):
+                    # Nested schema (e.g. shipping): dig out the first field message.
+                    first_error = next(iter(first_error.values()))
                 first_message = first_error[0] if isinstance(first_error, list) else str(first_error)
                 return api_error(first_message, 422, errors=err.messages)
             except Exception as e:
@@ -1569,12 +1624,14 @@ def clear_cart():
 # ORDER + PAYMENT API
 # -----------------------------------------------------------------------------
 
-def _create_reserved_order(username):
-    """Create an unpaid multi-seller order and reserve stock atomically."""
+def _create_reserved_order(username, shipping=None):
+    """Create an unpaid multi-seller order and reserve stock atomically.
+    `shipping` is the validated delivery destination entered by the buyer."""
     # Free up stock held by abandoned checkouts before checking availability.
     release_stale_reservations(force=True)
 
     reservation_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=RESERVATION_MINUTES)
+    ship = shipping or {}
 
     with get_db_connection() as conn:
         cur = conn.cursor()
@@ -1601,10 +1658,13 @@ def _create_reserved_order(username):
 
         cur.execute("""
             INSERT INTO orders
-                (username, total_amount, status, payment_status, reservation_expires_at)
-            VALUES (%s, %s, 'pending', 'unpaid', %s)
+                (username, total_amount, status, payment_status, reservation_expires_at,
+                 ship_name, ship_phone, ship_address, ship_city, ship_region, ship_country, ship_notes)
+            VALUES (%s, %s, 'pending', 'unpaid', %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
-        """, (username, total, reservation_expires_at))
+        """, (username, total, reservation_expires_at,
+              ship.get('full_name'), ship.get('phone'), ship.get('address'), ship.get('city'),
+              ship.get('region') or None, ship.get('country'), ship.get('notes') or None))
         order_id = cur.fetchone()[0]
 
         for product_id, qty, name, price, stock, seller in items:
@@ -1694,7 +1754,8 @@ def get_orders():
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("""
-                SELECT id, total_amount, status, payment_status, created_at, buyer_confirmed_at
+                SELECT id, total_amount, status, payment_status, created_at, buyer_confirmed_at,
+                       ship_name, ship_address, ship_city, ship_region, ship_country
                 FROM orders
                 WHERE username = %s
                 ORDER BY created_at DESC;
@@ -1714,6 +1775,10 @@ def get_orders():
                     ORDER BY oi.id;
                 """, (row['id'],))
                 items = cur.fetchall()
+                ship_to = None
+                if row['ship_address']:
+                    ship_to = ", ".join(x for x in (row['ship_name'], row['ship_address'], row['ship_city'],
+                                                     row['ship_region'], row['ship_country']) if x)
                 orders.append({
                     'id': row['id'],
                     'total': float(row['total_amount']),
@@ -1721,6 +1786,7 @@ def get_orders():
                     'payment_status': row['payment_status'],
                     'created_at': row['created_at'].isoformat(),
                     'buyer_confirmed_at': row['buyer_confirmed_at'].isoformat() if row['buyer_confirmed_at'] else None,
+                    'ship_to': ship_to,
                     'items': [{
                         'product_name': i['product_name'],
                         'price': float(i['price']),
@@ -1861,6 +1927,102 @@ def open_dispute(order_id):
 
 
 # -----------------------------------------------------------------------------
+# ORDER MESSAGES (buyer <-> seller)
+# -----------------------------------------------------------------------------
+
+def _thread_access(cur, order_id, username, seller_param):
+    """Work out which conversation this person may open.
+
+    Threads are keyed by (order, seller). The buyer chooses which seller to talk
+    to; a seller can only ever open their own thread. Returns (thread_seller,
+    None) on success or (None, (message, http_status)) on failure."""
+    cur.execute("SELECT username, payment_status FROM orders WHERE id = %s;", (order_id,))
+    order = cur.fetchone()
+    if not order:
+        return None, ("Order not found.", 404)
+    buyer, pay_status = order[0], order[1]
+    if pay_status != 'paid':
+        return None, ("Messaging opens once the order is paid.", 400)
+
+    if username == buyer:
+        seller = (seller_param or '').strip()
+        if not seller:
+            return None, ("Choose a seller to message.", 400)
+        cur.execute("SELECT 1 FROM order_items WHERE order_id = %s AND seller_username = %s LIMIT 1;",
+                    (order_id, seller))
+        if not cur.fetchone():
+            return None, ("That seller is not part of this order.", 400)
+        return seller, None
+
+    cur.execute("SELECT 1 FROM order_items WHERE order_id = %s AND seller_username = %s LIMIT 1;",
+                (order_id, username))
+    if cur.fetchone():
+        return username, None
+    return None, ("Order not found.", 404)
+
+
+@app.route('/api/orders/<int:order_id>/messages', methods=['GET'])
+@require_login
+def get_order_messages(order_id):
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            seller, err = _thread_access(cur, order_id, username, request.args.get('seller'))
+            if err:
+                cur.close(); return api_error(err[0], err[1])
+            cur.execute("""
+                SELECT sender_username, body, created_at FROM (
+                    SELECT id, sender_username, body, created_at
+                    FROM order_messages
+                    WHERE order_id = %s AND seller_username = %s
+                    ORDER BY id DESC LIMIT 200
+                ) t ORDER BY id;
+            """, (order_id, seller))
+            rows = cur.fetchall()
+            cur.close()
+        return api_ok('Messages loaded.', messages=[{
+            'sender': r['sender_username'],
+            'mine': r['sender_username'] == username,
+            'body': r['body'],
+            'created_at': r['created_at'].isoformat()
+        } for r in rows])
+    except Exception as e:
+        logger.exception('Load messages failed: %s', e)
+        return api_error("We couldn't load the messages.", 500)
+
+
+@app.route('/api/orders/<int:order_id>/messages', methods=['POST'])
+@require_login
+@validate_json(MessageSchema)
+def send_order_message(order_id):
+    username = session['username']
+    body = request.validated_data['body'].strip()
+    if not body:
+        return api_error("Message cannot be empty.", 422)
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            seller, err = _thread_access(cur, order_id, username, request.args.get('seller'))
+            if err:
+                cur.close(); return api_error(err[0], err[1])
+            cur.execute("SELECT COUNT(*) FROM order_messages WHERE order_id = %s AND seller_username = %s;",
+                        (order_id, seller))
+            if cur.fetchone()[0] >= MAX_MESSAGES_PER_THREAD:
+                cur.close(); return api_error("This conversation has reached its message limit.", 429)
+            cur.execute("""
+                INSERT INTO order_messages (order_id, seller_username, sender_username, body)
+                VALUES (%s, %s, %s, %s);
+            """, (order_id, seller, username, body))
+            conn.commit()
+            cur.close()
+        return api_ok('Message sent.', 201)
+    except Exception as e:
+        logger.exception('Send message failed: %s', e)
+        return api_error("We couldn't send your message.", 500)
+
+
+# -----------------------------------------------------------------------------
 # SELLER FULFILLMENT + PAYOUT API
 # -----------------------------------------------------------------------------
 
@@ -1874,6 +2036,8 @@ def seller_orders():
             cur.execute("""
                 SELECT DISTINCT o.id, o.username AS buyer_username, o.total_amount, o.status,
                        o.payment_status, o.created_at,
+                       o.ship_name, o.ship_phone, o.ship_address, o.ship_city,
+                       o.ship_region, o.ship_country, o.ship_notes,
                        COALESCE(s.status, 'pending') AS shipment_status,
                        NULLIF(s.provider, 'Not selected') AS provider,
                        NULLIF(s.tracking_number, 'Not shipped') AS tracking_number,
@@ -1891,6 +2055,14 @@ def seller_orders():
                 cur.execute("""SELECT product_name, price, quantity FROM order_items
                                WHERE order_id = %s AND seller_username = %s ORDER BY id;""", (row['id'], seller))
                 items = cur.fetchall()
+                shipping = None
+                if row['ship_address'] and row['status'] != 'cancelled':
+                    shipping = {
+                        'full_name': row['ship_name'], 'phone': row['ship_phone'],
+                        'address': row['ship_address'], 'city': row['ship_city'],
+                        'region': row['ship_region'], 'country': row['ship_country'],
+                        'notes': row['ship_notes'],
+                    }
                 result.append({
                     'id': row['id'], 'buyer_username': row['buyer_username'], 'total': float(row['total_amount']),
                     'status': row['status'], 'payment_status': row['payment_status'],
@@ -1900,6 +2072,7 @@ def seller_orders():
                     'gross_amount': float(row['gross_amount']) if row['gross_amount'] is not None else None,
                     'platform_fee': float(row['platform_fee']) if row['platform_fee'] is not None else None,
                     'payout_amount': float(row['payout_amount']) if row['payout_amount'] is not None else None,
+                    'shipping': shipping,
                     'items': [{'product_name': i['product_name'], 'price': float(i['price']), 'quantity': int(i['quantity'])} for i in items]
                 })
             cur.close()
@@ -2149,9 +2322,12 @@ def seller_payouts():
 
 @app.route('/api/create-checkout-session', methods=['POST'])
 @require_login
+@validate_json(CheckoutSchema)
 def create_checkout_session():
-    """Create a Stripe Checkout session backed by a stock reservation."""
+    """Create a Stripe Checkout session backed by a stock reservation.
+    The buyer's delivery address is required and stored on the order."""
     username = session['username']
+    shipping = request.validated_data['shipping']
 
     if not STRIPE_SECRET_KEY:
         return api_error("Payment system is not configured yet.", 503)
@@ -2160,7 +2336,7 @@ def create_checkout_session():
 
     order_id = None
     try:
-        order_id, total, items, reservation_expires_at = _create_reserved_order(username)
+        order_id, total, items, reservation_expires_at = _create_reserved_order(username, shipping)
 
         line_items = []
         for product_id, qty, name, price, stock, seller in items:
@@ -2558,6 +2734,14 @@ def delete_account():
                 cur.execute("DELETE FROM products WHERE seller_username = %s;", (username,))
                 cur.execute("DELETE FROM seller_profiles WHERE username = %s;", (username,))
                 cur.execute("UPDATE seller_reviews SET review_text = NULL WHERE buyer_username = %s;", (username,))
+                # Delivery addresses and chat text are personal data: wipe them.
+                cur.execute("""
+                    UPDATE orders
+                    SET ship_name = NULL, ship_phone = NULL, ship_address = NULL, ship_city = NULL,
+                        ship_region = NULL, ship_country = NULL, ship_notes = NULL
+                    WHERE username = %s;
+                """, (username,))
+                cur.execute("UPDATE order_messages SET body = '[deleted]' WHERE sender_username = %s;", (username,))
                 cur.execute("""
                     UPDATE users
                     SET email = NULL, email_verified = FALSE, verification_token = NULL,
