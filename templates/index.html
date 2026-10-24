@@ -96,8 +96,11 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .tl .d{color:var(--tx)}.tl .d:before{background:var(--ac);border-color:var(--ac)}.tl .d:after{background:rgba(45,212,191,.6)}
 .grp{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.line{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:.9rem}
 .box{padding:10px 12px;border-radius:12px;background:rgba(7,13,31,.5);border:1px solid var(--line);font-size:.82rem;margin-top:8px;display:grid;gap:4px}
+.addr{white-space:pre-line;overflow-wrap:anywhere}
 .note{padding:10px 12px;border-radius:12px;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.18);color:var(--mut);font-size:.8rem;margin-top:12px}
+.note.warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3)}
 .ship{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;margin-top:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* drawer + dialogs */
 .veil{position:fixed;inset:0;background:rgba(3,6,18,.7);z-index:90;opacity:0;pointer-events:none;transition:opacity .2s}.veil.on{opacity:1;pointer-events:auto}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);z-index:100;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s;visibility:hidden}
@@ -111,13 +114,21 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 .x{position:absolute;right:12px;top:10px;width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.08);font-size:22px;cursor:pointer}
 .pd{display:grid;grid-template-columns:1fr 1fr;gap:22px}.pdi{border-radius:16px;overflow:hidden;background:var(--raise);min-height:240px}.pdi img{width:100%;height:100%;object-fit:cover;display:block}.pdb{display:grid;gap:10px;align-content:start}
 .qty{width:80px}.auth-t{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;margin:12px 0}.auth-t button{min-height:40px;border:0;border-radius:10px;background:transparent;color:var(--mut);font-weight:700;cursor:pointer}.auth-t .on{background:var(--ac);color:#04121a}
-.acts-r{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.acts-r{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:18px}
 #toasts{position:fixed;top:calc(var(--hh) + 10px);right:16px;z-index:200;display:grid;gap:10px;max-width:min(360px,calc(100% - 32px))}
 .toast{padding:13px 16px;border-radius:12px;background:var(--raise);border:1px solid var(--line);border-left:4px solid var(--ac);box-shadow:0 10px 30px rgba(0,0,0,.4);animation:in .25s}.toast.ok{border-left-color:var(--ok)}.toast.bad{border-left-color:var(--bad)}
 @keyframes in{from{opacity:0;transform:translateX(24px)}}
+/* messaging */
+.chat{display:flex;flex-direction:column;gap:8px;height:min(46vh,380px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(7,13,31,.5);margin:12px 0}
+.msg{max-width:84%;padding:8px 12px;border-radius:14px;background:var(--raise);border:1px solid var(--line);font-size:.9rem;white-space:pre-wrap;overflow-wrap:anywhere;align-self:flex-start}
+.msg.me{align-self:flex-end;background:rgba(45,212,191,.16);border-color:rgba(45,212,191,.35)}
+.msg small{display:block;color:var(--mut);font-size:.68rem;margin-top:3px}
+#c-text{min-height:64px}
 /* compliance: footer, cookie notice, consents */
-.foot{border-top:1px solid var(--line);padding:28px max(20px,calc((100vw - 1240px)/2)) 36px;color:var(--mut);font-size:.86rem;display:grid;gap:10px}
+.foot{border-top:1px solid var(--line);padding:28px max(20px,calc((100vw - 1240px)/2)) 36px;color:var(--mut);font-size:.86rem;display:grid;gap:12px}
 .foot nav{display:flex;gap:6px 18px;flex-wrap:wrap}.foot a{color:var(--mut)}.foot a:hover{color:var(--ac)}
+.news{display:grid;gap:4px;max-width:460px}.news b{color:var(--tx)}.news .row{flex-wrap:nowrap}.news .row input{flex:1;min-width:0;width:auto}
+.news .chk{font-size:.78rem;color:var(--mut)}
 .cookie{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:80;width:min(720px,calc(100% - 24px));display:flex;gap:14px;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:16px;background:var(--raise);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:.86rem}
 .cookie p{margin:0;color:#c3cde2}
 .chk{display:flex!important;gap:10px;align-items:flex-start;margin:12px 0 0;color:var(--tx);font-size:.88rem;cursor:pointer}
@@ -137,6 +148,7 @@ body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
 .brand b{font-size:1.1rem}.acts .btn.ghost span.t{display:none}#toasts{left:12px;right:12px;max-width:none}
 }
 @media(max-width:380px){.grid{grid-template-columns:1fr}}
+@media(max-width:440px){.two{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* ================= Photo drop zone ================= */
@@ -156,24 +168,20 @@ html[data-theme="light"] .drop-l{color:var(--ac-t)}
 
 /* ================= Mobile refinements (phones): less crowded ================= */
 @media(max-width:720px){
-  /* header: logo, theme icon, account. Cart lives in the bottom bar. */
   .brand svg{width:30px;height:30px}.brand b{font-size:1.1rem}
   .acts{gap:6px}
   #btn-cart{display:none}
   .theme-toggle{width:40px;padding:0}
   #btn-acct{display:inline-block;line-height:36px;max-width:130px;padding:0 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wrap{padding:14px 14px 28px}
-  /* hero */
   .hero{padding:20px 18px;margin-bottom:18px}
   .hero h1{font-size:1.85rem}
   .hero p{font-size:.92rem;margin:10px 0 16px}
   .hero ul{display:none}
   .hero .row{flex-wrap:nowrap}.hero .row .btn{flex:1;padding:0 12px}
-  /* search, filters, sort on one tidy row */
   .ctl{gap:10px;margin-bottom:14px}
   .bar{flex-direction:row;align-items:center}
   .bar select{width:auto;min-width:0;min-height:40px;padding:6px 10px}
-  /* product cards */
   .grid{gap:10px}
   .pc{border-radius:16px}
   .pb{padding:10px 11px 12px;gap:6px}
@@ -185,7 +193,6 @@ html[data-theme="light"] .drop-l{color:var(--ac-t)}
   .meta span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pc .btn.sm{min-height:36px;font-size:.84rem}
   .tag{left:8px;top:8px;padding:3px 8px;font-size:.68rem}
-  /* other screens */
   .view h1{font-size:1.45rem}
   .top-row{margin-bottom:10px;gap:8px}
   .top-row p{font-size:.86rem}
@@ -197,14 +204,13 @@ html[data-theme="light"] .drop-l{color:var(--ac-t)}
   .line{font-size:.88rem}
   .ci{grid-template-columns:52px 1fr auto;gap:10px}.ci img,.ci .noimg{width:52px;height:52px}
   .drawer{width:100%}
-  /* dialogs become bottom sheets */
   dialog,dialog.wide{width:100%;max-width:100%;margin:auto 0 0;border-radius:22px 22px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:92dvh}
   .pd{gap:14px}.pdi{min-height:180px;max-height:260px}.pdb h2{font-size:1.25rem}.price.big{font-size:1.5rem}
   .x{top:8px;right:8px}.acts-r{margin-top:14px}
-  /* compact cookie notice, footer and bottom bar */
+  .chat{height:min(50vh,360px)}
   .cookie{flex-direction:row;align-items:center;gap:10px;padding:10px 12px;font-size:.78rem;border-radius:14px;bottom:calc(70px + env(safe-area-inset-bottom))}
   .cookie .btn{flex:0 0 auto;min-height:36px;padding:0 16px}
-  .foot{padding:18px 14px 24px;font-size:.8rem;gap:8px}.foot nav{gap:6px 14px}
+  .foot{padding:18px 14px 24px;font-size:.8rem;gap:10px}.foot nav{gap:6px 14px}
   .nav{padding:4px 6px calc(4px + env(safe-area-inset-bottom))}
   .nav button{min-height:50px;font-size:.68rem}.nav svg{width:20px;height:20px}
 }
@@ -217,7 +223,6 @@ html[data-theme="light"] .theme-toggle .lbl-to-dark{display:inline}
 
 html[data-theme="light"]{
   color-scheme:light;
-  /* Soft light theme: page #F1F5F9, cards #FFFFFF, secondary #E2E8F0, brand teal #0F766E */
   --bg:#f1f5f9;--panel:#ffffff;--raise:#ffffff;--line:#e2e8f0;
   --tx:#1e293b;--mut:#58667c;
   --ac:#0f766e;--ac2:#0e7490;--ac-t:#0f766e;
@@ -231,12 +236,10 @@ html[data-theme="light"] a{color:var(--ac-t)}
 html[data-theme="light"] .foot a{color:var(--mut)}
 html[data-theme="light"] .foot a:hover{color:var(--ac-t)}
 html[data-theme="light"] .brand i{color:var(--ac-t)}
-/* header + navigation */
 html[data-theme="light"] .top{background:rgba(255,255,255,.9);box-shadow:0 1px 0 var(--line)}
 html[data-theme="light"] .nav{background:rgba(241,245,249,.92)}
 html[data-theme="light"] .nav button:hover{background:var(--soft)}
 html[data-theme="light"] .nav button.on{color:#fff}
-/* buttons, badges, chips, pills (teal is dark enough for white text) */
 html[data-theme="light"] .btn{color:#fff}
 html[data-theme="light"] .btn:hover{background:#115e59;box-shadow:0 8px 20px rgba(15,118,110,.25)}
 html[data-theme="light"] .btn.ghost{color:var(--ac-t);border-color:rgba(15,118,110,.45);background:transparent}
@@ -256,32 +259,31 @@ html[data-theme="light"] .pill.bad{color:var(--bad);background:rgba(220,38,38,.0
 html[data-theme="light"] .pill.warn{color:var(--warn);background:rgba(180,83,9,.1)}
 html[data-theme="light"] .tabs button{background:#fff}
 html[data-theme="light"] .tabs button.on{color:var(--ac-t);background:rgba(15,118,110,.1);border-color:var(--ac)}
-/* forms */
 html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea{background:#f8fafc;border-color:#cbd5e1}
 html[data-theme="light"] input:focus,html[data-theme="light"] select:focus,html[data-theme="light"] textarea:focus{background:#fff;border-color:var(--ac);box-shadow:0 0 0 4px rgba(15,118,110,.15)}
 html[data-theme="light"] input::placeholder,html[data-theme="light"] textarea::placeholder{color:#64748b}
-/* hero */
 html[data-theme="light"] .hero{border-color:rgba(15,118,110,.22);background:radial-gradient(520px 260px at 95% 0,rgba(15,118,110,.16),transparent 65%),repeating-linear-gradient(0deg,rgba(15,23,42,.03) 0 1px,transparent 1px 40px),repeating-linear-gradient(90deg,rgba(15,23,42,.03) 0 1px,transparent 1px 40px),linear-gradient(135deg,#e3eff0,#e2e8f0)}
 html[data-theme="light"] .hero p{color:#475569}
-/* products */
 html[data-theme="light"] .pc{box-shadow:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04)}
 html[data-theme="light"] .pc:hover{border-color:rgba(15,118,110,.4);box-shadow:0 14px 30px rgba(15,23,42,.1)}
 html[data-theme="light"] .pimg{background:var(--soft)}
 html[data-theme="light"] .tag{background:rgba(255,255,255,.94);box-shadow:0 1px 2px rgba(15,23,42,.12)}
 html[data-theme="light"] .sk{background:linear-gradient(100deg,#e2e8f0 30%,#eef2f7 50%,#e2e8f0 70%);background-size:200% 100%}
 html[data-theme="light"] .ci img,html[data-theme="light"] .ci .noimg,html[data-theme="light"] .pdi{background:var(--soft)}
-/* cards, panels, orders */
 html[data-theme="light"] .card{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.06)}
 html[data-theme="light"] .stats div{background:var(--bg);border-color:var(--line)}
 html[data-theme="light"] .box{background:var(--bg)}
 html[data-theme="light"] .note{background:rgba(15,118,110,.07);border-color:rgba(15,118,110,.2)}
+html[data-theme="light"] .note.warn{background:rgba(180,83,9,.08);border-color:rgba(180,83,9,.25)}
+html[data-theme="light"] .chat{background:var(--bg)}
+html[data-theme="light"] .msg{background:#fff}
+html[data-theme="light"] .msg.me{background:rgba(15,118,110,.1);border-color:rgba(15,118,110,.3)}
 html[data-theme="light"] .tl span{color:#64748b}
 html[data-theme="light"] .tl span:before{background:#fff;border-color:#94a3b8}
 html[data-theme="light"] .tl span:after{background:#cbd5e1}
 html[data-theme="light"] .tl .d{color:var(--tx)}
 html[data-theme="light"] .tl .d:before{background:var(--ac);border-color:var(--ac)}
 html[data-theme="light"] .tl .d:after{background:rgba(15,118,110,.6)}
-/* drawer, dialogs, toasts, cookie notice */
 html[data-theme="light"] .veil{background:rgba(15,23,42,.4)}
 html[data-theme="light"] .drawer{box-shadow:-12px 0 40px rgba(15,23,42,.12)}
 html[data-theme="light"] dialog{box-shadow:0 24px 70px rgba(15,23,42,.25)}
@@ -294,7 +296,6 @@ html[data-theme="light"] .cookie p{color:#334155}
   html[data-theme="light"] .nav{background:rgba(255,255,255,.97)}
   html[data-theme="light"] .nav button.on{background:rgba(15,118,110,.14);color:var(--ac-t)}
 }
-/* smooth cross-fade when the user flips the theme (skipped for reduced motion) */
 @media(prefers-reduced-motion:no-preference){
   html.theme-anim *,html.theme-anim *:before,html.theme-anim *:after{transition:background-color .25s,color .25s,border-color .25s,box-shadow .25s!important}
 }
@@ -335,7 +336,7 @@ html[data-theme="light"] .cookie p{color:#334155}
       <h1>Shop smarter. Sell easier.</h1>
       <p>Discover products from the BlueMart community, or list your own in minutes.</p>
       <div class="row"><button class="btn" type="button" id="hero-browse">Explore products</button><button class="btn ghost" type="button" id="hero-sell">Start selling</button></div>
-      <ul><li>Secure checkout with Stripe</li><li>See each seller's shipping details</li><li>Report a problem from your order</li></ul>
+      <ul><li>Secure checkout with Stripe</li><li>Track every seller's shipment</li><li>Message the seller about your order</li><li>Report a problem from your order</li></ul>
     </div>
     <div class="ctl">
       <input id="q" type="search" placeholder="Search products…" aria-label="Search products" autocomplete="off">
@@ -348,7 +349,7 @@ html[data-theme="light"] .cookie p{color:#334155}
   </section>
 
   <section class="view" id="v-orders" hidden>
-    <div class="top-row"><div><h1>My orders</h1><p class="mut" style="margin:4px 0 0">Follow each seller's shipment and confirm when it arrives.</p></div><button class="btn ghost sm" type="button" id="orders-refresh">Refresh</button></div>
+    <div class="top-row"><div><h1>My orders</h1><p class="mut" style="margin:4px 0 0">Follow each seller's shipment, message them, and confirm when it arrives.</p></div><button class="btn ghost sm" type="button" id="orders-refresh">Refresh</button></div>
     <div id="orders"></div>
   </section>
 
@@ -362,12 +363,17 @@ html[data-theme="light"] .cookie p{color:#334155}
 </main>
 
 <footer class="foot">
+  <form class="news" id="f-news" novalidate>
+    <b>Get BlueMart news</b>
+    <div class="row"><input id="n-email" type="email" placeholder="you@example.com" aria-label="Email address for the newsletter" autocomplete="email"><button class="btn sm" type="submit">Subscribe</button></div>
+    <label class="chk" for="n-ok"><input type="checkbox" id="n-ok"><span>I agree to receive occasional marketing emails from BlueMart. I can unsubscribe at any time. See the <a href="/privacy">Privacy Policy</a>.</span></label>
+  </form>
   <nav aria-label="Legal"><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/refunds">Refund Policy</a><a href="/cookies">Cookie Policy</a><a href="mailto:{{ biz.email }}">Contact</a></nav>
   <div>© {{ year }} {{ biz.name }} · {{ biz.address }} · {{ biz.country }} · <a href="mailto:{{ biz.email }}">{{ biz.email }}</a></div>
 </footer>
 
 <div class="cookie" id="cookie" role="region" aria-label="Cookie notice" hidden>
-  <p>BlueMart uses one essential cookie to keep you signed in and protect your forms. We use no advertising or analytics cookies. <a href="/cookies">Cookie Policy</a></p>
+  <p>BlueMart uses one essential cookie to keep you signed in and protect your forms, and remembers your theme and this notice on your device. We use no advertising or analytics cookies. <a href="/cookies">Cookie Policy</a></p>
   <button class="btn sm" type="button" id="cookie-ok">OK</button>
 </div>
 
@@ -377,9 +383,9 @@ html[data-theme="light"] .cookie p{color:#334155}
   <div class="dl" id="cart-list"></div>
   <div class="df">
     <div class="tot"><span>Total</span><span id="cart-total">$0.00</span></div>
-    <button class="btn full" type="button" id="btn-checkout" disabled>Checkout with Stripe</button>
+    <button class="btn full" type="button" id="btn-checkout" disabled>Checkout</button>
     <button class="link" type="button" id="btn-clear" hidden>Clear cart</button>
-    <p class="mut" style="margin:0;font-size:.78rem">The total is the sum of the listed prices: BlueMart adds no extra fees at checkout (sellers pay our fee). Payments are processed by Stripe; BlueMart never sees your card details. See our <a href="/refunds">Refund Policy</a>.</p>
+    <p class="mut" style="margin:0;font-size:.78rem">Next you'll enter your delivery address, then pay on Stripe. The total is the sum of the listed prices: BlueMart adds no extra fees at checkout (sellers pay our fee). BlueMart never sees your card details. See our <a href="/refunds">Refund Policy</a>.</p>
   </div>
 </aside>
 
@@ -394,7 +400,7 @@ html[data-theme="light"] .cookie p{color:#334155}
       <label class="chk" for="a-age"><input type="checkbox" id="a-age"><span>I am 18 years old or older.</span></label>
       <label class="chk" for="a-terms"><input type="checkbox" id="a-terms"><span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and have read the <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
     </div>
-    <p class="mut" id="a-hint" style="font-size:.78rem" hidden>Letters, numbers and underscores for the username; 6+ characters for the password.</p>
+    <p class="mut" id="a-hint" style="font-size:.78rem" hidden>Letters, numbers and underscores for the username (3+); 6+ characters for the password.</p>
     <button class="btn full" style="margin-top:18px" id="a-go">Sign in</button>
     <p class="mut" id="a-resend" hidden style="font-size:.84rem">Didn't get the email? <a href="#" id="a-resend-l">Resend verification</a></p>
   </form>
@@ -402,12 +408,40 @@ html[data-theme="light"] .cookie p{color:#334155}
 
 <dialog id="dlg-prod" class="wide"></dialog>
 
+<dialog id="dlg-ship"><button class="x" type="button" data-close aria-label="Close">×</button>
+  <h2>Delivery details</h2>
+  <p class="mut" style="font-size:.86rem">Only you and the seller(s) of your paid order can see this. It is used to deliver your items.</p>
+  <form id="f-ship" novalidate>
+    <label for="s-name">Full name</label><input id="s-name" autocomplete="name" maxlength="120" required>
+    <label for="s-phone">Phone number</label><input id="s-phone" type="tel" autocomplete="tel" maxlength="30" required>
+    <label for="s-addr">Street address</label><input id="s-addr" autocomplete="street-address" maxlength="255" required>
+    <div class="two">
+      <div><label for="s-city">City</label><input id="s-city" autocomplete="address-level2" maxlength="100" required></div>
+      <div><label for="s-region">Region / state (optional)</label><input id="s-region" autocomplete="address-level1" maxlength="100"></div>
+    </div>
+    <label for="s-country">Country</label><input id="s-country" autocomplete="country-name" maxlength="100" required>
+    <label for="s-notes">Delivery notes (optional)</label><textarea id="s-notes" maxlength="300" placeholder="Landmarks, gate code, best time to call…" style="min-height:70px"></textarea>
+    <div class="tot" style="margin-top:16px"><span>Total</span><span id="ship-total">$0.00</span></div>
+    <div class="acts-r"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" id="s-go">Continue to payment</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-chat"><button class="x" type="button" data-close aria-label="Close">×</button>
+  <h2 id="c-title">Messages</h2>
+  <p class="mut" style="font-size:.8rem;margin:4px 40px 0 0">Keep payments and personal details on BlueMart. Messages about this order only.</p>
+  <div class="chat" id="c-log" role="log" aria-live="polite" tabindex="0"></div>
+  <form id="f-chat">
+    <label for="c-text" class="mut" style="margin-top:0">Your message</label>
+    <textarea id="c-text" maxlength="1000" placeholder="Write a message… (Enter to send, Shift+Enter for a new line)"></textarea>
+    <div class="acts-r"><span class="mut" id="c-count" style="font-size:.78rem">0/1000</span><button class="btn" id="c-go">Send</button></div>
+  </form></dialog>
+
 <dialog id="dlg-acct"><button class="x" type="button" data-close aria-label="Close">×</button>
   <h2>Your account</h2><p class="mut" id="acct-name"></p>
   <div class="row"><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
   <div class="card" style="margin-top:20px">
     <h2>Delete my account</h2>
-    <p class="mut" style="font-size:.86rem">This removes your email, listings and cart straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.</p>
+    <p class="mut" style="font-size:.86rem">This removes your email, listings, cart and delivery addresses straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.</p>
     <form id="f-del"><label for="del-pass">Confirm your password</label><input id="del-pass" type="password" autocomplete="current-password" required>
       <div class="acts-r"><button class="btn danger">Delete my account</button></div></form>
   </div>
@@ -422,7 +456,7 @@ html[data-theme="light"] .cookie p{color:#334155}
   <form id="f-dispute">
     <label for="d-type">What happened?</label>
     <select id="d-type"><option>Item not received</option><option>Item not as described</option><option>Item damaged</option><option>Other</option></select>
-    <label for="d-text">Tell us more</label><textarea id="d-text" minlength="5" required placeholder="Describe the problem…"></textarea>
+    <label for="d-text">Tell us more</label><textarea id="d-text" minlength="5" maxlength="900" required placeholder="Describe the problem…"></textarea>
     <div class="acts-r"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn danger">Submit report</button></div>
   </form></dialog>
 
@@ -440,12 +474,15 @@ html[data-theme="light"] .cookie p{color:#334155}
 {% raw %}
 'use strict';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null };
+const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, ship: null };
 const CATS = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Other'];
 const money = n => '$' + Number(n || 0).toFixed(2);
 const real = v => (v && v !== 'Not selected' && v !== 'Not shipped') ? v : null;
 const img = (u, w) => u ? u.replace('/upload/', `/upload/f_auto,q_auto,w_${w}/`) : '';
 const debounce = (f, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
+/* The server stores UTC timestamps without a timezone suffix; add one so the browser shows the person's local time. */
+const when = s => new Date(/(Z|[+-]\d\d:?\d\d)$/i.test(s) ? s : s + 'Z');
+const stamp = s => when(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
 function h(tag, props, ...kids) {
   const e = document.createElement(tag);
@@ -533,7 +570,7 @@ async function submitAuth(e) {
   toast(r.message, r.success ? 'ok' : 'bad');
   $('#a-resend').hidden = !(!r.success && /verify your email/i.test(r.message || ''));
   if (!r.success) return;
-  if (S.auth === 'register') return setAuthTab('login');
+  if (S.auth === 'register') { $('#a-pass').value = ''; return setAuthTab('login'); }
   $('#dlg-auth').close(); $('#f-auth').reset();
   setUser(username, r.csrf_token);
   await Promise.all([loadCart(), refreshProducts()]);
@@ -599,7 +636,11 @@ function openProduct(id) {
   d.showModal();
   api('/api/sellers/' + encodeURIComponent(p.Seller)).then(r => {
     if (!r.success) return; const s = r.seller;
-    rate.textContent = (s.verified ? '✓ Email-verified · ' : '') + (s.rating_count ? `★ ${s.rating_average.toFixed(1)} (${s.rating_count})` : 'No reviews yet');
+    const parts = [];
+    if (s.verified) parts.push('✓ Email-verified');
+    parts.push(s.rating_count ? `★ ${s.rating_average.toFixed(1)} (${s.rating_count})` : 'No reviews yet');
+    if (s.completed_orders) parts.push(`${s.completed_orders} completed order${s.completed_orders === 1 ? '' : 's'}`);
+    rate.textContent = parts.join(' · ');
   });
 }
 
@@ -631,16 +672,38 @@ function cartRow(i) {
       h('button', { class: 'link', type: 'button', on: { click: async () => { const r = await api('/api/cart/remove/' + i.product_id, { method: 'DELETE' }); toast(r.message, r.success ? 'ok' : 'bad'); loadCart(); } } }, 'Remove')),
     h('div', { style: 'text-align:right' }, qty, h('div', { style: 'font-weight:700;margin-top:6px' }, money(i.subtotal))));
 }
-async function checkout() {
-  const b = $('#btn-checkout'); b.disabled = true; b.textContent = 'Preparing checkout…';
-  const r = await api('/api/create-checkout-session', { method: 'POST', body: {} });
+
+/* ---------- checkout: delivery address -> Stripe ---------- */
+function openShipping() {
+  if (!S.user) return openAuth('login');
+  if (!S.cart.items.length) return;
+  closeCart();
+  const f = S.ship || {};   // remembered for this visit only, never written to storage
+  $('#s-name').value = f.full_name || ''; $('#s-phone').value = f.phone || ''; $('#s-addr').value = f.address || '';
+  $('#s-city').value = f.city || ''; $('#s-region').value = f.region || ''; $('#s-country').value = f.country || ''; $('#s-notes').value = f.notes || '';
+  $('#ship-total').textContent = money(S.cart.total);
+  const b = $('#s-go'); b.disabled = false; b.textContent = 'Continue to payment';
+  $('#dlg-ship').showModal(); setTimeout(() => $('#s-name').focus(), 50);
+}
+async function submitShipping(e) {
+  e.preventDefault();
+  const v = id => $(id).value.trim();
+  const shipping = { full_name: v('#s-name'), phone: v('#s-phone'), address: v('#s-addr'), city: v('#s-city'), region: v('#s-region'), country: v('#s-country'), notes: v('#s-notes') };
+  const need = [['full_name', 'name', 2], ['phone', 'phone number', 5], ['address', 'street address', 5], ['city', 'city', 2], ['country', 'country', 2]];
+  for (const [k, label, min] of need) if (shipping[k].length < min) return toast(`Please enter a valid ${label}.`, 'bad');
+  S.ship = shipping;
+  const b = $('#s-go'); b.disabled = true; b.textContent = 'Preparing checkout…';
+  const r = await api('/api/create-checkout-session', { method: 'POST', body: { shipping } });
   if (r.success && r.checkout_url) { location.href = r.checkout_url; return; }
-  toast(r.message || 'Could not start checkout.', 'bad'); b.disabled = false; b.textContent = 'Checkout with Stripe';
+  toast(r.message || 'Could not start checkout.', 'bad');
+  b.disabled = false; b.textContent = 'Continue to payment';
+  loadCart(); refreshProducts();   // stock may have changed
 }
 
 /* ---------- buyer orders ---------- */
 function orderState(o) {
-  if (o.status === 'cancelled' || o.payment_status === 'refunded') return ['Refunded', 'bad'];
+  if (o.payment_status === 'refunded') return ['Refunded', 'bad'];
+  if (o.status === 'cancelled') return ['Cancelled', 'bad'];
   if (o.status === 'disputed') return ['Dispute open', 'bad'];
   if (o.status === 'completed') return ['Completed', 'ok'];
   if (o.payment_status !== 'paid') return ['Awaiting payment', 'warn'];
@@ -663,30 +726,75 @@ async function loadOrders() {
 }
 function orderCard(o) {
   const [label, cls] = orderState(o), groups = {};
+  const paid = o.payment_status === 'paid', closed = ['cancelled', 'refunded'].includes(o.status) || o.payment_status === 'refunded';
   o.items.forEach(i => (groups[i.seller_username || 'Seller'] ||= []).push(i));
   const card = h('section', { class: 'card' },
-    h('div', { class: 'top-row' }, h('div', {}, h('b', {}, 'Order #' + o.id), h('div', { class: 'mut', style: 'font-size:.8rem' }, new Date(o.created_at).toLocaleString())), h('span', { class: 'pill ' + cls }, label)),
-    timeline(o));
+    h('div', { class: 'top-row' }, h('div', {}, h('b', {}, 'Order #' + o.id), h('div', { class: 'mut', style: 'font-size:.8rem' }, stamp(o.created_at))), h('span', { class: 'pill ' + cls }, label)),
+    paid && !closed ? timeline(o) : null);
+  if (o.ship_to) card.append(h('div', { class: 'box' }, h('span', { class: 'mut' }, 'Delivering to'), h('b', { class: 'addr', style: 'color:var(--tx)' }, o.ship_to)));
   Object.entries(groups).forEach(([seller, items]) => {
     const it = items[0], sh = it.shipment_status || 'pending';
-    card.append(h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, 'Seller: ' + seller), h('span', { class: 'mut' }, sh.replace('_', ' '))),
+    card.append(h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, 'Seller: ' + seller), paid && !closed ? h('span', { class: 'mut' }, sh.replace('_', ' ')) : null),
       ...items.map(i => h('div', { class: 'line' }, h('span', {}, `${i.product_name} × ${i.quantity}`), h('b', {}, money(i.price * i.quantity)))),
-      h('div', { class: 'box' }, h('span', { class: 'mut' }, 'Provider: ', h('b', { style: 'color:var(--tx)' }, real(it.provider) || 'Not added yet')), h('span', { class: 'mut' }, 'Tracking: ', h('b', { style: 'color:var(--tx)' }, real(it.tracking_number) || 'Waiting for seller'))),
-      o.status === 'completed' ? h('button', { class: 'btn ghost sm', style: 'margin-top:10px', type: 'button', on: { click: () => openReview(o.id, seller) } }, 'Rate ' + seller) : null));
+      paid && !closed ? h('div', { class: 'box' }, h('span', { class: 'mut' }, 'Provider: ', h('b', { style: 'color:var(--tx)' }, real(it.provider) || 'Not added yet')), h('span', { class: 'mut' }, 'Tracking: ', h('b', { style: 'color:var(--tx)' }, real(it.tracking_number) || 'Waiting for seller'))) : null,
+      paid && !closed ? h('div', { class: 'row', style: 'margin-top:10px' },
+        h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, seller, seller) } }, 'Message ' + seller),
+        o.status === 'completed' ? h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openReview(o.id, seller) } }, 'Rate ' + seller) : null) : null));
   });
   const acts = h('div', { class: 'row', style: 'margin-top:14px;justify-content:space-between' }, h('b', {}, 'Total ' + money(o.total)));
   const btns = h('div', { class: 'row' });
-  if (o.payment_status === 'paid' && o.status === 'delivered') btns.append(h('button', { class: 'btn sm', type: 'button', on: { click: async () => {
+  if (paid && o.status === 'delivered') btns.append(h('button', { class: 'btn sm', type: 'button', on: { click: async () => {
     if (!await ask('Confirm delivery?', `Confirm you received everything in order #${o.id}. This releases the seller payout in the BlueMart ledger.`, 'Yes, I received it')) return;
     const r = await api(`/api/orders/${o.id}/confirm`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadOrders(); } } }, '✓ Confirm delivery'));
-  if (o.payment_status === 'paid' && !['completed', 'cancelled', 'refunded', 'disputed'].includes(o.status)) btns.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: () => openDispute(o.id) } }, 'Report a problem'));
+  if (paid && !['completed', 'cancelled', 'refunded', 'disputed'].includes(o.status)) btns.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: () => openDispute(o.id) } }, 'Report a problem'));
   acts.append(btns); card.append(acts);
-  if (o.payment_status === 'paid' && o.status !== 'completed') card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
+  if (paid && o.status !== 'completed' && !closed) card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
+  if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'Your report is open. Payouts stay on hold while it is reviewed, and delivery cannot be confirmed until it is resolved.'));
+  if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay.'));
   return card;
 }
 let disputeId = null, reviewCtx = null;
 function openDispute(id) { disputeId = id; $('#f-dispute').reset(); $('#dlg-dispute').showModal(); }
 function openReview(id, seller) { reviewCtx = { id, seller }; $('#r-title').textContent = 'Rate ' + seller; $('#f-review').reset(); $('#dlg-review').showModal(); }
+
+/* ---------- order messages (buyer <-> seller) ---------- */
+const chat = { id: null, seller: null, sig: '', timer: null };
+const chatUrl = () => `/api/orders/${chat.id}/messages?seller=${encodeURIComponent(chat.seller)}`;
+function openChat(id, seller, who) {
+  Object.assign(chat, { id, seller, sig: '' });
+  $('#c-title').textContent = `Order #${id} · ${who}`;
+  $('#c-log').replaceChildren(h('p', { class: 'mut' }, 'Loading…'));
+  $('#c-text').value = ''; $('#c-count').textContent = '0/1000';
+  $('#dlg-chat').showModal();
+  loadChat(true);
+  clearInterval(chat.timer); chat.timer = setInterval(() => loadChat(false), 8000);
+}
+async function loadChat(force) {
+  const id = chat.id, seller = chat.seller; if (id == null) return;
+  const r = await api(chatUrl());
+  if (id !== chat.id || seller !== chat.seller) return;   // a different chat was opened meanwhile
+  const log = $('#c-log');
+  if (!r.success) { if (force) log.replaceChildren(h('p', { class: 'bad' }, r.message)); return; }
+  const last = r.messages[r.messages.length - 1];
+  const sig = r.messages.length + '|' + (last ? last.created_at : '');
+  if (!force && sig === chat.sig) return;
+  chat.sig = sig;
+  const stick = force || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  log.replaceChildren(...(r.messages.length ? r.messages.map(m =>
+    h('div', { class: 'msg' + (m.mine ? ' me' : '') }, m.body, h('small', {}, (m.mine ? 'You' : m.sender) + ' · ' + stamp(m.created_at))))
+    : [h('p', { class: 'mut' }, 'No messages yet. Say hello!')]));
+  if (stick) log.scrollTop = log.scrollHeight;
+}
+async function sendChat(e) {
+  e.preventDefault();
+  const t = $('#c-text').value.trim(); if (!t || chat.id == null) return;
+  const b = $('#c-go'); b.disabled = true;
+  const r = await api(chatUrl(), { method: 'POST', body: { body: t } });
+  b.disabled = false;
+  if (!r.success) return toast(r.message, 'bad');
+  $('#c-text').value = ''; $('#c-count').textContent = '0/1000';
+  loadChat(true);
+}
 
 /* ---------- sell ---------- */
 async function loadSell() {
@@ -819,11 +927,26 @@ async function sellOrders(body) {
   body.replaceChildren(...r.orders.map(sellerCard));
 }
 function sellerCard(o) {
-  const sh = o.shipment_status || 'pending', card = h('section', { class: 'card' },
-    h('div', { class: 'top-row' }, h('div', {}, h('b', {}, 'Order #' + o.id), h('div', { class: 'mut', style: 'font-size:.8rem' }, `Buyer ${o.buyer_username} · ${new Date(o.created_at).toLocaleString()}`)), h('span', { class: 'pill ' + (sh === 'pending' ? 'warn' : 'ok') }, sh.replace('_', ' '))),
+  const sh = o.shipment_status || 'pending', closed = ['cancelled', 'refunded'].includes(o.status) || o.payment_status === 'refunded';
+  const pillText = o.status === 'disputed' ? 'dispute open' : closed ? 'cancelled' : sh.replace('_', ' ');
+  const pillCls = o.status === 'disputed' || closed ? 'bad' : sh === 'pending' ? 'warn' : 'ok';
+  const card = h('section', { class: 'card' },
+    h('div', { class: 'top-row' }, h('div', {}, h('b', {}, 'Order #' + o.id), h('div', { class: 'mut', style: 'font-size:.8rem' }, `Buyer ${o.buyer_username} · ${stamp(o.created_at)}`)), h('span', { class: 'pill ' + pillCls }, pillText)),
     ...o.items.map(i => h('div', { class: 'line' }, h('span', {}, `${i.product_name} × ${i.quantity}`), h('b', {}, money(i.price * i.quantity)))));
-  if (o.payout_status) card.append(h('div', { class: 'note' }, `Your payout: ${money(o.payout_amount)} (fee ${money(o.platform_fee)}) · ${o.payout_status === 'released' ? 'released' : 'on hold until the buyer confirms delivery'}`));
-  if (['pending', 'shipped'].includes(sh)) {
+  if (o.shipping) {
+    const s = o.shipping, place = [s.city, s.region].filter(Boolean).join(', ');
+    const tel = (s.phone || '').replace(/[^\d+]/g, '');
+    card.append(h('div', { class: 'box' },
+      h('span', { class: 'mut' }, 'Ship to'),
+      h('b', { style: 'color:var(--tx)' }, s.full_name),
+      h('span', { class: 'addr' }, [s.address, place, s.country].filter(Boolean).join('\n')),
+      s.phone ? h('span', {}, 'Phone: ', tel ? h('a', { href: 'tel:' + tel }, s.phone) : s.phone) : null,
+      s.notes ? h('span', { class: 'mut' }, 'Notes: ' + s.notes) : null,
+      h('span', { class: 'mut', style: 'font-size:.74rem' }, 'Use these details only to deliver this order.')));
+  }
+  if (o.payout_status) card.append(h('div', { class: 'note' }, `Your payout: ${money(o.payout_amount)} (fee ${money(o.platform_fee)}) · ${o.payout_status === 'released' ? 'released' : o.payout_status === 'cancelled' ? 'cancelled' : 'on hold until the buyer confirms delivery'}`));
+  if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'The buyer opened a dispute. Payouts stay on hold until it is resolved. You can reply to the buyer in messages.'));
+  if (['pending', 'shipped'].includes(sh) && !closed) {
     const prov = h('select', { 'aria-label': 'Delivery provider' }, ['DHL', 'FedEx', 'UPS', 'Local delivery', 'Other'].map(x => h('option', { selected: real(o.provider) === x }, x)));
     const trk = h('input', { placeholder: 'Tracking number', 'aria-label': 'Tracking number', value: real(o.tracking_number) || '' });
     const go = h('button', { class: 'btn', type: 'button', on: { click: async () => {
@@ -833,9 +956,10 @@ function sellerCard(o) {
     card.append(h('div', { class: 'ship' }, prov, trk, go));
   }
   const row = h('div', { class: 'row', style: 'margin-top:12px' });
-  if (sh === 'shipped') row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api(`/api/seller/orders/${o.id}/delivered`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Mark as delivered'));
-  if (['pending', 'shipped'].includes(sh) && !['completed', 'cancelled', 'disputed'].includes(o.status)) row.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => {
-    if (!await ask('Cancel and refund?', 'The buyer is refunded in full and the stock is returned. This cannot be undone.', 'Cancel & refund', true)) return;
+  if (!closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, S.user.username, o.buyer_username) } }, 'Message buyer'));
+  if (sh === 'shipped' && !closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api(`/api/seller/orders/${o.id}/delivered`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Mark as delivered'));
+  if (['pending', 'shipped'].includes(sh) && !['completed', 'cancelled', 'disputed'].includes(o.status) && !closed) row.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => {
+    if (!await ask('Cancel and refund?', 'The buyer is refunded in full and the stock is returned. This cannot be undone. Orders with several sellers must be cancelled through support.', 'Cancel & refund', true)) return;
     const r = await api(`/api/seller/orders/${o.id}/cancel`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Cancel & refund'));
   if (row.children.length) card.append(row);
   return card;
@@ -855,15 +979,15 @@ async function sellProfile(body) {
   if (!r.success) return body.replaceChildren(empty('Could not load profile', r.message));
   const s = r.seller;
   body.replaceChildren(h('div', { class: 'stats' }, h('div', {}, h('b', {}, s.rating_count ? '★ ' + s.rating_average.toFixed(1) : '—'), h('span', {}, `${s.rating_count} review${s.rating_count === 1 ? '' : 's'}`)), h('div', {}, h('b', {}, s.completed_orders), h('span', {}, 'Completed orders')), h('div', {}, h('b', {}, s.verified ? '✓ Email verified' : 'Email not verified'), h('span', {}, 'Seller account status'))),
-    h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut' }, 'Verified purchase · ' + v.buyer_username + ' · ' + new Date(v.created_at).toLocaleDateString())), h('p', { style: 'margin:0' }, v.review_text || ''))) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')])));
+    h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())), h('p', { style: 'margin:0' }, v.review_text || ''))) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')])));
 }
 
 /* ---------- payment return ---------- */
 function payReturn() {
   const p = new URLSearchParams(location.search), pay = p.get('payment'), id = p.get('order_id');
   if (!pay) return;
-  if (pay === 'success') { toast(`Payment received${id ? ' for order #' + id : ''}. Stripe is confirming it now.`, 'ok'); view('orders'); }
-  else toast('Checkout was cancelled. Your cart is still saved.');
+  if (pay === 'success') { toast(`Payment received${id ? ' for order #' + id : ''}. Stripe is confirming it now; refresh your orders in a moment if it still shows as awaiting payment.`, 'ok'); view('orders'); if (S.user) loadCart(); }
+  else toast('Checkout was cancelled. Your cart is saved, and the items stay reserved for a short time.');
   history.replaceState({}, '', location.pathname);
 }
 
@@ -875,13 +999,14 @@ function wire() {
   $('#acct-out').onclick = () => { $('#dlg-acct').close(); logout(); };
   $('#f-del').addEventListener('submit', async e => {
     e.preventDefault();
-    if (!await ask('Delete your account?', 'Your email, listings and cart are removed right away. This cannot be undone.', 'Delete my account', true)) return;
+    if (!await ask('Delete your account?', 'Your email, listings, cart and delivery addresses are removed right away. This cannot be undone.', 'Delete my account', true)) return;
     const r = await api('/api/account/delete', { method: 'POST', body: { password: $('#del-pass').value } });
     toast(r.message, r.success ? 'ok' : 'bad');
     if (r.success) setTimeout(() => location.reload(), 1200);
   });
   $('#cookie-ok').onclick = () => { try { localStorage.setItem('bm_cookie_ok', '1'); } catch { /* storage blocked */ } $('#cookie').hidden = true; };
-  $('#btn-checkout').onclick = checkout;
+  $('#btn-checkout').onclick = openShipping;
+  $('#f-ship').addEventListener('submit', submitShipping);
   $('#btn-clear').onclick = async () => { if (!await ask('Clear your cart?', 'All items will be removed.', 'Clear cart', true)) return; const r = await api('/api/cart/clear', { method: 'DELETE' }); toast(r.message, r.success ? 'ok' : 'bad'); loadCart(); };
   $('#hero-browse').onclick = () => $('#q').focus(); $('#hero-sell').onclick = () => view('sell');
   $('#q').addEventListener('input', debounce(e => { S.q = e.target.value; renderShop(); }));
@@ -897,12 +1022,26 @@ function wire() {
   $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
   $('#f-dispute').addEventListener('submit', async e => {
     e.preventDefault(); const t = $('#d-text').value.trim(); if (t.length < 5) return toast('Please describe the problem (at least 5 characters).', 'bad');
-    const r = await api(`/api/orders/${disputeId}/dispute`, { method: 'POST', body: { reason: `${$('#d-type').value}: ${t}` } });
+    const r = await api(`/api/orders/${disputeId}/dispute`, { method: 'POST', body: { reason: `${$('#d-type').value}: ${t}`.slice(0, 1000) } });
     toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { $('#dlg-dispute').close(); loadOrders(); } });
   $('#f-review').addEventListener('submit', async e => {
     e.preventDefault(); const r = await api(`/api/orders/${reviewCtx.id}/review`, { method: 'POST', body: { seller_username: reviewCtx.seller, rating: +$('#r-stars').value, review_text: $('#r-text').value.trim() } });
     toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) $('#dlg-review').close(); });
+  /* messaging */
+  $('#f-chat').addEventListener('submit', sendChat);
+  $('#c-text').addEventListener('input', e => { $('#c-count').textContent = e.target.value.length + '/1000'; });
+  $('#c-text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#f-chat').requestSubmit(); } });
+  $('#dlg-chat').addEventListener('close', () => { clearInterval(chat.timer); chat.id = null; });
+  /* newsletter */
+  $('#f-news').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#n-email').value.trim();
+    if (!email) return toast('Enter your email address.', 'bad');
+    const r = await api('/api/newsletter/subscribe', { method: 'POST', body: { email, consent: $('#n-ok').checked } });
+    toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) e.target.reset(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCart(); });
+  /* coming back from Stripe with the browser's Back button: start from a clean page */
+  window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
 }
 
 /* ---------- theme (light / dark) ---------- */
@@ -926,7 +1065,6 @@ function initTheme() {
   if (themeWired) return;
   themeWired = true;
   $('#btn-theme').addEventListener('click', () => applyTheme(currentTheme() === 'light' ? 'dark' : 'light', true));
-  // keep every open BlueMart tab (shop and legal pages) in step with the saved choice
   window.addEventListener('storage', e => { if (e.key === THEME_KEY && (e.newValue === 'light' || e.newValue === 'dark')) applyTheme(e.newValue, false); });
 }
 
@@ -937,7 +1075,7 @@ async function init() {
   const [s, p] = await Promise.all([api('/api/session'), api('/api/products')]);
   S.cfg = s.config || {};
   if (Array.isArray(p)) S.products = p; else toast(p.message || 'Could not load products.', 'bad');
-  if (s.logged_in) { setUser(s.username, s.csrf_token); loadCart(); }
+  if (s.logged_in) { setUser(s.username, s.csrf_token); await loadCart(); }
   renderShop(); payReturn();
 }
 init();
