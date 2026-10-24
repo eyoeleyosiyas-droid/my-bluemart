@@ -750,7 +750,7 @@ function orderCard(o) {
   acts.append(btns); card.append(acts);
   if (paid && o.status !== 'completed' && !closed) card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
   if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'Your report is open. Payouts stay on hold while it is reviewed, and delivery cannot be confirmed until it is resolved.'));
-  if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay.'));
+  if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay (or right away if you cancel checkout).'));
   return card;
 }
 let disputeId = null, reviewCtx = null;
@@ -987,7 +987,11 @@ function payReturn() {
   const p = new URLSearchParams(location.search), pay = p.get('payment'), id = p.get('order_id');
   if (!pay) return;
   if (pay === 'success') { toast(`Payment received${id ? ' for order #' + id : ''}. Stripe is confirming it now; refresh your orders in a moment if it still shows as awaiting payment.`, 'ok'); view('orders'); if (S.user) loadCart(); }
-  else toast('Checkout was cancelled. Your cart is saved, and the items stay reserved for a short time.');
+  else {
+    toast('Checkout was cancelled. Your cart is saved.');
+    // Give the reserved stock back right away so the buyer can try again.
+    if (S.user && id) api(`/api/orders/${encodeURIComponent(id)}/cancel-checkout`, { method: 'POST', body: {} }).then(() => { loadCart(); refreshProducts(); });
+  }
   history.replaceState({}, '', location.pathname);
 }
 
