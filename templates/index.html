@@ -46,6 +46,9 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ac);color:#04121a;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
 .chip{display:inline-block;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:.74rem;color:var(--mut)}
 .pill{display:inline-block;padding:4px 11px;border-radius:99px;font-size:.74rem;font-weight:700;background:rgba(45,212,191,.12);color:var(--ac)}.pill.ok{background:rgba(52,211,153,.14);color:var(--ok)}.pill.bad{background:rgba(248,113,113,.14);color:var(--bad)}.pill.warn{background:rgba(251,191,36,.13);color:var(--warn)}
+/* inline form message (sign-in errors etc.): lives INSIDE the dialog so it can never be hidden behind it */
+.form-msg{margin:14px 0 0;padding:10px 12px;border-radius:12px;font-size:.88rem;font-weight:600;line-height:1.4;border:1px solid rgba(248,113,113,.45);background:rgba(248,113,113,.12);color:var(--bad)}
+.form-msg.ok{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.12);color:var(--ok)}
 /* header + nav */
 .top{position:sticky;top:0;z-index:50;height:var(--hh);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 max(20px,calc((100vw - 1240px)/2));background:rgba(7,13,31,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--tx);font-size:1.25rem;font-weight:800;letter-spacing:-.03em}.brand i{font-style:normal;color:var(--ac)}.brand svg{width:34px;height:34px}
@@ -115,7 +118,8 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 .pd{display:grid;grid-template-columns:1fr 1fr;gap:22px}.pdi{border-radius:16px;overflow:hidden;background:var(--raise);min-height:240px}.pdi img{width:100%;height:100%;object-fit:cover;display:block}.pdb{display:grid;gap:10px;align-content:start}
 .qty{width:80px}.auth-t{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;margin:12px 0}.auth-t button{min-height:40px;border:0;border-radius:10px;background:transparent;color:var(--mut);font-weight:700;cursor:pointer}.auth-t .on{background:var(--ac);color:#04121a}
 .acts-r{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:18px}
-#toasts{position:fixed;top:calc(var(--hh) + 10px);right:16px;z-index:200;display:grid;gap:10px;max-width:min(360px,calc(100% - 32px))}
+/* toasts: a popover lives in the browser's top layer, so toasts always show ABOVE open dialogs */
+#toasts{position:fixed;inset:auto;top:calc(var(--hh) + 10px);right:16px;left:auto;bottom:auto;width:auto;height:auto;margin:0;padding:0;border:0;background:transparent;color:inherit;overflow:visible;z-index:200;display:grid;gap:10px;max-width:min(360px,calc(100% - 32px))}
 .toast{padding:13px 16px;border-radius:12px;background:var(--raise);border:1px solid var(--line);border-left:4px solid var(--ac);box-shadow:0 10px 30px rgba(0,0,0,.4);animation:in .25s}.toast.ok{border-left-color:var(--ok)}.toast.bad{border-left-color:var(--bad)}
 @keyframes in{from{opacity:0;transform:translateX(24px)}}
 /* messaging */
@@ -124,10 +128,12 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 .msg.me{align-self:flex-end;background:rgba(45,212,191,.16);border-color:rgba(45,212,191,.35)}
 .msg small{display:block;color:var(--mut);font-size:.68rem;margin-top:3px}
 #c-text{min-height:64px}
-/* compliance: footer, cookie notice, consents */
+/* compliance: footer, newsletter, cookie notice, consents */
 .foot{border-top:1px solid var(--line);padding:28px max(20px,calc((100vw - 1240px)/2)) 36px;color:var(--mut);font-size:.86rem;display:grid;gap:12px}
 .foot nav{display:flex;gap:6px 18px;flex-wrap:wrap}.foot a{color:var(--mut)}.foot a:hover{color:var(--ac)}
-.news{display:grid;gap:4px;max-width:460px}.news b{color:var(--tx)}.news .row{flex-wrap:nowrap}.news .row input{flex:1;min-width:0;width:auto}
+.news{display:grid;gap:6px;max-width:460px}.news b{color:var(--tx)}.news p{margin:0}
+.news form{display:grid;gap:6px}
+.news .row{flex-wrap:nowrap}.news .row input{flex:1;min-width:0;width:auto}
 .news .chk{font-size:.78rem;color:var(--mut)}
 .cookie{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:80;width:min(720px,calc(100% - 24px));display:flex;gap:14px;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:16px;background:var(--raise);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:.86rem}
 .cookie p{margin:0;color:#c3cde2}
@@ -147,7 +153,6 @@ body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
 .hero{border-radius:20px}.hero h1{max-width:none}.tl{grid-template-columns:repeat(5,1fr)}.tl span{font-size:.62rem}
 .brand b{font-size:1.1rem}.acts .btn.ghost span.t{display:none}#toasts{left:12px;right:12px;max-width:none}
 }
-@media(max-width:380px){.grid{grid-template-columns:1fr}}
 @media(max-width:440px){.two{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
@@ -215,6 +220,22 @@ html[data-theme="light"] .drop-l{color:var(--ac-t)}
   .nav button{min-height:50px;font-size:.68rem}.nav svg{width:20px;height:20px}
 }
 
+/* Seller "my products" list: same card grid, but keep TWO per row on phones. */
+.grid.mine{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+@media(max-width:720px){.grid.mine{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Very narrow phones: keep two products per row by tightening the cards instead of dropping to one. */
+@media(max-width:380px){
+  .grid,.grid.mine{gap:8px}
+  .pc{border-radius:14px}
+  .pb{padding:8px 8px 10px;gap:5px}
+  .pb h3{font-size:.8rem}
+  .price{font-size:.92rem}
+  .meta{font-size:.68rem}
+  .pc .btn.sm{min-height:34px;padding:0 6px;font-size:.76rem}
+  .tag{font-size:.62rem;padding:2px 6px;left:6px;top:6px}
+  .wrap{padding:12px 10px 24px}
+}
+
 /* ================= Theme toggle + light theme ================= */
 .theme-toggle .i-moon,.theme-toggle .lbl-to-dark{display:none}
 html[data-theme="light"] .theme-toggle .i-sun,html[data-theme="light"] .theme-toggle .lbl-to-light{display:none}
@@ -257,6 +278,8 @@ html[data-theme="light"] .pill{color:var(--ac-t);background:rgba(15,118,110,.1)}
 html[data-theme="light"] .pill.ok{color:var(--ok);background:rgba(4,120,87,.1)}
 html[data-theme="light"] .pill.bad{color:var(--bad);background:rgba(220,38,38,.09)}
 html[data-theme="light"] .pill.warn{color:var(--warn);background:rgba(180,83,9,.1)}
+html[data-theme="light"] .form-msg{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.35)}
+html[data-theme="light"] .form-msg.ok{background:rgba(4,120,87,.09);border-color:rgba(4,120,87,.35)}
 html[data-theme="light"] .tabs button{background:#fff}
 html[data-theme="light"] .tabs button.on{color:var(--ac-t);background:rgba(15,118,110,.1);border-color:var(--ac)}
 html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea{background:#f8fafc;border-color:#cbd5e1}
@@ -363,11 +386,11 @@ html[data-theme="light"] .cookie p{color:#334155}
 </main>
 
 <footer class="foot">
-  <form class="news" id="f-news" novalidate>
-    <b>Get BlueMart news</b>
-    <div class="row"><input id="n-email" type="email" placeholder="you@example.com" aria-label="Email address for the newsletter" autocomplete="email"><button class="btn sm" type="submit">Subscribe</button></div>
-    <label class="chk" for="n-ok"><input type="checkbox" id="n-ok"><span>I agree to receive occasional marketing emails from BlueMart. I can unsubscribe at any time. See the <a href="/privacy">Privacy Policy</a>.</span></label>
-  </form>
+  <!-- Newsletter box. Drawn by renderNews() in one of three states:
+       1) visitor (not signed in): email field + consent + Subscribe
+       2) member, not subscribed: consent + Subscribe (uses their account email, no typing)
+       3) member, subscribed: confirmation + Unsubscribe -->
+  <div class="news" id="news"></div>
   <nav aria-label="Legal"><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/refunds">Refund Policy</a><a href="/cookies">Cookie Policy</a><a href="mailto:{{ biz.email }}">Contact</a></nav>
   <div>© {{ year }} {{ biz.name }} · {{ biz.address }} · {{ biz.country }} · <a href="mailto:{{ biz.email }}">{{ biz.email }}</a></div>
 </footer>
@@ -401,6 +424,8 @@ html[data-theme="light"] .cookie p{color:#334155}
       <label class="chk" for="a-terms"><input type="checkbox" id="a-terms"><span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and have read the <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
     </div>
     <p class="mut" id="a-hint" style="font-size:.78rem" hidden>Letters, numbers and underscores for the username (3+); 6+ characters for the password.</p>
+    <!-- Sign-in / sign-up result. Inside the dialog on purpose: a toast can be covered by an open dialog. -->
+    <p class="form-msg" id="a-msg" role="alert" aria-live="assertive" hidden></p>
     <button class="btn full" style="margin-top:18px" id="a-go">Sign in</button>
     <p class="mut" id="a-resend" hidden style="font-size:.84rem">Didn't get the email? <a href="#" id="a-resend-l">Resend verification</a></p>
   </form>
@@ -469,12 +494,12 @@ html[data-theme="light"] .cookie p{color:#334155}
     <div class="acts-r"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn">Submit review</button></div>
   </form></dialog>
 
-<div id="toasts" role="status" aria-live="polite"></div>
+<div id="toasts" popover="manual" role="status" aria-live="polite"></div>
 <script>
 {% raw %}
 'use strict';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, ship: null };
+const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, ship: null, news: null, newsGuestDone: false };
 const CATS = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Other'];
 const money = n => '$' + Number(n || 0).toFixed(2);
 const real = v => (v && v !== 'Not selected' && v !== 'Not shipped') ? v : null;
@@ -511,10 +536,19 @@ async function api(url, { method = 'GET', body } = {}) {
   } catch { return { success: false, message: 'Network error. Check your connection and try again.' }; }
 }
 
+/* Toasts live in a popover (the browser's top layer), so they appear ABOVE any open dialog.
+   Re-showing the popover on every toast also keeps it above a dialog that was opened later. */
 function toast(msg, type = '') {
+  const box = $('#toasts');
   const t = h('div', { class: 'toast ' + type }, msg);
-  $('#toasts').append(t);
-  setTimeout(() => t.remove(), 4500);
+  box.append(t);
+  if (box.showPopover) {
+    try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch { /* fall back to the fixed-position box */ }
+  }
+  setTimeout(() => {
+    t.remove();
+    if (!box.children.length && box.hidePopover) { try { box.hidePopover(); } catch { /* already hidden */ } }
+  }, 4500);
 }
 
 function empty(title, msg, action) {
@@ -544,11 +578,18 @@ function view(v) {
 }
 
 /* ---------- auth ---------- */
+/* Message shown INSIDE the sign-in dialog (wrong password, locked account, success...).
+   An empty text hides it. */
+function authMsg(text, ok = false) {
+  const m = $('#a-msg');
+  if (!text) { m.hidden = true; m.textContent = ''; return; }
+  m.textContent = text; m.className = 'form-msg' + (ok ? ' ok' : ''); m.hidden = false;
+}
 function openAuth(tab = 'login') {
   setAuthTab(tab); $('#a-resend').hidden = true; $('#dlg-auth').showModal(); setTimeout(() => $('#a-user').focus(), 50);
 }
 function setAuthTab(t) {
-  S.auth = t;
+  S.auth = t; authMsg('');
   $$('.auth-t button').forEach(b => b.classList.toggle('on', b.dataset.a === t));
   $('#a-email-w').hidden = t !== 'register'; $('#a-hint').hidden = t !== 'register'; $('#a-consents').hidden = t !== 'register';
   $('#a-go').textContent = t === 'login' ? 'Sign in' : 'Create account';
@@ -560,20 +601,29 @@ function setUser(name, csrf) {
 }
 async function submitAuth(e) {
   e.preventDefault();
+  authMsg('');
   const username = $('#a-user').value.trim(), password = $('#a-pass').value, email = $('#a-email').value.trim();
-  if (!username || !password || (S.auth === 'register' && !email)) return toast('Please fill in every field.', 'bad');
-  if (S.auth === 'register' && !($('#a-age').checked && $('#a-terms').checked)) return toast('Please confirm you are 18+ and accept the Terms and Privacy Policy.', 'bad');
-  const btn = $('#a-go'); btn.disabled = true;
+  if (!username || !password || (S.auth === 'register' && !email)) return authMsg('Please fill in every field.');
+  if (S.auth === 'register' && !($('#a-age').checked && $('#a-terms').checked)) return authMsg('Please confirm you are 18+ and accept the Terms and Privacy Policy.');
+  const btn = $('#a-go'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Please wait…';
   S.lastUser = username;
   const r = await api('/api/' + S.auth, { method: 'POST', body: S.auth === 'login' ? { username, password } : { username, password, email, accept_terms: $('#a-terms').checked, age_confirmed: $('#a-age').checked } });
-  btn.disabled = false;
-  toast(r.message, r.success ? 'ok' : 'bad');
+  btn.disabled = false; btn.textContent = label;
   $('#a-resend').hidden = !(!r.success && /verify your email/i.test(r.message || ''));
-  if (!r.success) return;
-  if (S.auth === 'register') { $('#a-pass').value = ''; return setAuthTab('login'); }
+  if (!r.success) {
+    authMsg(r.message || 'Something went wrong. Please try again.');
+    if (S.auth === 'login') { $('#a-pass').value = ''; $('#a-pass').focus(); }   // wrong password: clear it and let them retype
+    return;
+  }
+  if (S.auth === 'register') {
+    $('#a-pass').value = ''; setAuthTab('login');
+    return authMsg(r.message, true);   // set AFTER the tab switch, which clears the message
+  }
   $('#dlg-auth').close(); $('#f-auth').reset();
   setUser(username, r.csrf_token);
-  await Promise.all([loadCart(), refreshProducts()]);
+  toast('Welcome back, ' + username + '!', 'ok');
+  await Promise.all([loadCart(), refreshProducts(), loadNews()]);
   if (S.view !== 'shop') view(S.view);
 }
 function openAccount() { $('#acct-name').textContent = 'Signed in as ' + S.user.username; $('#del-pass').value = ''; $('#dlg-acct').showModal(); }
@@ -581,6 +631,63 @@ function cookieNotice() { try { if (localStorage.getItem('bm_cookie_ok')) return
 async function logout() {
   if (!await ask('Sign out?', 'You can sign back in at any time.', 'Sign out')) return;
   await api('/api/logout', { method: 'POST' }); location.reload();
+}
+
+/* ---------- newsletter: three states ---------- */
+async function loadNews() {
+  if (!S.user) { S.news = null; return renderNews(); }
+  const r = await api('/api/newsletter/status');
+  S.news = r.success ? !!r.subscribed : null;
+  renderNews();
+}
+function renderNews() {
+  const box = $('#news');
+  /* State 3: signed-in member who is already subscribed -> Unsubscribe */
+  if (S.user && S.news === true) {
+    return box.replaceChildren(
+      h('b', {}, 'BlueMart news'),
+      h('p', { class: 'mut' }, 'You are subscribed to BlueMart news at your account email.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: unsubscribeNews } }, 'Unsubscribe')));
+  }
+  /* A visitor who just subscribed on this page */
+  if (!S.user && S.newsGuestDone) {
+    return box.replaceChildren(
+      h('b', {}, 'BlueMart news'),
+      h('p', { class: 'ok' }, '✓ Thanks for subscribing! Every email has an unsubscribe link.'));
+  }
+  const consent = h('label', { class: 'chk', for: 'n-ok' }, h('input', { type: 'checkbox', id: 'n-ok' }),
+    h('span', {}, 'I agree to receive occasional marketing emails from BlueMart. I can unsubscribe at any time. See the ', h('a', { href: '/privacy' }, 'Privacy Policy'), '.'));
+  const go = h('button', { class: 'btn sm', type: 'submit' }, 'Subscribe');
+  const form = S.user
+    /* State 2: signed-in member, not subscribed -> no email box, we already have their address */
+    ? h('form', { novalidate: true, on: { submit: subscribeNews } },
+        h('b', {}, 'Get BlueMart news'),
+        h('p', { class: 'mut' }, 'We will send offers and updates to your account email.'),
+        consent, h('div', { class: 'row', style: 'margin-top:6px' }, go))
+    /* State 1: visitor -> asks for an email */
+    : h('form', { novalidate: true, on: { submit: subscribeNews } },
+        h('b', {}, 'Get BlueMart news'),
+        h('div', { class: 'row' }, h('input', { id: 'n-email', type: 'email', placeholder: 'you@example.com', 'aria-label': 'Email address for the newsletter', autocomplete: 'email' }), go),
+        consent);
+  box.replaceChildren(form);
+}
+async function subscribeNews(e) {
+  e.preventDefault();
+  const emailEl = $('#n-email'), email = emailEl ? emailEl.value.trim() : '';
+  if (!S.user && !email) return toast('Enter your email address.', 'bad');
+  if (!$('#n-ok').checked) return toast('Please tick the box to agree to receive emails.', 'bad');
+  const body = { consent: true }; if (!S.user) body.email = email;
+  const r = await api('/api/newsletter/subscribe', { method: 'POST', body });
+  toast(r.message, r.success ? 'ok' : 'bad');
+  if (!r.success) return;
+  if (S.user) S.news = true; else S.newsGuestDone = true;
+  renderNews();
+}
+async function unsubscribeNews() {
+  if (!await ask('Unsubscribe?', 'You will stop receiving BlueMart marketing emails. Order and account emails are not affected.', 'Unsubscribe')) return;
+  const r = await api('/api/newsletter/unsubscribe', { method: 'POST' });
+  toast(r.message, r.success ? 'ok' : 'bad');
+  if (r.success) { S.news = false; renderNews(); }
 }
 
 /* ---------- shop ---------- */
@@ -890,7 +997,8 @@ async function sellListings(body) {
     S.edit ? h('p', { class: 'mut', style: 'font-size:.8rem' }, 'Photos can only be set when a product is first listed.') : [h('label', {}, 'Photo (optional)'), photoField(), h('p', { class: 'mut', style: 'font-size:.78rem;margin:6px 0 0' }, 'Only upload photos you own or have permission to use.')],
     h('div', { class: 'row', style: 'margin-top:16px' }, h('button', { class: 'btn', id: 'p-go' }, S.edit ? 'Save changes' : 'List product'),
       S.edit ? h('button', { class: 'btn ghost', type: 'button', on: { click: () => { S.edit = null; loadSell(); } } }, 'Cancel') : null));
-  const list = h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(210px,1fr))' }, ...(mine.length ? mine.map(myCard) : [empty('Nothing listed yet', 'Add your first product using the form.')]));
+  /* class "grid mine": two cards per row on phones (see CSS) */
+  const list = h('div', { class: 'grid mine' }, ...(mine.length ? mine.map(myCard) : [empty('Nothing listed yet', 'Add your first product using the form.')]));
   const stats = h('div', { class: 'stats' }); body.replaceChildren(stats, h('div', { class: 'split' }, f, h('div', {}, list)));
   api('/api/statistics/mine').then(s => stats.append(h('div', {}, h('b', {}, s.total_products ?? 0), h('span', {}, 'Products listed')), h('div', {}, h('b', {}, s.total_quantity ?? 0), h('span', {}, 'Units in stock')), h('div', {}, h('b', {}, s.avg_price ?? '$0.00'), h('span', {}, 'Average price'))));
 }
@@ -1021,7 +1129,9 @@ function wire() {
   $('#sell-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) { S.sellTab = b.dataset.t; loadSell(); } });
   $$('.auth-t button').forEach(b => b.onclick = () => setAuthTab(b.dataset.a));
   $('#f-auth').addEventListener('submit', submitAuth);
-  $('#a-resend-l').onclick = async e => { e.preventDefault(); const r = await api('/api/resend-verification', { method: 'POST', body: { username: S.lastUser } }); toast(r.message, r.success ? 'ok' : 'bad'); };
+  /* typing again dismisses the previous error */
+  $('#f-auth').addEventListener('input', () => { if (!$('#a-msg').hidden) authMsg(''); });
+  $('#a-resend-l').onclick = async e => { e.preventDefault(); const r = await api('/api/resend-verification', { method: 'POST', body: { username: S.lastUser } }); authMsg(r.message, r.success); };
   $$('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
   $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
   $('#f-dispute').addEventListener('submit', async e => {
@@ -1036,13 +1146,6 @@ function wire() {
   $('#c-text').addEventListener('input', e => { $('#c-count').textContent = e.target.value.length + '/1000'; });
   $('#c-text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#f-chat').requestSubmit(); } });
   $('#dlg-chat').addEventListener('close', () => { clearInterval(chat.timer); chat.id = null; });
-  /* newsletter */
-  $('#f-news').addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = $('#n-email').value.trim();
-    if (!email) return toast('Enter your email address.', 'bad');
-    const r = await api('/api/newsletter/subscribe', { method: 'POST', body: { email, consent: $('#n-ok').checked } });
-    toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) e.target.reset(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCart(); });
   /* coming back from Stripe with the browser's Back button: start from a clean page */
   window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
@@ -1074,12 +1177,12 @@ function initTheme() {
 
 async function init() {
   initTheme();
-  wire(); renderCats(); cookieNotice();
+  wire(); renderCats(); renderNews(); cookieNotice();
   $('#grid').replaceChildren(...Array.from({ length: 8 }, () => h('div', { class: 'sk' })));
   const [s, p] = await Promise.all([api('/api/session'), api('/api/products')]);
   S.cfg = s.config || {};
   if (Array.isArray(p)) S.products = p; else toast(p.message || 'Could not load products.', 'bad');
-  if (s.logged_in) { setUser(s.username, s.csrf_token); await loadCart(); }
+  if (s.logged_in) { setUser(s.username, s.csrf_token); await Promise.all([loadCart(), loadNews()]); }
   renderShop(); payReturn();
 }
 init();
