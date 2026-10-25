@@ -637,7 +637,8 @@ class UpdateCartSchema(Schema):
 
 
 class NewsletterSchema(Schema):
-    email = fields.Email(required=True)
+    # Guests type an email; signed-in members never do (their account email is used).
+    email = fields.Email(required=False, allow_none=True)
     consent = fields.Bool(required=True, validate=validate.Equal(True, error="Please tick the box to agree to receive emails."))
 
 class DeleteAccountSchema(Schema):
@@ -2734,14 +2735,31 @@ def stripe_webhook():
 # NEWSLETTER / OPT-IN
 # -----------------------------------------------------------------------------
 
+def _account_email(cur, username):
+    cur.execute("SELECT email FROM users WHERE username = %s;", (username,))
+    row = cur.fetchone()
+    return (row[0] or '').strip().lower() if row and row[0] else ''
+
+
 @app.route('/api/newsletter/subscribe', methods=['POST'])
 @validate_json(NewsletterSchema)
 def newsletter_subscribe():
-    email = request.validated_data['email'].strip().lower()
-
+    """Opt in to marketing email. Signed-in members use their account email
+    (they are never asked to type it again); guests must give one."""
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
+            if 'username' in session:
+                email = _account_email(cur, session['username'])
+                if not email:
+                    cur.close()
+                    return api_error("Your account has no email address on file.", 400)
+            else:
+                email = (request.validated_data.get('email') or '').strip().lower()
+                if not email:
+                    cur.close()
+                    return api_error("Please enter your email address.", 422)
+
             cur.execute("""
                 INSERT INTO newsletter_subscribers (email, consent_at, unsubscribe_token)
                 VALUES (%s, NOW(), %s)
@@ -2752,11 +2770,48 @@ def newsletter_subscribe():
             cur.close()
 
         if inserted:
-            return api_ok("Thanks for subscribing to BlueMart!")
-        return api_ok("You're already subscribed.")
+            return api_ok("Thanks for subscribing to BlueMart!", subscribed=True)
+        return api_ok("You're already subscribed.", subscribed=True)
     except Exception as e:
         logger.exception("Newsletter subscription failed: %s", e)
         return api_error("We couldn't subscribe you right now.", 500)
+
+
+@app.route('/api/newsletter/status', methods=['GET'])
+@require_login
+def newsletter_status():
+    """Is the signed-in member's account email on the newsletter list?"""
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            email = _account_email(cur, session['username'])
+            subscribed = False
+            if email:
+                cur.execute("SELECT 1 FROM newsletter_subscribers WHERE email = %s;", (email,))
+                subscribed = cur.fetchone() is not None
+            cur.close()
+        return api_ok("Newsletter status loaded.", subscribed=subscribed)
+    except Exception as e:
+        logger.exception("Newsletter status failed: %s", e)
+        return api_error("We couldn't check your subscription.", 500)
+
+
+@app.route('/api/newsletter/unsubscribe', methods=['POST'])
+@require_login
+def newsletter_unsubscribe_account():
+    """Signed-in member opts out with one click."""
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            email = _account_email(cur, session['username'])
+            if email:
+                cur.execute("DELETE FROM newsletter_subscribers WHERE email = %s;", (email,))
+            conn.commit()
+            cur.close()
+        return api_ok("You're unsubscribed. You will not receive BlueMart marketing emails.", subscribed=False)
+    except Exception as e:
+        logger.exception("Newsletter unsubscribe failed: %s", e)
+        return api_error("We couldn't unsubscribe you right now.", 500)
 
 
 @app.route('/unsubscribe/<token>')
