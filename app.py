@@ -15,6 +15,8 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session
 from markupsafe import escape
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
@@ -32,6 +34,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 IS_DEV = os.environ.get('FLASK_ENV') == 'development'
 
