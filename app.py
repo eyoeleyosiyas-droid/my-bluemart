@@ -8,6 +8,7 @@ import cloudinary.uploader
 import os
 import logging
 import math
+import threading
 import stripe
 from decimal import Decimal
 from contextlib import contextmanager
@@ -15,8 +16,6 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session
 from markupsafe import escape
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
@@ -34,12 +33,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://"
-)
+
+# Behind a reverse proxy (nginx, Render, Railway...) every request appears to come
+# from the proxy's IP unless we trust its X-Forwarded-For header. Set TRUST_PROXY=1
+# in production so rate limits are applied per real visitor, not per proxy.
+if os.environ.get("TRUST_PROXY") == "1":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# Rate limiting (pip install Flask-Limiter). If the package is missing the app
+# still runs, just without limits, and logs a warning.
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    limiter = Limiter(get_remote_address, app=app, default_limits=[],
+                      storage_uri=os.getenv("RATELIMIT_STORAGE_URI", "memory://"))
+except ImportError:
+    limiter = None
+
+
+def rate_limit(rule):
+    """Decorator: limit a route per visitor IP, e.g. @rate_limit("10 per minute")."""
+    def decorator(f):
+        return limiter.limit(rule)(f) if limiter else f
+    return decorator
 
 IS_DEV = os.environ.get('FLASK_ENV') == 'development'
 
@@ -79,6 +96,8 @@ BUSINESS = {
 }
 LEGAL_VERSION = "2026-10-17"
 REFUND_WINDOW_DAYS = os.getenv("REFUND_WINDOW_DAYS", "14").strip()
+if limiter is None:
+    logging.getLogger(__name__).warning("Flask-Limiter is not installed; rate limiting is OFF. Run: pip install Flask-Limiter")
 if any("[" in v for v in BUSINESS.values()):
     logger.warning("BUSINESS_NAME / BUSINESS_ADDRESS / BUSINESS_COUNTRY / SUPPORT_EMAIL are not all set; legal pages show placeholders.")
 
@@ -89,7 +108,7 @@ RESERVATION_MINUTES = 35
 # built-in safety net (the Stripe "expired" webhook normally does this first).
 STALE_RESERVATION_GRACE_MINUTES = 10
 
-MIN_PASSWORD_LENGTH = 6
+MIN_PASSWORD_LENGTH = 8
 MAX_USERNAME_LENGTH = 100
 MAX_PRODUCT_NAME_LENGTH = 255
 ALLOWED_PRODUCT_CATEGORIES = [
@@ -270,6 +289,44 @@ def send_order_confirmation_email(email, username, order_id, total):
     except Exception:
         logger.exception("Failed to prepare order confirmation email for order %s.", order_id)
         return False
+
+
+def send_notice_email(email, subject, heading, message, button_label=None, path="/"):
+    """Short service email (new order, new message, shipped...). Never put private
+    data such as delivery addresses in here: the email only says where to look."""
+    try:
+        if not BASE_URL or not RESEND_API_KEY or not email:
+            return False
+        link = f"{BASE_URL}{path}"
+        button = f"""
+            <p style="margin:0 0 8px;">
+                <a href="{link}" style="display:inline-block;padding:13px 22px;background:#5bc0be;color:#0b1329;
+                   text-decoration:none;border-radius:8px;font-weight:800;font-size:14px;">{escape(button_label)}</a>
+            </p>""" if button_label else ""
+        content = f"""
+            <h1 style="margin:0 0 12px;font-size:24px;color:#182033;">{escape(heading)}</h1>
+            <p style="margin:0 0 22px;color:#596579;font-size:15px;line-height:1.7;">{escape(message)}</p>
+            {button}
+        """
+        text = f"{heading}\n\n{message}\n\n" + (f"{button_label}: {link}\n" if button_label else "")
+        return _send_resend_email(email, subject, _email_shell(heading, content), text)
+    except Exception:
+        logger.exception("Failed to prepare notice email: %s", subject)
+        return False
+
+
+def notify_async(*args, **kwargs):
+    """Send a notice email in the background so the request is not slowed down."""
+    threading.Thread(target=send_notice_email, args=args, kwargs=kwargs, daemon=True).start()
+
+
+def _emails_for(cur, usernames):
+    """{username: email} for the given usernames (only those that have one)."""
+    names = list(usernames)
+    if not names:
+        return {}
+    cur.execute("SELECT username, email FROM users WHERE username = ANY(%s) AND email IS NOT NULL;", (names,))
+    return {u: e for u, e in cur.fetchall()}
 
 
 # -----------------------------------------------------------------------------
@@ -1247,6 +1304,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/register', methods=['POST'])
+@rate_limit("5 per minute; 20 per hour")
 @validate_json(RegisterSchema)
 def register():
     username = request.validated_data['username'].strip()
@@ -1315,6 +1373,7 @@ def verify_email(token):
 
 
 @app.route('/api/resend-verification', methods=['POST'])
+@rate_limit("3 per minute; 10 per hour")
 @validate_json(ResendVerificationSchema)
 def resend_verification():
     username = request.validated_data['username'].strip()
@@ -1373,6 +1432,7 @@ def _verification_page(title, message, ok=True):
 
 
 @app.route('/api/login', methods=['POST'])
+@rate_limit("10 per minute; 60 per hour")
 @validate_json(LoginSchema)
 def login():
     username = request.validated_data['username'].strip()
@@ -2010,6 +2070,7 @@ def get_order_messages(order_id):
 
 
 @app.route('/api/orders/<int:order_id>/messages', methods=['POST'])
+@rate_limit("30 per minute")
 @require_login
 @validate_json(MessageSchema)
 def send_order_message(order_id):
@@ -2027,12 +2088,36 @@ def send_order_message(order_id):
                         (order_id, seller))
             if cur.fetchone()[0] >= MAX_MESSAGES_PER_THREAD:
                 cur.close(); return api_error("This conversation has reached its message limit.", 429)
+            # Only email the other person if this sender has not written in this
+            # conversation for 10 minutes, so a busy chat does not flood an inbox.
+            cur.execute("""
+                SELECT 1 FROM order_messages
+                WHERE order_id = %s AND seller_username = %s AND sender_username = %s
+                  AND created_at > NOW() - INTERVAL '10 minutes'
+                LIMIT 1;
+            """, (order_id, seller, username))
+            recently_active = cur.fetchone() is not None
             cur.execute("""
                 INSERT INTO order_messages (order_id, seller_username, sender_username, body)
                 VALUES (%s, %s, %s, %s);
             """, (order_id, seller, username, body))
+            recipient = None
+            if not recently_active:
+                cur.execute("SELECT username FROM orders WHERE id = %s;", (order_id,))
+                buyer_row = cur.fetchone()
+                if buyer_row:
+                    other = seller if username == buyer_row[0] else buyer_row[0]
+                    recipient = (other, _emails_for(cur, [other]).get(other))
             conn.commit()
             cur.close()
+        if recipient and recipient[1]:
+            notify_async(
+                recipient[1],
+                f"New message about order #{order_id}",
+                "You have a new message",
+                f"Hi {recipient[0]}, {username} sent you a message about order #{order_id}. "
+                "Open the order to read and reply.",
+                "Open BlueMart", "/")
         return api_ok('Message sent.', 201)
     except Exception as e:
         logger.exception('Send message failed: %s', e)
@@ -2106,6 +2191,7 @@ def seller_ship_order(order_id):
     seller = session['username']
     provider = request.validated_data['provider'].strip()
     tracking = request.validated_data['tracking_number'].strip()
+    buyer_name = buyer_email = None
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
@@ -2141,7 +2227,20 @@ def seller_ship_order(order_id):
             shipment_counts = cur.fetchone()
             if shipment_counts[0] and shipment_counts[0] == shipment_counts[1]:
                 cur.execute("UPDATE orders SET status = 'shipped' WHERE id = %s AND status IN ('processing','shipped');", (order_id,))
+            cur.execute("SELECT username FROM orders WHERE id = %s;", (order_id,))
+            buyer_row = cur.fetchone()
+            if buyer_row:
+                buyer_name = buyer_row[0]
+                buyer_email = _emails_for(cur, [buyer_name]).get(buyer_name)
             conn.commit(); cur.close()
+        if buyer_email:
+            notify_async(
+                buyer_email,
+                f"Your BlueMart order #{order_id} has shipped",
+                "Part of your order is on its way",
+                f"Hi {buyer_name}, {seller} shipped items from order #{order_id} with {provider} "
+                f"(tracking {tracking}). You can follow it in your orders.",
+                "View my orders", "/")
         return api_ok('Shipment saved. The buyer can now track this shipment.')
     except Exception as e:
         logger.exception('Seller ship failed: %s', e)
@@ -2341,6 +2440,7 @@ def seller_payouts():
 
 
 @app.route('/api/create-checkout-session', methods=['POST'])
+@rate_limit("10 per minute")
 @require_login
 @validate_json(CheckoutSchema)
 def create_checkout_session():
@@ -2555,6 +2655,7 @@ def stripe_webhook():
 
     try:
         email = None
+        seller_totals = {}
         order_total = Decimal('0.00')
 
         with get_db_connection() as conn:
@@ -2731,6 +2832,24 @@ def stripe_webhook():
                 email, username, order_id, float(order_total)
             )
 
+        # Tell each seller they have a new paid order to ship. The email never
+        # contains the buyer's address; the seller reads it inside the app.
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                seller_emails = _emails_for(cur, seller_totals.keys())
+                cur.close()
+            for seller_name, seller_email in seller_emails.items():
+                notify_async(
+                    seller_email,
+                    f"New paid order #{order_id} on BlueMart",
+                    "You have a new order to ship",
+                    f"Hi {seller_name}, order #{order_id} has been paid and is waiting for you. "
+                    "Open Sell > Orders to ship to see the delivery details and add tracking.",
+                    "Open my orders", "/")
+        except Exception:
+            logger.exception("Seller notification failed for order %s", order_id)
+
         logger.info("Stripe payment completed for order #%s", order_id)
         return '', 200
 
@@ -2750,6 +2869,7 @@ def _account_email(cur, username):
 
 
 @app.route('/api/newsletter/subscribe', methods=['POST'])
+@rate_limit("5 per minute; 20 per hour")
 @validate_json(NewsletterSchema)
 def newsletter_subscribe():
     """Opt in to marketing email. Signed-in members use their account email
@@ -2908,6 +3028,7 @@ def delete_account():
 
 
 @app.route('/api/products/add', methods=['POST'])
+@rate_limit("20 per hour")
 @require_login
 def add_product():
     try:
@@ -3058,6 +3179,10 @@ def method_not_allowed(error):
 @app.errorhandler(413)
 def too_large(error):
     return api_error("That file is too large. Please use a photo under 5 MB.", 413)
+
+@app.errorhandler(429)
+def too_many_requests(error):
+    return api_error("Too many requests. Please wait a minute and try again.", 429)
 
 @app.errorhandler(500)
 def internal_error(error):
