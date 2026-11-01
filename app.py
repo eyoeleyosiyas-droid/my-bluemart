@@ -1,4 +1,4 @@
-import resend
+import smtplib
 import secrets
 import datetime
 import json
@@ -12,6 +12,7 @@ import threading
 import stripe
 from decimal import Decimal
 from contextlib import contextmanager
+from email.message import EmailMessage
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session
@@ -36,7 +37,7 @@ app = Flask(__name__)
 
 # Behind a reverse proxy (nginx, Render, Railway...) every request appears to come
 # from the proxy's IP unless we trust its X-Forwarded-For header. Set TRUST_PROXY=1
-# in production so rate limits are applied per real visitor, not per proxy.
+# in production (on Render too) so rate limits are applied per real visitor, not per proxy.
 if os.environ.get("TRUST_PROXY") == "1":
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -76,9 +77,24 @@ app.config.update(
 )
 
 BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
-RESEND_API_KEY = (os.getenv("RESEND_API_KEY") or "").strip()
-RESEND_FROM_EMAIL = (os.getenv("RESEND_FROM_EMAIL") or "BlueMart <onboarding@resend.dev>").strip()
-resend.api_key = RESEND_API_KEY or None
+
+# --- Email (Brevo SMTP) ------------------------------------------------------
+# Brevo dashboard: SMTP & API > SMTP. The login is the "...@smtp-brevo.com"
+# address shown there (NOT your Brevo account email); the password is an SMTP key.
+# BREVO_SENDER_EMAIL must be a sender you verified in Brevo (Senders & IP).
+#
+# Render note: Render's free web services block outbound SMTP on ports 25, 465
+# and 587, so the default here is port 2525, which Brevo also accepts.
+BREVO_SMTP_HOST = (os.getenv("BREVO_SMTP_HOST") or "smtp-relay.brevo.com").strip()
+try:
+    BREVO_SMTP_PORT = int(os.getenv("BREVO_SMTP_PORT", "2525"))
+except ValueError:
+    BREVO_SMTP_PORT = 2525
+BREVO_SMTP_LOGIN = (os.getenv("BREVO_SMTP_LOGIN") or "").strip()
+BREVO_SMTP_KEY = (os.getenv("BREVO_SMTP_KEY") or "").strip()
+BREVO_SENDER_EMAIL = (os.getenv("BREVO_SENDER_EMAIL") or "").strip()
+BREVO_SENDER_NAME = (os.getenv("BREVO_SENDER_NAME") or "BlueMart").strip()
+EMAIL_CONFIGURED = bool(BREVO_SMTP_LOGIN and BREVO_SMTP_KEY and BREVO_SENDER_EMAIL)
 
 STRIPE_SECRET_KEY = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
 STRIPE_WEBHOOK_SECRET = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
@@ -98,6 +114,8 @@ LEGAL_VERSION = "2026-10-17"
 REFUND_WINDOW_DAYS = os.getenv("REFUND_WINDOW_DAYS", "14").strip()
 if limiter is None:
     logging.getLogger(__name__).warning("Flask-Limiter is not installed; rate limiting is OFF. Run: pip install Flask-Limiter")
+if not EMAIL_CONFIGURED:
+    logger.warning("Brevo SMTP is not fully configured (BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, BREVO_SENDER_EMAIL); emails will not be sent.")
 if any("[" in v for v in BUSINESS.values()):
     logger.warning("BUSINESS_NAME / BUSINESS_ADDRESS / BUSINESS_COUNTRY / SUPPORT_EMAIL are not all set; legal pages show placeholders.")
 
@@ -136,26 +154,35 @@ db_pool = None
 # EMAIL
 # -----------------------------------------------------------------------------
 
-def _send_resend_email(to_email, subject, html_body, text_body):
-    """Send a transactional email through Resend without leaking email/API data to logs."""
-    if not RESEND_API_KEY:
-        logger.error("RESEND_API_KEY is not configured; cannot send email.")
+def _send_email(to_email, subject, html_body, text_body):
+    """Send a transactional email through Brevo SMTP without leaking
+    email addresses or credentials to the logs."""
+    if not EMAIL_CONFIGURED:
+        logger.error("Brevo SMTP is not configured; cannot send email.")
         return False
 
     try:
-        params = {
-            "from": RESEND_FROM_EMAIL,
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-            "text": text_body,
-        }
-        response = resend.Emails.send(params)
-        logger.info("Resend email accepted for delivery: message_id=%s",
-                    getattr(response, "id", None) if response else None)
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = f"{BREVO_SENDER_NAME} <{BREVO_SENDER_EMAIL}>"
+        msg["To"] = to_email
+        msg.set_content(text_body)
+        msg.add_alternative(html_body, subtype="html")
+
+        with smtplib.SMTP(BREVO_SMTP_HOST, BREVO_SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(BREVO_SMTP_LOGIN, BREVO_SMTP_KEY)
+            server.send_message(msg)
+
+        logger.info("Brevo SMTP accepted email: subject=%s", subject)
         return True
+    except smtplib.SMTPAuthenticationError:
+        logger.error("Brevo SMTP login failed. Check BREVO_SMTP_LOGIN (the ...@smtp-brevo.com address) and BREVO_SMTP_KEY.")
+        return False
     except Exception:
-        logger.exception("Resend email failed: subject=%s", subject)
+        logger.exception("Brevo SMTP email failed: subject=%s", subject)
         return False
 
 
@@ -208,8 +235,8 @@ def send_verification_email(email, username, verification_token):
         if not BASE_URL:
             logger.error("BASE_URL is not configured; cannot create verification URL.")
             return False
-        if not RESEND_API_KEY:
-            logger.error("RESEND_API_KEY is not configured; cannot send verification email.")
+        if not EMAIL_CONFIGURED:
+            logger.error("Brevo SMTP is not configured; cannot send verification email.")
             return False
 
         safe_username = escape(username)
@@ -240,7 +267,7 @@ def send_verification_email(email, username, verification_token):
             f"{verification_url}\n\n"
             "If you did not create this account, you can ignore this email."
         )
-        return _send_resend_email(email, "Verify your BlueMart account", html_body, text_body)
+        return _send_email(email, "Verify your BlueMart account", html_body, text_body)
 
     except Exception:
         logger.exception("Failed to prepare verification email.")
@@ -249,7 +276,7 @@ def send_verification_email(email, username, verification_token):
 
 def send_order_confirmation_email(email, username, order_id, total):
     try:
-        if not BASE_URL or not RESEND_API_KEY:
+        if not BASE_URL or not EMAIL_CONFIGURED:
             logger.error("Email configuration missing; cannot send order confirmation.")
             return False
 
@@ -279,7 +306,7 @@ def send_order_confirmation_email(email, username, order_id, total):
             f"Total paid: ${total_text}\n\n"
             "Thank you for shopping with BlueMart."
         )
-        return _send_resend_email(
+        return _send_email(
             email,
             f"BlueMart Order #{order_id} confirmed",
             html_body,
@@ -295,7 +322,7 @@ def send_notice_email(email, subject, heading, message, button_label=None, path=
     """Short service email (new order, new message, shipped...). Never put private
     data such as delivery addresses in here: the email only says where to look."""
     try:
-        if not BASE_URL or not RESEND_API_KEY or not email:
+        if not BASE_URL or not EMAIL_CONFIGURED or not email:
             return False
         link = f"{BASE_URL}{path}"
         button = f"""
@@ -309,7 +336,7 @@ def send_notice_email(email, subject, heading, message, button_label=None, path=
             {button}
         """
         text = f"{heading}\n\n{message}\n\n" + (f"{button_label}: {link}\n" if button_label else "")
-        return _send_resend_email(email, subject, _email_shell(heading, content), text)
+        return _send_email(email, subject, _email_shell(heading, content), text)
     except Exception:
         logger.exception("Failed to prepare notice email: %s", subject)
         return False
