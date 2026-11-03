@@ -44,6 +44,7 @@ textarea{min-height:90px;resize:vertical}input::placeholder,textarea::placeholde
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--ac);box-shadow:0 0 0 4px rgba(45,212,191,.16)}
 label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ac);color:#04121a;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.badge.alert{background:var(--bad);color:#2a0a0a}
 .chip{display:inline-block;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:.74rem;color:var(--mut)}
 .pill{display:inline-block;padding:4px 11px;border-radius:99px;font-size:.74rem;font-weight:700;background:rgba(45,212,191,.12);color:var(--ac)}.pill.ok{background:rgba(52,211,153,.14);color:var(--ok)}.pill.bad{background:rgba(248,113,113,.14);color:var(--bad)}.pill.warn{background:rgba(251,191,36,.13);color:var(--warn)}
 /* inline form message (sign-in errors etc.): lives INSIDE the dialog so it can never be hidden behind it */
@@ -88,7 +89,7 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .card{background:linear-gradient(180deg,rgba(21,32,67,.75),rgba(15,24,49,.85));border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px}
 .card h2{font-size:1.1rem;margin-bottom:12px}
 .tabs{display:flex;gap:6px;overflow-x:auto;margin:14px 0 20px;scrollbar-width:none}
-.tabs button{flex:0 0 auto;min-height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--mut);font-weight:600;cursor:pointer}.tabs button.on{background:rgba(45,212,191,.14);border-color:var(--ac);color:var(--ac)}
+.tabs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--mut);font-weight:600;cursor:pointer}.tabs button.on{background:rgba(45,212,191,.14);border-color:var(--ac);color:var(--ac)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stats div{padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}.stats b{display:block;font-size:1.3rem}.stats span{font-size:.78rem;color:var(--mut)}
 .split{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
 .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
@@ -111,6 +112,7 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .dl{flex:1;overflow:auto;padding:8px 20px}.df{padding:16px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:grid;gap:10px}
 .ci{display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.ci img,.ci .noimg{width:60px;height:60px;border-radius:12px;object-fit:cover;background:var(--raise)}
 .ci input{width:64px;min-height:38px;padding:4px 8px;text-align:center}.link{background:none;border:0;color:var(--bad);cursor:pointer;font-size:.8rem;padding:4px 0}
+.linkbtn{background:none;border:0;padding:0;color:var(--ac);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .tot{display:flex;justify-content:space-between;font-size:1.15rem;font-weight:800}
 dialog{width:min(560px,calc(100% - 24px));max-height:calc(100dvh - 24px);padding:24px;border:1px solid var(--line);border-radius:22px;background:var(--panel);color:var(--tx);box-shadow:0 30px 80px rgba(0,0,0,.6)}
 dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wide{width:min(860px,calc(100% - 24px))}
@@ -128,6 +130,13 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 .msg.me{align-self:flex-end;background:rgba(45,212,191,.16);border-color:rgba(45,212,191,.35)}
 .msg small{display:block;color:var(--mut);font-size:.68rem;margin-top:3px}
 #c-text{min-height:64px}
+/* avatars + seller profile */
+.avatar{display:inline-grid;place-items:center;flex:0 0 auto;border-radius:50%;object-fit:cover;background:var(--raise);border:1px solid var(--line);color:var(--ac);font-weight:800}
+.shead{display:flex;gap:16px;align-items:center;margin:0 40px 14px 0}.shead h2{font-size:1.3rem}.shead p{margin:2px 0 0}
+.bio{white-space:pre-line;overflow-wrap:anywhere;margin:0 0 14px}
+.rev{border-top:1px solid var(--line);padding:10px 0}.rev p{margin:4px 0 0;overflow-wrap:anywhere}
+.pf-row{display:flex;gap:14px;align-items:center;margin:6px 0 4px}
+.count{font-size:.76rem;color:var(--mut);text-align:right;margin-top:4px}
 /* compliance: footer, newsletter, cookie notice, consents */
 .foot{border-top:1px solid var(--line);padding:28px max(20px,calc((100vw - 1240px)/2)) 36px;color:var(--mut);font-size:.86rem;display:grid;gap:12px}
 .foot nav{display:flex;gap:6px 18px;flex-wrap:wrap}.foot a{color:var(--mut)}.foot a:hover{color:var(--ac)}
@@ -254,6 +263,7 @@ html[data-theme="light"] body{background:radial-gradient(800px 420px at 92% -8%,
 html[data-theme="light"] ::selection{background:rgba(15,118,110,.22)}
 html[data-theme="light"] select option{background:#fff;color:#1e293b}
 html[data-theme="light"] a{color:var(--ac-t)}
+html[data-theme="light"] .linkbtn{color:var(--ac-t)}
 html[data-theme="light"] .foot a{color:var(--mut)}
 html[data-theme="light"] .foot a:hover{color:var(--ac-t)}
 html[data-theme="light"] .brand i{color:var(--ac-t)}
@@ -268,6 +278,7 @@ html[data-theme="light"] .btn.ghost:hover{background:rgba(15,118,110,.09);box-sh
 html[data-theme="light"] .btn.danger{color:#fff}
 html[data-theme="light"] .btn.danger:hover{background:#b91c1c}
 html[data-theme="light"] .badge{color:#fff}
+html[data-theme="light"] .badge.alert{color:#fff}
 html[data-theme="light"] .chip{background:var(--soft);color:#475569}
 html[data-theme="light"] .chips button{background:#fff;border-color:var(--line)}
 html[data-theme="light"] .chips button:hover{background:var(--soft)}
@@ -292,7 +303,8 @@ html[data-theme="light"] .pc:hover{border-color:rgba(15,118,110,.4);box-shadow:0
 html[data-theme="light"] .pimg{background:var(--soft)}
 html[data-theme="light"] .tag{background:rgba(255,255,255,.94);box-shadow:0 1px 2px rgba(15,23,42,.12)}
 html[data-theme="light"] .sk{background:linear-gradient(100deg,#e2e8f0 30%,#eef2f7 50%,#e2e8f0 70%);background-size:200% 100%}
-html[data-theme="light"] .ci img,html[data-theme="light"] .ci .noimg,html[data-theme="light"] .pdi{background:var(--soft)}
+html[data-theme="light"] .ci img,html[data-theme="light"] .ci .noimg,html[data-theme="light"] .pdi,html[data-theme="light"] .avatar{background:var(--soft)}
+html[data-theme="light"] .avatar.ph{color:var(--ac-t)}
 html[data-theme="light"] .card{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.06)}
 html[data-theme="light"] .stats div{background:var(--bg);border-color:var(--line)}
 html[data-theme="light"] .box{background:var(--bg)}
@@ -349,8 +361,8 @@ html[data-theme="light"] .cookie p{color:#334155}
 <nav class="nav" aria-label="Main">
   <button type="button" data-v="shop" class="on"><svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9h18"/></svg><span>Shop</span></button>
   <button type="button" data-v="cart"><svg viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13 5.4 5M7 13l-2.3 4.6A1 1 0 0 0 5.6 19H17"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg><span>Cart</span><span class="badge cn" hidden>0</span></button>
-  <button type="button" data-v="orders"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Orders</span></button>
-  <button type="button" data-v="sell"><svg viewBox="0 0 24 24"><path d="M4 19V10M10 19V4M16 19v-7M22 19H2"/></svg><span>Sell</span></button>
+  <button type="button" data-v="orders"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Orders</span><span class="badge alert bn-orders" hidden>0</span></button>
+  <button type="button" data-v="sell"><svg viewBox="0 0 24 24"><path d="M4 19V10M10 19V4M16 19v-7M22 19H2"/></svg><span>Sell</span><span class="badge alert bn-sell" hidden>0</span></button>
 </nav>
 
 <main id="main" class="wrap">
@@ -361,7 +373,7 @@ html[data-theme="light"] .cookie p{color:#334155}
       <div class="row"><button class="btn" type="button" id="hero-browse">Explore products</button><button class="btn ghost" type="button" id="hero-sell">Start selling</button></div>
       <ul><li>Secure checkout with Stripe</li><li>Track every seller's shipment</li><li>Message the seller about your order</li><li>Report a problem from your order</li></ul>
     </div>
-    <div class="ctl">
+    <div class="ctl" id="shop-ctl">
       <input id="q" type="search" placeholder="Search products…" aria-label="Search products" autocomplete="off">
       <div class="chips" id="cats" role="group" aria-label="Categories"></div>
       <div class="bar"><span class="mut" id="count"></span>
@@ -379,7 +391,7 @@ html[data-theme="light"] .cookie p{color:#334155}
   <section class="view" id="v-sell" hidden>
     <div class="top-row"><div><h1>Sell on BlueMart</h1><p class="mut" style="margin:4px 0 0">List products, ship orders and see your payout ledger.</p></div></div>
     <div class="tabs" id="sell-tabs" role="group" aria-label="Seller sections">
-      <button type="button" data-t="listings" class="on">Listings</button><button type="button" data-t="orders">Orders to ship</button><button type="button" data-t="payouts">Payouts</button><button type="button" data-t="profile">Seller profile</button>
+      <button type="button" data-t="listings" class="on">Listings</button><button type="button" data-t="orders">Orders to ship <span class="badge alert bn-ship" hidden>0</span></button><button type="button" data-t="payouts">Payouts</button><button type="button" data-t="profile">Seller profile</button>
     </div>
     <div id="sell-body"></div>
   </section>
@@ -432,6 +444,7 @@ html[data-theme="light"] .cookie p{color:#334155}
 </dialog>
 
 <dialog id="dlg-prod" class="wide"></dialog>
+<dialog id="dlg-seller"></dialog>
 
 <dialog id="dlg-ship"><button class="x" type="button" data-close aria-label="Close">×</button>
   <h2>Delivery details</h2>
@@ -463,7 +476,7 @@ html[data-theme="light"] .cookie p{color:#334155}
 
 <dialog id="dlg-acct"><button class="x" type="button" data-close aria-label="Close">×</button>
   <h2>Your account</h2><p class="mut" id="acct-name"></p>
-  <div class="row"><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
+  <div class="row"><button class="btn ghost" id="acct-profile" type="button">Edit public profile</button><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
   <div class="card" style="margin-top:20px">
     <h2>Delete my account</h2>
     <p class="mut" style="font-size:.86rem">This removes your email, listings, cart and delivery addresses straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.</p>
@@ -499,12 +512,15 @@ html[data-theme="light"] .cookie p{color:#334155}
 {% raw %}
 'use strict';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, ship: null, news: null, newsGuestDone: false };
+const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, avatar: null, ship: null, news: null, newsGuestDone: false, notes: { threads: [], buyer_unread: 0, seller_unread: 0, to_ship: 0 } };
 const CATS = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Other'];
+const VIEWS = ['shop', 'orders', 'sell'], SELL_TABS = ['listings', 'orders', 'payouts', 'profile'];
+const BASE_TITLE = document.title;
 const money = n => '$' + Number(n || 0).toFixed(2);
 const real = v => (v && v !== 'Not selected' && v !== 'Not shipped') ? v : null;
 const img = (u, w) => u ? u.replace('/upload/', `/upload/f_auto,q_auto,w_${w}/`) : '';
 const debounce = (f, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* The server stores UTC timestamps without a timezone suffix; add one so the browser shows the person's local time. */
 const when = s => new Date(/(Z|[+-]\d\d:?\d\d)$/i.test(s) ? s : s + 'Z');
 const stamp = s => when(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
@@ -531,7 +547,13 @@ async function api(url, { method = 'GET', body } = {}) {
     const r = await fetch(url, o);
     let d = {};
     try { d = await r.json(); } catch { /* empty body */ }
-    if (!r.ok) { if (Array.isArray(d)) d = {}; d.success = false; d.status = r.status; d.message = d.message || (r.status === 413 ? 'That file is too large. Please choose a smaller photo.' : `Request failed (${r.status}).`); }
+    if (!r.ok) {
+      if (Array.isArray(d)) d = {};
+      d.success = false; d.status = r.status;
+      d.message = d.message || (r.status === 413 ? 'That file is too large. Please choose a smaller photo.' : `Request failed (${r.status}).`);
+      /* A 401 while we think we are signed in means the session cookie expired. */
+      if (r.status === 401 && S.user) sessionExpired();
+    }
     return d;
   } catch { return { success: false, message: 'Network error. Check your connection and try again.' }; }
 }
@@ -566,6 +588,13 @@ function ask(title, msg, ok = 'Confirm', danger = false) {
   });
 }
 
+function avatarEl(url, name, size = 56) {
+  const st = `width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px`;
+  return url
+    ? h('img', { class: 'avatar', src: img(url, size * 2), alt: '', style: st, width: size, height: size })
+    : h('span', { class: 'avatar ph', style: st, 'aria-hidden': 'true' }, (name || '?').slice(0, 1).toUpperCase());
+}
+
 /* ---------- views ---------- */
 function view(v) {
   if (v === 'cart') return openCart();
@@ -575,6 +604,41 @@ function view(v) {
   if (v === 'orders') loadOrders();
   if (v === 'sell') loadSell();
   scrollTo({ top: 0 });
+}
+
+/* ---------- notifications (unread messages + orders waiting to ship) ---------- */
+let pollTimer = null;
+const threadCount = (id, seller, asBuyer) => (S.notes.threads || []).filter(t => t.order_id === id && t.seller === seller && t.as_buyer === asBuyer).reduce((a, t) => a + t.n, 0);
+function renderBadges() {
+  const n = S.notes, set = (sel, v) => $$(sel).forEach(e => { e.textContent = v; e.hidden = !v; });
+  const toShip = n.to_ship || 0, sellN = (n.seller_unread || 0) + toShip;
+  set('.bn-orders', n.buyer_unread || 0); set('.bn-sell', sellN); set('.bn-ship', toShip);
+  $$('[data-unread]').forEach(e => {
+    const [side, id, seller] = e.dataset.unread.split('|'), c = threadCount(+id, seller, side === 'b');
+    e.textContent = c; e.hidden = !c;
+  });
+  const total = (n.buyer_unread || 0) + sellN;
+  document.title = (total ? `(${total}) ` : '') + BASE_TITLE;
+}
+async function pollNotes() {
+  if (!S.user || document.hidden) return;
+  const r = await api('/api/notifications');
+  if (!r.success) return;
+  S.notes = { threads: r.threads || [], buyer_unread: r.buyer_unread || 0, seller_unread: r.seller_unread || 0, to_ship: r.to_ship || 0 };
+  renderBadges();
+}
+function startPolling() { clearInterval(pollTimer); pollTimer = setInterval(pollNotes, 30000); pollNotes(); }
+function stopPolling() {
+  clearInterval(pollTimer); pollTimer = null;
+  S.notes = { threads: [], buyer_unread: 0, seller_unread: 0, to_ship: 0 }; renderBadges();
+}
+function sessionExpired() {
+  S.user = null; S.csrf = ''; S.cart = { items: [], total: 0 };
+  $('#btn-acct').textContent = 'Sign in';
+  stopPolling(); renderCart(); S.news = null; renderNews(); renderShop();
+  toast('Your session expired. Please sign in again.', 'bad');
+  if (S.view !== 'shop') view(S.view);
+  if (!$('#dlg-auth').open) openAuth('login');
 }
 
 /* ---------- auth ---------- */
@@ -604,7 +668,13 @@ async function submitAuth(e) {
   authMsg('');
   const username = $('#a-user').value.trim(), password = $('#a-pass').value, email = $('#a-email').value.trim();
   if (!username || !password || (S.auth === 'register' && !email)) return authMsg('Please fill in every field.');
-  if (S.auth === 'register' && !($('#a-age').checked && $('#a-terms').checked)) return authMsg('Please confirm you are 18+ and accept the Terms and Privacy Policy.');
+  if (S.auth === 'register') {
+    /* Same rules as the server, so people get the answer instantly. */
+    if (!/^\w{3,100}$/.test(username)) return authMsg('Username can only contain letters, numbers and underscores (3 characters or more).');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return authMsg('Please enter a valid email address.');
+    if (password.length < 8) return authMsg('Password must be at least 8 characters.');
+    if (!($('#a-age').checked && $('#a-terms').checked)) return authMsg('Please confirm you are 18+ and accept the Terms and Privacy Policy.');
+  }
   const btn = $('#a-go'), label = btn.textContent;
   btn.disabled = true; btn.textContent = 'Please wait…';
   S.lastUser = username;
@@ -623,6 +693,7 @@ async function submitAuth(e) {
   $('#dlg-auth').close(); $('#f-auth').reset();
   setUser(username, r.csrf_token);
   toast('Welcome back, ' + username + '!', 'ok');
+  startPolling();
   await Promise.all([loadCart(), refreshProducts(), loadNews()]);
   if (S.view !== 'shop') view(S.view);
 }
@@ -703,7 +774,7 @@ function renderShop() {
   const q = S.q.toLowerCase();
   const l = S.products.filter(p => (S.cat === 'all' || p.Category === S.cat) && p['Product Name'].toLowerCase().includes(q));
   l.sort((a, b) => S.sort === 'pa' ? a.Price - b.Price : S.sort === 'pd' ? b.Price - a.Price : a['Product Name'].localeCompare(b['Product Name']));
-  $('#grid').replaceChildren(...(l.length ? l.map(card) : [empty('No products found', 'Try another search or category.')]));
+  $('#grid').replaceChildren(...(l.length ? l.map(card) : [empty('No products found', S.q || S.cat !== 'all' ? 'Try another search or category.' : 'No one has listed anything yet. Be the first!', S.q || S.cat !== 'all' ? ['Clear filters', () => { S.q = ''; S.cat = 'all'; $('#q').value = ''; renderCats(); renderShop(); }] : ['Start selling', () => view('sell')])]));
   $('#count').textContent = `${l.length} product${l.length === 1 ? '' : 's'}`;
 }
 function card(p) {
@@ -719,9 +790,9 @@ function card(p) {
 }
 async function addToCart(id, qty = 1) {
   if (!S.user) { toast('Sign in to add items to your cart.'); openAuth('login'); return false; }
-  const r = await api('/api/cart/add', { method: 'POST', body: { product_id: +id, quantity: +qty } });
+  const r = await api('/api/cart/add', { method: 'POST', body: { product_id: +id, quantity: Math.max(1, Math.floor(+qty) || 1) } });
   toast(r.message, r.success ? 'ok' : 'bad');
-  if (r.success) { await loadCart(); openCart(); }
+  if (r.success) { await loadCart(); openCart(); } else if (r.status === 400) refreshProducts();
   return r.success;
 }
 function openProduct(id) {
@@ -736,7 +807,7 @@ function openProduct(id) {
       h('div', { class: 'pdb' }, h('span', { class: 'chip' }, p.Category || 'General'), h('h2', {}, p['Product Name']),
         h('div', { class: 'price big' }, money(p.Price)),
         h('p', { class: q > 0 ? 'ok' : 'bad', style: 'margin:0' }, q > 0 ? `${q} in stock` : 'Sold out'),
-        h('p', { class: 'mut', style: 'margin:0' }, 'Sold by ', h('b', {}, p.Seller), ' ', rate),
+        h('p', { class: 'mut', style: 'margin:0' }, 'Sold by ', h('button', { class: 'linkbtn', type: 'button', on: { click: () => { d.close(); openSeller(p.Seller); } } }, p.Seller), ' ', rate),
         h('p', { style: 'margin:0;font-size:.8rem' }, h('a', { href: 'mailto:' + (S.cfg.support_email || '') + '?subject=' + encodeURIComponent('Report listing #' + p.id + ' (' + p['Product Name'] + ')') }, 'Report this listing')),
         mine ? h('p', { class: 'mut' }, 'This is your listing.') : q > 0 ? h('div', { class: 'row' }, qty,
           h('button', { class: 'btn', type: 'button', on: { click: async () => { if (await addToCart(p.id, qty.value)) d.close(); } } }, 'Add to cart')) : null)));
@@ -749,6 +820,36 @@ function openProduct(id) {
     if (s.completed_orders) parts.push(`${s.completed_orders} completed order${s.completed_orders === 1 ? '' : 's'}`);
     rate.textContent = parts.join(' · ');
   });
+}
+
+/* ---------- public seller profile ---------- */
+function sellerStats(s) {
+  return [
+    s.verified ? '✓ Email-verified' : null,
+    s.rating_count ? `★ ${s.rating_average.toFixed(1)} (${s.rating_count} review${s.rating_count === 1 ? '' : 's'})` : 'No reviews yet',
+    s.completed_orders ? `${s.completed_orders} completed order${s.completed_orders === 1 ? '' : 's'}` : null,
+    s.on_time_rate ? `${s.on_time_rate}% shipped on time` : null,
+  ].filter(Boolean).join(' · ');
+}
+async function openSeller(username) {
+  const d = $('#dlg-seller');
+  d.replaceChildren(h('button', { class: 'x', type: 'button', 'aria-label': 'Close', on: { click: () => d.close() } }, '×'), h('div', { class: 'sk', style: 'height:160px' }));
+  d.showModal();
+  const r = await api('/api/sellers/' + encodeURIComponent(username));
+  if (!r.success) { d.replaceChildren(h('button', { class: 'x', type: 'button', 'aria-label': 'Close', on: { click: () => d.close() } }, '×'), empty('Could not load this seller', r.message)); return; }
+  const s = r.seller, listed = S.products.filter(p => p.Seller === s.username).length;
+  d.replaceChildren(
+    h('button', { class: 'x', type: 'button', 'aria-label': 'Close', on: { click: () => d.close() } }, '×'),
+    h('div', { class: 'shead' }, avatarEl(s.avatar_url, s.display_name || s.username, 72),
+      h('div', {}, h('h2', {}, s.display_name || s.username),
+        h('p', { class: 'mut' }, '@' + s.username + (s.location ? ' · ' + s.location : '')))),
+    h('p', { class: 'mut', style: 'margin:0 0 12px;font-size:.88rem' }, sellerStats(s)),
+    s.bio ? h('p', { class: 'bio' }, s.bio) : null,
+    listed ? h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => { d.close(); S.q = ''; S.cat = 'all'; $('#q').value = ''; S.sellerFilter = null; view('shop'); toast(`${s.username} has ${listed} product${listed === 1 ? '' : 's'} listed.`); } } }, 'Back to shop')) : null,
+    h('h3', { style: 'font-size:1rem;margin-bottom:4px' }, 'Reviews'),
+    ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'rev' },
+      h('div', { class: 'line', style: 'padding:0' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut', style: 'font-size:.8rem' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())),
+      v.review_text ? h('p', {}, v.review_text) : null)) : [h('p', { class: 'mut' }, 'No reviews yet.')]));
 }
 
 /* ---------- cart ---------- */
@@ -767,15 +868,23 @@ function renderCart() {
   $$('.cn').forEach(e => { e.textContent = n; e.hidden = !n; });
   $('#cart-list').replaceChildren(...(S.cart.items.length ? S.cart.items.map(cartRow)
     : [S.user ? empty('Your cart is empty', 'Add something you like and it will appear here.', ['Browse products', () => { closeCart(); view('shop'); }]) : gate('Sign in to use your cart')]));
+  const short = S.cart.items.some(i => i.available_stock < i.quantity);
   $('#cart-total').textContent = money(S.cart.total);
-  $('#btn-checkout').disabled = !S.cart.items.length; $('#btn-clear').hidden = !S.cart.items.length;
+  $('#btn-checkout').disabled = !S.cart.items.length || short; $('#btn-clear').hidden = !S.cart.items.length;
 }
 function cartRow(i) {
-  const qty = h('input', { type: 'number', min: 1, max: i.available_stock, value: i.quantity, 'aria-label': 'Quantity for ' + i.product_name,
-    on: { change: async () => { const r = await api('/api/cart/update', { method: 'PUT', body: { product_id: i.product_id, quantity: +qty.value } }); if (!r.success) toast(r.message, 'bad'); loadCart(); } } });
+  const short = i.available_stock < i.quantity;
+  const qty = h('input', { type: 'number', min: 1, max: Math.max(1, i.available_stock), value: i.quantity, 'aria-label': 'Quantity for ' + i.product_name,
+    on: { change: async () => {
+      /* The server accepts 1..stock only, so fix the number here instead of showing an error. */
+      const want = Math.min(Math.max(1, Math.floor(+qty.value) || 1), Math.max(1, i.available_stock));
+      qty.value = want;
+      const r = await api('/api/cart/update', { method: 'PUT', body: { product_id: i.product_id, quantity: want } });
+      if (!r.success) toast(r.message, 'bad'); loadCart(); } } });
   return h('div', { class: 'ci' },
     i.image_url ? h('img', { src: img(i.image_url, 120), alt: '', width: 60, height: 60, loading: 'lazy' }) : h('span', { class: 'noimg' }, '—'),
     h('div', {}, h('b', {}, i.product_name), h('div', { class: 'mut', style: 'font-size:.82rem' }, `${money(i.price)} each · ${i.available_stock} available`),
+      short ? h('div', { class: 'bad', style: 'font-size:.78rem' }, i.available_stock ? `Only ${i.available_stock} left: lower the quantity to check out.` : 'Sold out: remove it to check out.') : null,
       h('button', { class: 'link', type: 'button', on: { click: async () => { const r = await api('/api/cart/remove/' + i.product_id, { method: 'DELETE' }); toast(r.message, r.success ? 'ok' : 'bad'); loadCart(); } } }, 'Remove')),
     h('div', { style: 'text-align:right' }, qty, h('div', { style: 'font-weight:700;margin-top:6px' }, money(i.subtotal))));
 }
@@ -828,8 +937,12 @@ async function loadOrders() {
   box.replaceChildren(h('div', { class: 'sk' }));
   const r = await api('/api/orders');
   if (!r.success) return box.replaceChildren(empty('Could not load orders', r.message));
-  if (!r.orders.length) return box.replaceChildren(empty('No orders yet', 'When you buy something it will show up here.', ['Start shopping', () => view('shop')]));
-  box.replaceChildren(...r.orders.map(orderCard));
+  /* Checkouts that were abandoned (never paid, then released) are noise: hide them. */
+  const shown = r.orders.filter(o => !(o.status === 'cancelled' && o.payment_status === 'unpaid'));
+  const hidden = r.orders.length - shown.length;
+  if (!shown.length) return box.replaceChildren(empty('No orders yet', 'When you buy something it will show up here.', ['Start shopping', () => view('shop')]));
+  box.replaceChildren(...shown.map(orderCard), hidden ? h('p', { class: 'mut', style: 'font-size:.8rem;text-align:center' }, `${hidden} abandoned checkout${hidden === 1 ? '' : 's'} not shown.`) : null);
+  renderBadges();
 }
 function orderCard(o) {
   const [label, cls] = orderState(o), groups = {};
@@ -840,13 +953,16 @@ function orderCard(o) {
     paid && !closed ? timeline(o) : null);
   if (o.ship_to) card.append(h('div', { class: 'box' }, h('span', { class: 'mut' }, 'Delivering to'), h('b', { class: 'addr', style: 'color:var(--tx)' }, o.ship_to)));
   Object.entries(groups).forEach(([seller, items]) => {
-    const it = items[0], sh = it.shipment_status || 'pending';
-    card.append(h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, 'Seller: ' + seller), paid && !closed ? h('span', { class: 'mut' }, sh.replace('_', ' ')) : null),
+    const it = items[0], sh = it.shipment_status || 'pending', rated = o.reviews && o.reviews[seller];
+    card.append(h('div', { class: 'grp' },
+      h('div', { class: 'line' }, h('b', {}, 'Seller: ', h('button', { class: 'linkbtn', type: 'button', on: { click: () => openSeller(seller) } }, seller)), paid && !closed ? h('span', { class: 'mut' }, sh.replace('_', ' ')) : null),
       ...items.map(i => h('div', { class: 'line' }, h('span', {}, `${i.product_name} × ${i.quantity}`), h('b', {}, money(i.price * i.quantity)))),
       paid && !closed ? h('div', { class: 'box' }, h('span', { class: 'mut' }, 'Provider: ', h('b', { style: 'color:var(--tx)' }, real(it.provider) || 'Not added yet')), h('span', { class: 'mut' }, 'Tracking: ', h('b', { style: 'color:var(--tx)' }, real(it.tracking_number) || 'Waiting for seller'))) : null,
       paid && !closed ? h('div', { class: 'row', style: 'margin-top:10px' },
-        h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, seller, seller) } }, 'Message ' + seller),
-        o.status === 'completed' ? h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openReview(o.id, seller) } }, 'Rate ' + seller) : null) : null));
+        h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, seller, seller) } }, 'Message ' + seller, h('span', { class: 'badge alert', hidden: true, 'data-unread': `b|${o.id}|${seller}` }, '0')),
+        o.status === 'completed' ? (rated
+          ? h('span', { class: 'pill ok' }, `You rated ${seller} ${'★'.repeat(rated)}`)
+          : h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openReview(o.id, seller) } }, 'Rate ' + seller)) : null) : null));
   });
   const acts = h('div', { class: 'row', style: 'margin-top:14px;justify-content:space-between' }, h('b', {}, 'Total ' + money(o.total)));
   const btns = h('div', { class: 'row' });
@@ -854,6 +970,10 @@ function orderCard(o) {
     if (!await ask('Confirm delivery?', `Confirm you received everything in order #${o.id}. This releases the seller payout in the BlueMart ledger.`, 'Yes, I received it')) return;
     const r = await api(`/api/orders/${o.id}/confirm`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadOrders(); } } }, '✓ Confirm delivery'));
   if (paid && !['completed', 'cancelled', 'refunded', 'disputed'].includes(o.status)) btns.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: () => openDispute(o.id) } }, 'Report a problem'));
+  if (!paid && o.status === 'pending') btns.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => {
+    if (!await ask('Cancel this checkout?', 'Your items will be released right away. Your cart is kept so you can try again.', 'Cancel checkout', true)) return;
+    const r = await api(`/api/orders/${o.id}/cancel-checkout`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad');
+    loadOrders(); loadCart(); refreshProducts(); } } }, 'Cancel checkout'));
   acts.append(btns); card.append(acts);
   if (paid && o.status !== 'completed' && !closed) card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
   if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'Your report is open. Payouts stay on hold while it is reviewed, and delivery cannot be confirmed until it is resolved.'));
@@ -908,10 +1028,12 @@ async function loadSell() {
   const body = $('#sell-body');
   $$('#sell-tabs button').forEach(b => { b.classList.toggle('on', b.dataset.t === S.sellTab); b.setAttribute('aria-pressed', String(b.dataset.t === S.sellTab)); });
   if (!S.user) return body.replaceChildren(gate('Sign in to start selling'));
-  ({ listings: sellListings, orders: sellOrders, payouts: sellPayouts, profile: sellProfile })[S.sellTab](body);
+  await ({ listings: sellListings, orders: sellOrders, payouts: sellPayouts, profile: sellProfile })[S.sellTab](body);
+  renderBadges();
 }
-/* ---------- product photo: drag & drop, preview, auto-resize ---------- */
+/* ---------- photos: drag & drop, preview, auto-resize (product photo and profile photo) ---------- */
 const PHOTO_OK = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const AVATAR_OK = ['image/jpeg', 'image/png', 'image/webp'];   // the server rejects GIF avatars
 const PHOTO_MAX_IN = 15 * 1024 * 1024;     // refuse enormous originals
 const PHOTO_MAX_OUT = 4.5 * 1024 * 1024;   // stay under the server's 5 MB request limit
 const fmtSize = b => b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
@@ -925,54 +1047,55 @@ async function loadBitmap(file) {
     });
   }
 }
-function drawScaled(src, w, h, max) {
-  const k = Math.min(1, max / Math.max(w, h)), cw = Math.round(w * k), ch = Math.round(h * k);
+function drawScaled(src, w, ht, max) {
+  const k = Math.min(1, max / Math.max(w, ht)), cw = Math.round(w * k), ch = Math.round(ht * k);
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cw, ch); x.drawImage(src, 0, 0, cw, ch);
   return c;
 }
 const canvasBlob = (c, q) => new Promise(res => c.toBlob(res, 'image/jpeg', q));
-async function processPhoto(file) {
-  if (!PHOTO_OK.includes(file.type)) throw new Error('Please choose a JPG, PNG, WEBP or GIF image.');
+async function processPhoto(file, { types = PHOTO_OK, maxDim = 1600 } = {}) {
+  if (!types.includes(file.type)) throw new Error('Please choose a ' + (types === AVATAR_OK ? 'JPG, PNG or WEBP' : 'JPG, PNG, WEBP or GIF') + ' image.');
   if (file.size > PHOTO_MAX_IN) throw new Error('That photo is over 15 MB. Please choose a smaller one.');
   let bmp;
   try { bmp = await loadBitmap(file); } catch { throw new Error('That file could not be read as an image.'); }
-  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
-  const thumb = drawScaled(bmp, w, h, 160).toDataURL('image/jpeg', 0.75);
+  const w = bmp.width || bmp.naturalWidth, ht = bmp.height || bmp.naturalHeight;
+  const thumb = drawScaled(bmp, w, ht, 160).toDataURL('image/jpeg', 0.75);
   let out = file;
   if (file.type === 'image/gif') {
     if (file.size > PHOTO_MAX_OUT) throw new Error('GIFs must be under 4.5 MB.');
-  } else if (Math.max(w, h) > 1600 || file.size > 1.5 * 1048576) {
-    const c = drawScaled(bmp, w, h, 1600); let q = 0.88, blob = await canvasBlob(c, q);
+  } else if (Math.max(w, ht) > maxDim || file.size > 1.5 * 1048576) {
+    const c = drawScaled(bmp, w, ht, maxDim); let q = 0.88, blob = await canvasBlob(c, q);
     while (blob && blob.size > PHOTO_MAX_OUT && q > 0.5) { q -= 0.1; blob = await canvasBlob(c, q); }
     if (!blob || blob.size > PHOTO_MAX_OUT) throw new Error('Could not shrink that photo enough. Please try a smaller one.');
     out = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
   }
   if (bmp.close) bmp.close();
-  return { file: out, thumb, w, h, original: file.size };
+  return { file: out, thumb, w, h: ht, original: file.size };
 }
-function photoField() {
+/* opts.key = which S.* slot holds the chosen photo ('photo' or 'avatar'). */
+function photoField({ key = 'photo', types = PHOTO_OK, maxDim = 1600, label = 'product photo' } = {}) {
   const touch = window.matchMedia && matchMedia('(hover: none)').matches;
-  const input = h('input', { id: 'p-img', type: 'file', accept: PHOTO_OK.join(','), tabindex: '-1', 'aria-hidden': 'true', class: 'file-hide' });
+  const input = h('input', { type: 'file', accept: types.join(','), tabindex: '-1', 'aria-hidden': 'true', class: 'file-hide' });
   const icon = h('span', { class: 'drop-i', 'aria-hidden': 'true' });
   icon.innerHTML = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg>';
-  const zone = h('div', { class: 'drop', tabindex: '0', role: 'button', 'aria-label': 'Add a product photo. Press Enter to browse files, or drag a photo onto this area.' },
+  const zone = h('div', { class: 'drop', tabindex: '0', role: 'button', 'aria-label': `Add a ${label}. Press Enter to browse files, or drag a photo onto this area.` },
     icon,
     h('div', { class: 'drop-t' }, touch ? h('span', { class: 'drop-l' }, 'Tap to choose a photo') : ['Drag & drop a photo or ', h('span', { class: 'drop-l' }, 'browse')]),
-    h('div', { class: 'drop-s' }, 'JPG, PNG, WEBP or GIF · big photos are shrunk automatically'));
+    h('div', { class: 'drop-s' }, (types === AVATAR_OK ? 'JPG, PNG or WEBP' : 'JPG, PNG, WEBP or GIF') + ' · big photos are shrunk automatically'));
   const wrap = h('div', { class: 'photo-field' });
   const paint = () => {
-    if (!S.photo) return wrap.replaceChildren(input, zone);
-    const p = S.photo;
+    const p = S[key];
+    if (!p) return wrap.replaceChildren(input, zone);
     wrap.replaceChildren(input, h('div', { class: 'prev' },
       h('img', { src: p.thumb, alt: 'Preview of the selected photo', width: 72, height: 72 }),
       h('div', { class: 'prev-i' }, h('b', {}, p.file.name), h('span', { class: 'mut' }, `${p.w}×${p.h} · ${fmtSize(p.file.size)}` + (p.file.size < p.original ? ` (was ${fmtSize(p.original)})` : ''))),
-      h('button', { class: 'link', type: 'button', on: { click: () => { S.photo = null; paint(); } } }, 'Remove')));
+      h('button', { class: 'link', type: 'button', on: { click: () => { S[key] = null; paint(); } } }, 'Remove')));
   };
   const take = async file => {
     if (!file) return;
     zone.classList.add('busy');
-    try { S.photo = await processPhoto(file); } catch (e) { toast(e.message, 'bad'); }
+    try { S[key] = await processPhoto(file, { types, maxDim }); } catch (e) { toast(e.message, 'bad'); }
     zone.classList.remove('busy'); input.value = ''; paint();
   };
   zone.addEventListener('click', () => input.click());
@@ -994,7 +1117,7 @@ async function sellListings(body) {
     h('label', { for: 'p-price' }, 'Price (USD)'), h('input', { id: 'p-price', type: 'number', step: '0.01', min: 0, value: S.edit ? S.edit.Price : '' }),
     h('label', { for: 'p-cat' }, 'Category'), h('select', { id: 'p-cat' }, h('option', { value: '' }, 'Select…'), CATS.map(c => h('option', { value: c, selected: S.edit && S.edit.Category === c }, c))),
     h('label', { for: 'p-qty' }, 'Quantity'), h('input', { id: 'p-qty', type: 'number', min: 0, step: 1, value: S.edit ? S.edit.Quantity : '' }),
-    S.edit ? h('p', { class: 'mut', style: 'font-size:.8rem' }, 'Photos can only be set when a product is first listed.') : [h('label', {}, 'Photo (optional)'), photoField(), h('p', { class: 'mut', style: 'font-size:.78rem;margin:6px 0 0' }, 'Only upload photos you own or have permission to use.')],
+    S.edit ? h('p', { class: 'mut', style: 'font-size:.8rem' }, 'Photos can only be set when a product is first listed.') : [h('label', {}, 'Photo (optional)'), photoField({ key: 'photo' }), h('p', { class: 'mut', style: 'font-size:.78rem;margin:6px 0 0' }, 'Only upload photos you own or have permission to use.')],
     h('div', { class: 'row', style: 'margin-top:16px' }, h('button', { class: 'btn', id: 'p-go' }, S.edit ? 'Save changes' : 'List product'),
       S.edit ? h('button', { class: 'btn ghost', type: 'button', on: { click: () => { S.edit = null; loadSell(); } } }, 'Cancel') : null));
   /* class "grid mine": two cards per row on phones (see CSS) */
@@ -1003,7 +1126,9 @@ async function sellListings(body) {
   api('/api/statistics/mine').then(s => stats.append(h('div', {}, h('b', {}, s.total_products ?? 0), h('span', {}, 'Products listed')), h('div', {}, h('b', {}, s.total_quantity ?? 0), h('span', {}, 'Units in stock')), h('div', {}, h('b', {}, s.avg_price ?? '$0.00'), h('span', {}, 'Average price'))));
 }
 function myCard(p) {
-  return h('article', { class: 'pc' }, h('div', { class: 'pimg', style: 'cursor:default' }, p.image_url ? h('img', { src: img(p.image_url, 420), alt: p['Product Name'], loading: 'lazy' }) : h('span', { class: 'noimg' }, 'No image')),
+  const q = +p.Quantity;
+  return h('article', { class: 'pc' }, h('div', { class: 'pimg', style: 'cursor:default' }, p.image_url ? h('img', { src: img(p.image_url, 420), alt: p['Product Name'], loading: 'lazy' }) : h('span', { class: 'noimg' }, 'No image'),
+      q <= 0 ? h('span', { class: 'tag bad' }, 'Sold out') : q <= 3 ? h('span', { class: 'tag warn' }, `Only ${q} left`) : null),
     h('div', { class: 'pb' }, h('div', { class: 'prow' }, h('h3', {}, p['Product Name']), h('b', { class: 'price' }, money(p.Price))), h('div', { class: 'meta' }, h('span', { class: 'chip' }, p.Category), h('span', {}, p.Quantity + ' in stock')),
       h('div', { class: 'row' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api('/api/products/restock', { method: 'POST', body: { name: p['Product Name'], quantity: 1 } }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) refreshProducts(); } } }, '+1 stock'),
         h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => { S.edit = p; loadSell(); scrollTo({ top: 0, behavior: 'smooth' }); } } }, 'Edit'),
@@ -1013,6 +1138,8 @@ async function submitProduct(e) {
   e.preventDefault();
   const name = $('#p-name').value.trim(), price = $('#p-price').value, category = $('#p-cat').value, quantity = $('#p-qty').value;
   if (!name) return toast('Product name is required.', 'bad');
+  if (price !== '' && (+price < 0 || !isFinite(+price))) return toast('Price must be 0 or more.', 'bad');
+  if (quantity !== '' && (+quantity < 0 || !Number.isInteger(+quantity))) return toast('Quantity must be a whole number, 0 or more.', 'bad');
   const btn = $('#p-go'); btn.disabled = true; let r;
   if (S.edit) {
     const body = { name: S.edit['Product Name'] };
@@ -1054,21 +1181,21 @@ function sellerCard(o) {
   }
   if (o.payout_status) card.append(h('div', { class: 'note' }, `Your payout: ${money(o.payout_amount)} (fee ${money(o.platform_fee)}) · ${o.payout_status === 'released' ? 'released' : o.payout_status === 'cancelled' ? 'cancelled' : 'on hold until the buyer confirms delivery'}`));
   if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'The buyer opened a dispute. Payouts stay on hold until it is resolved. You can reply to the buyer in messages.'));
-  if (['pending', 'shipped'].includes(sh) && !closed) {
+  if (['pending', 'shipped'].includes(sh) && !closed && o.status !== 'disputed' && o.status !== 'completed') {
     const prov = h('select', { 'aria-label': 'Delivery provider' }, ['DHL', 'FedEx', 'UPS', 'Local delivery', 'Other'].map(x => h('option', { selected: real(o.provider) === x }, x)));
-    const trk = h('input', { placeholder: 'Tracking number', 'aria-label': 'Tracking number', value: real(o.tracking_number) || '' });
+    const trk = h('input', { placeholder: 'Tracking number', 'aria-label': 'Tracking number', maxlength: 150, value: real(o.tracking_number) || '' });
     const go = h('button', { class: 'btn', type: 'button', on: { click: async () => {
       if (trk.value.trim().length < 2) return toast('Enter a tracking number.', 'bad');
       go.disabled = true; const r = await api(`/api/seller/orders/${o.id}/ship`, { method: 'POST', body: { provider: prov.value, tracking_number: trk.value.trim() } });
-      go.disabled = false; toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, sh === 'shipped' ? 'Update shipment' : 'Mark as shipped');
+      go.disabled = false; toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { loadSell(); pollNotes(); } } } }, sh === 'shipped' ? 'Update shipment' : 'Mark as shipped');
     card.append(h('div', { class: 'ship' }, prov, trk, go));
   }
   const row = h('div', { class: 'row', style: 'margin-top:12px' });
-  if (!closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, S.user.username, o.buyer_username) } }, 'Message buyer'));
+  if (!closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, S.user.username, o.buyer_username) } }, 'Message buyer', h('span', { class: 'badge alert', hidden: true, 'data-unread': `s|${o.id}|${S.user.username}` }, '0')));
   if (sh === 'shipped' && !closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api(`/api/seller/orders/${o.id}/delivered`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Mark as delivered'));
   if (['pending', 'shipped'].includes(sh) && !['completed', 'cancelled', 'disputed'].includes(o.status) && !closed) row.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => {
     if (!await ask('Cancel and refund?', 'The buyer is refunded in full and the stock is returned. This cannot be undone. Orders with several sellers must be cancelled through support.', 'Cancel & refund', true)) return;
-    const r = await api(`/api/seller/orders/${o.id}/cancel`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Cancel & refund'));
+    const r = await api(`/api/seller/orders/${o.id}/cancel`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { loadSell(); pollNotes(); } } } }, 'Cancel & refund'));
   if (row.children.length) card.append(row);
   return card;
 }
@@ -1081,26 +1208,72 @@ async function sellPayouts(body) {
     h('div', { class: 'card' }, h('h2', {}, 'Payout ledger'), h('p', { class: 'mut', style: 'font-size:.84rem' }, 'This ledger tracks what BlueMart owes you. Transfers to your bank are not automated yet.'),
       ...(r.payouts.length ? r.payouts.map(p => h('div', { class: 'line' }, h('span', {}, `Order #${p.order_id} · gross ${money(p.gross_amount)}, fee ${money(p.platform_fee)}`), h('b', {}, `${money(p.payout_amount)} · ${p.status}`))) : [h('p', { class: 'mut' }, 'No entries yet.')])));
 }
+/* Seller profile tab: how you look to buyers + a form to edit it (display name, location, about, photo). */
 async function sellProfile(body) {
   body.replaceChildren(h('div', { class: 'sk' }));
-  const r = await api('/api/sellers/' + encodeURIComponent(S.user.username));
-  if (!r.success) return body.replaceChildren(empty('Could not load profile', r.message));
-  const s = r.seller;
-  body.replaceChildren(h('div', { class: 'stats' }, h('div', {}, h('b', {}, s.rating_count ? '★ ' + s.rating_average.toFixed(1) : '—'), h('span', {}, `${s.rating_count} review${s.rating_count === 1 ? '' : 's'}`)), h('div', {}, h('b', {}, s.completed_orders), h('span', {}, 'Completed orders')), h('div', {}, h('b', {}, s.verified ? '✓ Email verified' : 'Email not verified'), h('span', {}, 'Seller account status'))),
-    h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'grp' }, h('div', { class: 'line' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())), h('p', { style: 'margin:0' }, v.review_text || ''))) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')])));
+  const [pr, sr] = await Promise.all([api('/api/profile'), api('/api/sellers/' + encodeURIComponent(S.user.username))]);
+  if (!pr.success || !sr.success) return body.replaceChildren(empty('Could not load profile', pr.message || sr.message));
+  const p = pr.profile, s = sr.seller; S.avatar = null;
+  const name = h('input', { id: 'pf-name', maxlength: 60, value: p.display_name, placeholder: p.username, autocomplete: 'nickname' });
+  const loc = h('input', { id: 'pf-loc', maxlength: 100, value: p.location, placeholder: 'City, Country', autocomplete: 'address-level2' });
+  const bio = h('textarea', { id: 'pf-bio', maxlength: 500, placeholder: 'Tell buyers what you sell and how you work.' }, p.bio);
+  const cnt = h('div', { class: 'count' }, `${p.bio.length}/500`);
+  bio.addEventListener('input', () => { cnt.textContent = `${bio.value.length}/500`; });
+  const rm = p.avatar_url ? h('label', { class: 'chk', for: 'pf-rm' }, h('input', { type: 'checkbox', id: 'pf-rm' }), h('span', {}, 'Remove my current photo')) : null;
+  const form = h('form', { class: 'card', novalidate: true, on: { submit: async e => {
+    e.preventDefault();
+    const fd = new FormData(); fd.append('display_name', name.value.trim()); fd.append('location', loc.value.trim()); fd.append('bio', bio.value.trim());
+    if (S.avatar) fd.append('avatar', S.avatar.file, S.avatar.file.name);
+    else if (rm && $('#pf-rm').checked) fd.append('remove_avatar', '1');
+    go.disabled = true; const r = await api('/api/profile', { method: 'POST', body: fd }); go.disabled = false;
+    toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } },
+    h('h2', {}, 'Your public profile'),
+    h('p', { class: 'mut', style: 'font-size:.84rem;margin:0' }, 'Buyers see this when they open your name on a product or order. Your email is never shown.'),
+    h('div', { class: 'pf-row' }, avatarEl(p.avatar_url, p.display_name || p.username, 64), h('span', { class: 'mut', style: 'font-size:.84rem' }, p.avatar_url ? 'Current photo' : 'No photo yet')),
+    rm,
+    h('label', {}, 'New photo (optional)'), photoField({ key: 'avatar', types: AVATAR_OK, maxDim: 800, label: 'profile photo' }),
+    h('label', { for: 'pf-name' }, 'Display name'), name,
+    h('label', { for: 'pf-loc' }, 'Location'), loc,
+    h('label', { for: 'pf-bio' }, 'About you'), bio, cnt);
+  const go = h('button', { class: 'btn', type: 'submit' }, 'Save profile');
+  form.append(h('div', { class: 'row', style: 'margin-top:14px' }, go, h('button', { class: 'btn ghost', type: 'button', on: { click: () => openSeller(S.user.username) } }, 'Preview public page')));
+  body.replaceChildren(
+    h('div', { class: 'stats' },
+      h('div', {}, h('b', {}, s.rating_count ? '★ ' + s.rating_average.toFixed(1) : '—'), h('span', {}, `${s.rating_count} review${s.rating_count === 1 ? '' : 's'}`)),
+      h('div', {}, h('b', {}, s.completed_orders), h('span', {}, 'Completed orders')),
+      h('div', {}, h('b', {}, s.on_time_rate ? s.on_time_rate + '%' : (s.verified ? '✓ Verified' : 'Not verified')), h('span', {}, s.on_time_rate ? 'Shipped on time' : 'Email status'))),
+    h('div', { class: 'split' }, form,
+      h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'rev' }, h('div', { class: 'line', style: 'padding:0' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut', style: 'font-size:.8rem' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())), v.review_text ? h('p', {}, v.review_text) : null)) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')]))));
 }
 
-/* ---------- payment return ---------- */
-function payReturn() {
+/* ---------- payment return + deep links from emails ---------- */
+/* Stripe tells our server about the payment by webhook, which can lag a few seconds behind the redirect. */
+async function awaitPayment(id) {
+  for (let i = 0; i < 8; i++) {
+    const r = await api('/api/orders');
+    const o = r.success && r.orders.find(x => String(x.id) === String(id));
+    if (o && o.payment_status === 'paid') { toast(`Payment confirmed for order #${id}. Thank you!`, 'ok'); loadCart(); if (S.view === 'orders') loadOrders(); return; }
+    if (o && o.status === 'cancelled') { if (S.view === 'orders') loadOrders(); return; }
+    await sleep(2500);
+  }
+  toast('Still confirming your payment. Refresh your orders in a minute.');
+}
+function handleUrl() {
   const p = new URLSearchParams(location.search), pay = p.get('payment'), id = p.get('order_id');
-  if (!pay) return;
-  if (pay === 'success') { toast(`Payment received${id ? ' for order #' + id : ''}. Stripe is confirming it now; refresh your orders in a moment if it still shows as awaiting payment.`, 'ok'); view('orders'); if (S.user) loadCart(); }
-  else {
+  /* Links in BlueMart emails: /?view=orders  and  /?view=sell&tab=orders */
+  const tab = p.get('tab'), v = p.get('view');
+  if (SELL_TABS.includes(tab)) S.sellTab = tab;
+  if (VIEWS.includes(v)) view(v);
+  if (pay === 'success') {
+    view('orders');
+    if (S.user) { toast(`Payment received${id ? ' for order #' + id : ''}. Confirming it now…`, 'ok'); if (id) awaitPayment(id); loadCart(); }
+    else toast('Payment received. Sign in to see your order.', 'ok');
+  } else if (pay === 'cancelled') {
     toast('Checkout was cancelled. Your cart is saved.');
     // Give the reserved stock back right away so the buyer can try again.
     if (S.user && id) api(`/api/orders/${encodeURIComponent(id)}/cancel-checkout`, { method: 'POST', body: {} }).then(() => { loadCart(); refreshProducts(); });
   }
-  history.replaceState({}, '', location.pathname);
+  if (pay || v || tab) history.replaceState({}, '', location.pathname);
 }
 
 /* ---------- wiring ---------- */
@@ -1109,6 +1282,7 @@ function wire() {
   $('#btn-cart').onclick = openCart; $('#cart-close').onclick = closeCart; $('#veil').onclick = closeCart;
   $('#btn-acct').onclick = () => S.user ? openAccount() : openAuth('login');
   $('#acct-out').onclick = () => { $('#dlg-acct').close(); logout(); };
+  $('#acct-profile').onclick = () => { $('#dlg-acct').close(); S.sellTab = 'profile'; view('sell'); };
   $('#f-del').addEventListener('submit', async e => {
     e.preventDefault();
     if (!await ask('Delete your account?', 'Your email, listings, cart and delivery addresses are removed right away. This cannot be undone.', 'Delete my account', true)) return;
@@ -1120,12 +1294,13 @@ function wire() {
   $('#btn-checkout').onclick = openShipping;
   $('#f-ship').addEventListener('submit', submitShipping);
   $('#btn-clear').onclick = async () => { if (!await ask('Clear your cart?', 'All items will be removed.', 'Clear cart', true)) return; const r = await api('/api/cart/clear', { method: 'DELETE' }); toast(r.message, r.success ? 'ok' : 'bad'); loadCart(); };
-  $('#hero-browse').onclick = () => $('#q').focus(); $('#hero-sell').onclick = () => view('sell');
+  $('#hero-browse').onclick = () => { $('#shop-ctl').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('#q').focus({ preventScroll: true }); };
+  $('#hero-sell').onclick = () => view('sell');
   $('#q').addEventListener('input', debounce(e => { S.q = e.target.value; renderShop(); }));
   $('#sort').onchange = e => { S.sort = e.target.value; renderShop(); };
   $('#cats').addEventListener('click', e => { const b = e.target.closest('button[data-cat]'); if (!b) return; S.cat = b.dataset.cat; renderCats(); renderShop(); });
   $('#grid').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; b.dataset.act === 'open' ? openProduct(b.dataset.id) : addToCart(b.dataset.id); });
-  $('#orders-refresh').onclick = loadOrders;
+  $('#orders-refresh').onclick = () => { loadOrders(); pollNotes(); };
   $('#sell-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) { S.sellTab = b.dataset.t; loadSell(); } });
   $$('.auth-t button').forEach(b => b.onclick = () => setAuthTab(b.dataset.a));
   $('#f-auth').addEventListener('submit', submitAuth);
@@ -1140,13 +1315,15 @@ function wire() {
     toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { $('#dlg-dispute').close(); loadOrders(); } });
   $('#f-review').addEventListener('submit', async e => {
     e.preventDefault(); const r = await api(`/api/orders/${reviewCtx.id}/review`, { method: 'POST', body: { seller_username: reviewCtx.seller, rating: +$('#r-stars').value, review_text: $('#r-text').value.trim() } });
-    toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) $('#dlg-review').close(); });
+    toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { $('#dlg-review').close(); loadOrders(); } });
   /* messaging */
   $('#f-chat').addEventListener('submit', sendChat);
   $('#c-text').addEventListener('input', e => { $('#c-count').textContent = e.target.value.length + '/1000'; });
   $('#c-text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#f-chat').requestSubmit(); } });
-  $('#dlg-chat').addEventListener('close', () => { clearInterval(chat.timer); chat.id = null; });
+  $('#dlg-chat').addEventListener('close', () => { clearInterval(chat.timer); chat.id = null; pollNotes(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCart(); });
+  /* check for new messages / orders to ship when the person comes back to the tab */
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNotes(); });
   /* coming back from Stripe with the browser's Back button: start from a clean page */
   window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
 }
@@ -1182,8 +1359,8 @@ async function init() {
   const [s, p] = await Promise.all([api('/api/session'), api('/api/products')]);
   S.cfg = s.config || {};
   if (Array.isArray(p)) S.products = p; else toast(p.message || 'Could not load products.', 'bad');
-  if (s.logged_in) { setUser(s.username, s.csrf_token); await Promise.all([loadCart(), loadNews()]); }
-  renderShop(); payReturn();
+  if (s.logged_in) { setUser(s.username, s.csrf_token); startPolling(); await Promise.all([loadCart(), loadNews()]); }
+  renderShop(); handleUrl();
 }
 init();
 
