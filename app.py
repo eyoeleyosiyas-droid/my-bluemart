@@ -134,6 +134,13 @@ ALLOWED_PRODUCT_CATEGORIES = [
 ]
 USERNAME_PATTERN = r'^[a-zA-Z0-9_]{3,100}$'
 
+# Profile limits
+MAX_DISPLAY_NAME_LENGTH = 60
+MAX_BIO_LENGTH = 500
+MAX_LOCATION_LENGTH = 100
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
 # Account lockout policy - a standard defense against password guessing
 # that most established platforms apply.
 MAX_FAILED_LOGIN_ATTEMPTS = 5
@@ -141,6 +148,10 @@ LOCKOUT_DURATION_MINUTES = 15
 
 # Maximum messages stored per order conversation (buyer <-> one seller).
 MAX_MESSAGES_PER_THREAD = 500
+
+# Deep links used in notification emails. The page reads ?view=...&tab=... on load.
+PATH_BUYER_ORDERS = "/?view=orders"
+PATH_SELLER_ORDERS = "/?view=sell&tab=orders"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -320,14 +331,15 @@ def send_order_confirmation_email(email, username, order_id, total):
 
 def send_notice_email(email, subject, heading, message, button_label=None, path="/"):
     """Short service email (new order, new message, shipped...). Never put private
-    data such as delivery addresses in here: the email only says where to look."""
+    data such as delivery addresses in here: the email only says where to look.
+    `path` is a deep link such as /?view=orders that the page understands."""
     try:
         if not BASE_URL or not EMAIL_CONFIGURED or not email:
             return False
         link = f"{BASE_URL}{path}"
         button = f"""
             <p style="margin:0 0 8px;">
-                <a href="{link}" style="display:inline-block;padding:13px 22px;background:#5bc0be;color:#0b1329;
+                <a href="{escape(link)}" style="display:inline-block;padding:13px 22px;background:#5bc0be;color:#0b1329;
                    text-decoration:none;border-radius:8px;font-weight:800;font-size:14px;">{escape(button_label)}</a>
             </p>""" if button_label else ""
         content = f"""
@@ -426,6 +438,11 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version VARCHAR(20);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS age_confirmed_at TIMESTAMP;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;")
+            # Public profile (shown on the seller profile card).
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(60);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;")
 
             # Postgres allows multiple NULLs under a UNIQUE constraint, so this is
             # safe to add even if older rows have no email yet.
@@ -619,6 +636,21 @@ def init_db():
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_order_messages_thread ON order_messages(order_id, seller_username, id);")
 
+            # Unread tracking: read_at stays NULL until the other person opens the thread.
+            # When the column is first added, every existing message counts as already
+            # read so nobody gets a flood of fake "unread" badges after upgrading.
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'order_messages' AND column_name = 'read_at';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE order_messages ADD COLUMN read_at TIMESTAMP;")
+                cur.execute("UPDATE order_messages SET read_at = created_at WHERE read_at IS NULL;")
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_order_messages_unread
+                ON order_messages(seller_username, order_id) WHERE read_at IS NULL;
+            """)
+
             # Seller trust/profile data and buyer reviews.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS seller_profiles (
@@ -633,6 +665,7 @@ def init_db():
                     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
                 );
             """)
+            # One review per (order, seller): the UNIQUE constraint is the real guard.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS seller_reviews (
                     id SERIAL PRIMARY KEY,
@@ -649,6 +682,16 @@ def init_db():
                 );
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_reviews_seller ON seller_reviews(seller_username, created_at DESC);")
+            # Make sure older databases created before the constraint existed get it too
+            # (keeps the oldest review if duplicates already slipped in).
+            cur.execute("""
+                DELETE FROM seller_reviews a USING seller_reviews b
+                WHERE a.order_id = b.order_id AND a.seller_username = b.seller_username AND a.id > b.id;
+            """)
+            cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_one_per_order
+                ON seller_reviews(order_id, seller_username);
+            """)
 
             # Newsletter / opt-in subscribers
             cur.execute("""
@@ -1501,6 +1544,155 @@ def check_session():
 def _public_config():
     return {"platform_fee_percent": float(PLATFORM_FEE_PERCENT), "support_email": BUSINESS["email"]}
 
+
+# -----------------------------------------------------------------------------
+# PROFILE (photo + about info)
+# -----------------------------------------------------------------------------
+
+def _profile_dict(row):
+    return {
+        'username': row['username'],
+        'email': row['email'],
+        'display_name': row['display_name'] or '',
+        'bio': row['bio'] or '',
+        'location': row['location'] or '',
+        'avatar_url': row['avatar_url'],
+    }
+
+
+def _load_profile(username):
+    with get_db_connection() as conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT username, email, display_name, bio, location, avatar_url
+            FROM users WHERE username = %s AND deleted_at IS NULL;
+        """, (username,))
+        row = cur.fetchone()
+        cur.close()
+    return _profile_dict(row) if row else None
+
+
+@app.route('/api/profile', methods=['GET'])
+@require_login
+def get_profile():
+    try:
+        profile = _load_profile(session['username'])
+        if not profile:
+            return api_error("Profile not found.", 404)
+        return api_ok("Profile loaded.", profile=profile)
+    except Exception as e:
+        logger.exception("Get profile failed: %s", e)
+        return api_error("We couldn't load your profile.", 500)
+
+
+@app.route('/api/profile', methods=['POST'])
+@rate_limit("30 per hour")
+@require_login
+def update_profile():
+    """Save the about info and (optionally) a new profile photo.
+    Sent as multipart form data: display_name, bio, location, avatar (file),
+    remove_avatar ('1' to delete the current photo)."""
+    username = session['username']
+    try:
+        display_name = (request.form.get('display_name') or '').strip()
+        bio = (request.form.get('bio') or '').strip()
+        location = (request.form.get('location') or '').strip()
+
+        if len(display_name) > MAX_DISPLAY_NAME_LENGTH:
+            return api_error(f"Display name must be at most {MAX_DISPLAY_NAME_LENGTH} characters.", 422)
+        if len(bio) > MAX_BIO_LENGTH:
+            return api_error(f"About text must be at most {MAX_BIO_LENGTH} characters.", 422)
+        if len(location) > MAX_LOCATION_LENGTH:
+            return api_error(f"Location must be at most {MAX_LOCATION_LENGTH} characters.", 422)
+
+        set_avatar = False
+        avatar_url = None
+        image = request.files.get('avatar')
+        if image and image.filename:
+            if image.mimetype not in ALLOWED_AVATAR_TYPES:
+                return api_error("Unsupported image type. Use JPEG, PNG or WEBP.", 415)
+            try:
+                result = cloudinary.uploader.upload(
+                    image, folder="bluemart/avatars", resource_type="image",
+                    transformation=[{"width": 400, "height": 400, "crop": "fill", "gravity": "auto"}]
+                )
+                avatar_url = result.get("secure_url")
+                set_avatar = True
+            except Exception as e:
+                logger.error(f"Avatar upload failed: {e}")
+                return api_error("We couldn't upload that photo. Try a different file.", 502)
+        elif request.form.get('remove_avatar') == '1':
+            set_avatar = True
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            if set_avatar:
+                cur.execute("""
+                    UPDATE users SET display_name = %s, bio = %s, location = %s, avatar_url = %s
+                    WHERE username = %s;
+                """, (display_name or None, bio or None, location or None, avatar_url, username))
+            else:
+                cur.execute("""
+                    UPDATE users SET display_name = %s, bio = %s, location = %s
+                    WHERE username = %s;
+                """, (display_name or None, bio or None, location or None, username))
+            conn.commit()
+            cur.close()
+
+        return api_ok("Profile saved.", profile=_load_profile(username))
+    except Exception as e:
+        logger.exception("Update profile failed: %s", e)
+        return api_error("We couldn't save your profile right now.", 500)
+
+
+# -----------------------------------------------------------------------------
+# NOTIFICATIONS (unread messages + orders waiting to ship)
+# -----------------------------------------------------------------------------
+
+@app.route('/api/notifications', methods=['GET'])
+@rate_limit("90 per minute")
+@require_login
+def notifications():
+    """Cheap summary the page polls: unread messages per conversation and,
+    for sellers, how many paid orders still wait for a shipment."""
+    me = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT m.order_id, m.seller_username, (o.username = %s) AS as_buyer,
+                       COUNT(*) AS n, MIN(m.sender_username) AS sender
+                FROM order_messages m
+                JOIN orders o ON o.id = m.order_id
+                WHERE m.read_at IS NULL
+                  AND m.sender_username <> %s
+                  AND (o.username = %s OR m.seller_username = %s)
+                GROUP BY m.order_id, m.seller_username, o.username;
+            """, (me, me, me, me))
+            rows = cur.fetchall()
+
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM shipments s
+                JOIN orders o ON o.id = s.order_id
+                WHERE s.seller_username = %s AND s.status = 'pending'
+                  AND o.payment_status = 'paid'
+                  AND o.status NOT IN ('cancelled', 'disputed', 'completed', 'refunded');
+            """, (me,))
+            to_ship = int(cur.fetchone()[0])
+            cur.close()
+
+        threads = [{'order_id': r[0], 'seller': r[1], 'as_buyer': bool(r[2]), 'n': int(r[3]), 'sender': r[4]} for r in rows]
+        buyer_unread = sum(t['n'] for t in threads if t['as_buyer'])
+        seller_unread = sum(t['n'] for t in threads if not t['as_buyer'])
+        resp = api_ok("Notifications loaded.", threads=threads, buyer_unread=buyer_unread,
+                      seller_unread=seller_unread, to_ship=to_ship)
+        return resp
+    except Exception as e:
+        logger.exception("Notifications failed: %s", e)
+        return api_error("We couldn't check for updates.", 500)
+
+
 @app.route('/api/products', methods=['GET'])
 def get_products():
     release_stale_reservations()
@@ -1871,6 +2063,11 @@ def get_orders():
                     ORDER BY oi.id;
                 """, (row['id'],))
                 items = cur.fetchall()
+
+                # Which sellers this buyer already rated for THIS order (one rating per order+seller).
+                cur.execute("SELECT seller_username, rating FROM seller_reviews WHERE order_id = %s;", (row['id'],))
+                reviews = {r['seller_username']: int(r['rating']) for r in cur.fetchall()}
+
                 ship_to = None
                 if row['ship_address']:
                     ship_to = ", ".join(x for x in (row['ship_name'], row['ship_address'], row['ship_city'],
@@ -1883,6 +2080,7 @@ def get_orders():
                     'created_at': row['created_at'].isoformat(),
                     'buyer_confirmed_at': row['buyer_confirmed_at'].isoformat() if row['buyer_confirmed_at'] else None,
                     'ship_to': ship_to,
+                    'reviews': reviews,
                     'items': [{
                         'product_name': i['product_name'],
                         'price': float(i['price']),
@@ -2084,6 +2282,14 @@ def get_order_messages(order_id):
                 ) t ORDER BY id;
             """, (order_id, seller))
             rows = cur.fetchall()
+
+            # Opening the conversation marks the other person's messages as read.
+            cur.execute("""
+                UPDATE order_messages SET read_at = NOW()
+                WHERE order_id = %s AND seller_username = %s
+                  AND sender_username <> %s AND read_at IS NULL;
+            """, (order_id, seller, username))
+            conn.commit()
             cur.close()
         return api_ok('Messages loaded.', messages=[{
             'sender': r['sender_username'],
@@ -2133,8 +2339,11 @@ def send_order_message(order_id):
                 cur.execute("SELECT username FROM orders WHERE id = %s;", (order_id,))
                 buyer_row = cur.fetchone()
                 if buyer_row:
-                    other = seller if username == buyer_row[0] else buyer_row[0]
-                    recipient = (other, _emails_for(cur, [other]).get(other))
+                    buyer_name = buyer_row[0]
+                    other = seller if username == buyer_name else buyer_name
+                    # Deep link: buyers land on My orders, sellers on Orders to ship.
+                    path = PATH_BUYER_ORDERS if other == buyer_name else PATH_SELLER_ORDERS
+                    recipient = (other, _emails_for(cur, [other]).get(other), path)
             conn.commit()
             cur.close()
         if recipient and recipient[1]:
@@ -2144,7 +2353,7 @@ def send_order_message(order_id):
                 "You have a new message",
                 f"Hi {recipient[0]}, {username} sent you a message about order #{order_id}. "
                 "Open the order to read and reply.",
-                "Open BlueMart", "/")
+                "Open BlueMart", recipient[2])
         return api_ok('Message sent.', 201)
     except Exception as e:
         logger.exception('Send message failed: %s', e)
@@ -2267,7 +2476,7 @@ def seller_ship_order(order_id):
                 "Part of your order is on its way",
                 f"Hi {buyer_name}, {seller} shipped items from order #{order_id} with {provider} "
                 f"(tracking {tracking}). You can follow it in your orders.",
-                "View my orders", "/")
+                "View my orders", PATH_BUYER_ORDERS)
         return api_ok('Shipment saved. The buyer can now track this shipment.')
     except Exception as e:
         logger.exception('Seller ship failed: %s', e)
@@ -2368,13 +2577,14 @@ def seller_profile(username):
         with get_db_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute("""
-                SELECT u.username, COALESCE(sp.verified, FALSE) verified,
+                SELECT u.username, u.display_name, u.bio, u.location, u.avatar_url,
+                       COALESCE(sp.verified, FALSE) verified,
                        COALESCE(sp.rating_average, 0) rating_average, COALESCE(sp.rating_count, 0) rating_count,
                        COALESCE(sp.completed_orders, 0) completed_orders,
                        COALESCE(sp.on_time_shipments, 0) on_time_shipments,
                        COALESCE(sp.total_shipments, 0) total_shipments
                 FROM users u LEFT JOIN seller_profiles sp ON sp.username = u.username
-                WHERE u.username = %s;
+                WHERE u.username = %s AND u.deleted_at IS NULL;
             """, (username,))
             profile = cur.fetchone()
             if not profile:
@@ -2388,6 +2598,10 @@ def seller_profile(username):
         on_time = int(profile['on_time_shipments'])
         return api_ok('Seller profile loaded.', seller={
             'username': profile['username'], 'verified': bool(profile['verified']),
+            'display_name': profile['display_name'] or '',
+            'bio': profile['bio'] or '',
+            'location': profile['location'] or '',
+            'avatar_url': profile['avatar_url'],
             'rating_average': float(profile['rating_average']), 'rating_count': int(profile['rating_count']),
             'completed_orders': int(profile['completed_orders']),
             'on_time_rate': round((on_time / total_shipments) * 100, 1) if total_shipments else 0,
@@ -2404,9 +2618,13 @@ def seller_profile(username):
 
 
 @app.route('/api/orders/<int:order_id>/review', methods=['POST'])
+@rate_limit("20 per hour")
 @require_login
 @validate_json(ReviewSchema)
 def review_seller(order_id):
+    """One rating per seller per order. The order row is locked while we check,
+    and the INSERT relies on the UNIQUE(order_id, seller_username) constraint,
+    so two quick clicks (or two tabs) can never create two reviews."""
     buyer = session['username']
     data = request.validated_data
     seller = data['seller_username'].strip()
@@ -2414,18 +2632,25 @@ def review_seller(order_id):
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT payment_status, status FROM orders WHERE id = %s AND username = %s;", (order_id, buyer))
+            cur.execute("SELECT payment_status, status FROM orders WHERE id = %s AND username = %s FOR UPDATE;", (order_id, buyer))
             order = cur.fetchone()
             if not order or order[0] != 'paid' or order[1] != 'completed':
                 cur.close(); return api_error('You can review a seller only after the order is completed.', 400)
+            if seller == buyer:
+                cur.close(); return api_error('You cannot review yourself.', 400)
             cur.execute("SELECT 1 FROM order_items WHERE order_id = %s AND seller_username = %s LIMIT 1;", (order_id, seller))
-            if not cur.fetchone() or seller == buyer:
+            if not cur.fetchone():
                 cur.close(); return api_error('That seller is not part of this order.', 400)
-            cur.execute("SELECT 1 FROM seller_reviews WHERE order_id = %s AND seller_username = %s;", (order_id, seller))
-            if cur.fetchone():
-                cur.close(); return api_error('You already reviewed this seller for this order.', 409)
-            cur.execute("INSERT INTO seller_reviews (order_id, seller_username, buyer_username, rating, review_text) VALUES (%s,%s,%s,%s,%s);",
-                        (order_id, seller, buyer, data['rating'], review_text))
+
+            cur.execute("""
+                INSERT INTO seller_reviews (order_id, seller_username, buyer_username, rating, review_text)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (order_id, seller_username) DO NOTHING;
+            """, (order_id, seller, buyer, data['rating'], review_text))
+            if cur.rowcount != 1:
+                conn.rollback(); cur.close()
+                return api_error('You already rated this seller for this order. Each order can be rated once.', 409)
+
             cur.execute("INSERT INTO seller_profiles (username) VALUES (%s) ON CONFLICT (username) DO NOTHING;", (seller,))
             cur.execute("""
                 UPDATE seller_profiles sp SET
@@ -2437,7 +2662,7 @@ def review_seller(order_id):
                 WHERE sp.username = x.seller_username;
             """, (seller,))
             conn.commit(); cur.close()
-        return api_ok('Seller review submitted.')
+        return api_ok('Seller review submitted. Thank you!')
     except Exception as e:
         logger.exception('Seller review failed: %s', e)
         return api_error("We couldn't submit the review.", 500)
@@ -2873,7 +3098,7 @@ def stripe_webhook():
                     "You have a new order to ship",
                     f"Hi {seller_name}, order #{order_id} has been paid and is waiting for you. "
                     "Open Sell > Orders to ship to see the delivery details and add tracking.",
-                    "Open my orders", "/")
+                    "Open my orders", PATH_SELLER_ORDERS)
         except Exception:
             logger.exception("Seller notification failed for order %s", order_id)
 
@@ -3036,9 +3261,11 @@ def delete_account():
                     WHERE username = %s;
                 """, (username,))
                 cur.execute("UPDATE order_messages SET body = '[deleted]' WHERE sender_username = %s;", (username,))
+                # Profile photo and about info are personal data too.
                 cur.execute("""
                     UPDATE users
                     SET email = NULL, email_verified = FALSE, verification_token = NULL,
+                        display_name = NULL, bio = NULL, location = NULL, avatar_url = NULL,
                         password_hash = %s, failed_login_attempts = 0, locked_until = NULL, deleted_at = NOW()
                     WHERE username = %s;
                 """, (generate_password_hash(secrets.token_urlsafe(32), method='pbkdf2:sha256'), username))
@@ -3091,8 +3318,7 @@ def add_product():
 
         image_url = None
         if image and image.filename:
-            allowed_image_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-            if image.mimetype not in allowed_image_types:
+            if image.mimetype not in ALLOWED_IMAGE_TYPES:
                 return api_error("Unsupported image type. Use JPEG, PNG, WEBP, or GIF.", 415)
             try:
                 upload_result = cloudinary.uploader.upload(image, folder="bluemart/products", resource_type="image")
