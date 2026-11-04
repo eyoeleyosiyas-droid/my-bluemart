@@ -2787,6 +2787,57 @@ def create_checkout_session():
         return api_error("We couldn't start the payment process.", 502)
 
 
+@app.route('/api/orders/<int:order_id>/verify-payment', methods=['POST'])
+@rate_limit("20 per minute")
+@require_login
+def verify_payment(order_id):
+    """Safety net for a late or missed Stripe webhook. Asks Stripe directly whether
+    this buyer's checkout session was paid and, if so, finalizes the order with the
+    same code the webhook uses. It is safe to call repeatedly or at the same time as
+    the webhook: the order row is locked and only an unpaid order can be finalized."""
+    username = session['username']
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT payment_status, stripe_session_id FROM orders WHERE id = %s AND username = %s;",
+                        (order_id, username))
+            row = cur.fetchone()
+            cur.close()
+        if not row:
+            return api_error("Order not found.", 404)
+        payment_status, stripe_session_id = row
+        if payment_status in ('paid', 'refunded'):
+            return api_ok("Payment already confirmed." if payment_status == 'paid' else "This order was refunded.",
+                          paid=payment_status == 'paid')
+        if not stripe_session_id or not STRIPE_SECRET_KEY:
+            return api_ok("Payment not confirmed yet.", paid=False)
+
+        sess = stripe.checkout.Session.retrieve(stripe_session_id)
+        if getattr(sess, 'payment_status', None) != 'paid':
+            return api_ok("Stripe has not confirmed this payment yet.", paid=False)
+
+        # Same shape the webhook receives; the order and buyer come from our own database.
+        checkout = {
+            'id': stripe_session_id,
+            'payment_status': 'paid',
+            'payment_intent': getattr(sess, 'payment_intent', None),
+            'metadata': {'order_id': str(order_id), 'username': username},
+        }
+        _, code = _handle_checkout_event({'type': 'checkout.session.completed', 'data': {'object': checkout}})
+        if code >= 500:
+            return api_error("We couldn't confirm your payment right now. Please try again shortly.", 502)
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT payment_status FROM orders WHERE id = %s;", (order_id,))
+            now_status = cur.fetchone()[0]
+            cur.close()
+        return api_ok("Payment confirmed." if now_status == 'paid' else "Order updated.", paid=now_status == 'paid')
+    except Exception as e:
+        logger.exception("Verify payment failed for order %s: %s", order_id, e)
+        return api_error("We couldn't check your payment right now.", 500)
+
+
 @app.route('/api/orders/<int:order_id>/cancel-checkout', methods=['POST'])
 @require_login
 def cancel_checkout(order_id):
@@ -2877,14 +2928,23 @@ def stripe_webhook():
         stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
     except ValueError:
         return '', 400
-    except stripe.SignatureVerificationError:
-        return '', 400
+    except Exception as e:
+        # Name check keeps this working across stripe-python versions.
+        if e.__class__.__name__ == 'SignatureVerificationError':
+            return '', 400
+        raise
 
     try:
         event = json.loads(payload)
     except ValueError:
         return '', 400
 
+    return _handle_checkout_event(event)
+
+
+def _handle_checkout_event(event):
+    """Finalize or release an order from a checkout event. Shared by the signed
+    webhook and by /verify-payment, so both paths behave identically."""
     event_type = event.get('type')
     if event_type not in {'checkout.session.completed', 'checkout.session.expired'}:
         return '', 200
