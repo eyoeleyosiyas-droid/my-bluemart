@@ -977,7 +977,7 @@ function orderCard(o) {
   acts.append(btns); card.append(acts);
   if (paid && o.status !== 'completed' && !closed) card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
   if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'Your report is open. Payouts stay on hold while it is reviewed, and delivery cannot be confirmed until it is resolved.'));
-  if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay (or right away if you cancel checkout).'));
+  if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay (or right away if you cancel checkout). Already paid? ', h('button', { class: 'linkbtn', type: 'button', on: { click: async e => { e.target.disabled = true; const r = await api(`/api/orders/${o.id}/verify-payment`, { method: 'POST', body: {} }); toast(r.message, r.success && r.paid ? 'ok' : ''); loadOrders(); loadCart(); } } }, 'Check payment status')));
   return card;
 }
 let disputeId = null, reviewCtx = null;
@@ -1250,6 +1250,8 @@ async function sellProfile(body) {
 /* Stripe tells our server about the payment by webhook, which can lag a few seconds behind the redirect. */
 async function awaitPayment(id) {
   for (let i = 0; i < 8; i++) {
+    // If the webhook is late, ask the server to check with Stripe directly.
+    if (i === 1 || i === 3 || i === 6) await api(`/api/orders/${encodeURIComponent(id)}/verify-payment`, { method: 'POST', body: {} });
     const r = await api('/api/orders');
     const o = r.success && r.orders.find(x => String(x.id) === String(id));
     if (o && o.payment_status === 'paid') { toast(`Payment confirmed for order #${id}. Thank you!`, 'ok'); loadCart(); if (S.view === 'orders') loadOrders(); return; }
