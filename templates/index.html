@@ -20,10 +20,11 @@
 <meta property="og:title" content="BlueMart Marketplace">
 <meta property="og:description" content="Discover products, sell your own and track every order.">
 <meta property="og:type" content="website">
-<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+<!-- Inline favicon: no dependency on a static/logo.svg file (data: images are allowed by the CSP). -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='4' y='16' width='40' height='26' rx='4' fill='%231c2541' stroke='%232dd4bf' stroke-width='2'/%3E%3Cpath d='M14 16V11a10 10 0 0 1 20 0v5' fill='none' stroke='%232dd4bf' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='27' r='5' fill='%232dd4bf'/%3E%3C/svg%3E">
 <style>
 {% raw %}
-:root{--bg:#070d1f;--panel:#0f1831;--raise:#152043;--line:rgba(255,255,255,.09);--tx:#f3f6fc;--mut:#94a3c0;--ac:#2dd4bf;--ac2:#38bdf8;--bad:#f87171;--ok:#34d399;--warn:#fbbf24;--hh:62px;--f:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+:root{--bg:#070d1f;--panel:#0f1831;--raise:#152043;--line:rgba(255,255,255,.09);--tx:#f3f6fc;--mut:#94a3c0;--ac:#2dd4bf;--ac2:#38bdf8;--bad:#f87171;--ok:#34d399;--warn:#fbbf24;--hh:62px;--sat:env(safe-area-inset-top,0px);--hd:calc(var(--hh) + var(--sat));--f:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 *{box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;font:15px/1.5 var(--f);color:var(--tx);min-height:100vh;background:radial-gradient(800px 420px at 92% -8%,rgba(45,212,191,.15),transparent 60%),radial-gradient(600px 400px at -8% 8%,rgba(56,189,248,.09),transparent 60%),var(--bg);background-attachment:fixed;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -51,10 +52,10 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .form-msg{margin:14px 0 0;padding:10px 12px;border-radius:12px;font-size:.88rem;font-weight:600;line-height:1.4;border:1px solid rgba(248,113,113,.45);background:rgba(248,113,113,.12);color:var(--bad)}
 .form-msg.ok{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.12);color:var(--ok)}
 /* header + nav */
-.top{position:sticky;top:0;z-index:50;height:var(--hh);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 max(20px,calc((100vw - 1240px)/2));background:rgba(7,13,31,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top{position:sticky;top:0;z-index:50;height:var(--hd);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:var(--sat) max(20px,calc((100vw - 1240px)/2)) 0;background:rgba(7,13,31,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--tx);font-size:1.25rem;font-weight:800;letter-spacing:-.03em}.brand i{font-style:normal;color:var(--ac)}.brand svg{width:34px;height:34px}
 .acts{display:flex;gap:8px;align-items:center}
-.nav{position:sticky;top:var(--hh);z-index:40;display:flex;gap:6px;padding:8px max(20px,calc((100vw - 1240px)/2));background:rgba(7,13,31,.7);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav{position:sticky;top:var(--hd);z-index:40;display:flex;gap:6px;padding:8px max(20px,calc((100vw - 1240px)/2));background:rgba(7,13,31,.7);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 .nav button{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border:0;border-radius:99px;background:transparent;color:var(--mut);font-weight:600;cursor:pointer}
 .nav button:hover{background:rgba(255,255,255,.06);color:var(--tx)}.nav button.on{background:var(--ac);color:#04121a}
 .nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -71,6 +72,7 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 .chips button{flex:0 0 auto;min-height:38px;padding:0 16px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--mut);font-weight:600;cursor:pointer}
 .chips button.on{background:var(--ac);border-color:var(--ac);color:#04121a}
 .bar{display:flex;gap:12px;align-items:center;justify-content:space-between}.bar select{width:auto;min-width:180px}
+.banner{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border:1px solid rgba(45,212,191,.3);border-radius:14px;background:rgba(45,212,191,.07);font-size:.9rem}
 /* products */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
 .pc{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s,box-shadow .2s}
@@ -108,7 +110,7 @@ label{display:block;font-size:.82rem;color:var(--mut);margin:12px 0 6px}
 /* drawer + dialogs */
 .veil{position:fixed;inset:0;background:rgba(3,6,18,.7);z-index:90;opacity:0;pointer-events:none;transition:opacity .2s}.veil.on{opacity:1;pointer-events:auto}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);z-index:100;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s;visibility:hidden}
-.drawer.on{transform:none;visibility:visible}.dh{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.drawer.on{transform:none;visibility:visible}.dh{display:flex;justify-content:space-between;align-items:center;padding:calc(16px + var(--sat)) 20px 16px;border-bottom:1px solid var(--line)}
 .dl{flex:1;overflow:auto;padding:8px 20px}.df{padding:16px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:grid;gap:10px}
 .ci{display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.ci img,.ci .noimg{width:60px;height:60px;border-radius:12px;object-fit:cover;background:var(--raise)}
 .ci input{width:64px;min-height:38px;padding:4px 8px;text-align:center}.link{background:none;border:0;color:var(--bad);cursor:pointer;font-size:.8rem;padding:4px 0}
@@ -120,8 +122,14 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 .pd{display:grid;grid-template-columns:1fr 1fr;gap:22px}.pdi{border-radius:16px;overflow:hidden;background:var(--raise);min-height:240px}.pdi img{width:100%;height:100%;object-fit:cover;display:block}.pdb{display:grid;gap:10px;align-content:start}
 .qty{width:80px}.auth-t{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;margin:12px 0}.auth-t button{min-height:40px;border:0;border-radius:10px;background:transparent;color:var(--mut);font-weight:700;cursor:pointer}.auth-t .on{background:var(--ac);color:#04121a}
 .acts-r{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:18px}
+/* Google sign-in */
+.gwrap{display:grid;gap:12px;justify-items:center;margin-top:18px}
+.or{display:flex;align-items:center;gap:12px;width:100%;color:var(--mut);font-size:.78rem}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+#g-btn{min-height:44px;display:flex;justify-content:center;max-width:100%;overflow:hidden}
+/* account dialog */
+.acct-info{display:grid;gap:4px;font-size:.88rem;margin:12px 0 16px}
 /* toasts: a popover lives in the browser's top layer, so toasts always show ABOVE open dialogs */
-#toasts{position:fixed;inset:auto;top:calc(var(--hh) + 10px);right:16px;left:auto;bottom:auto;width:auto;height:auto;margin:0;padding:0;border:0;background:transparent;color:inherit;overflow:visible;z-index:200;display:grid;gap:10px;max-width:min(360px,calc(100% - 32px))}
+#toasts{position:fixed;inset:auto;top:calc(var(--hd) + 10px);right:16px;left:auto;bottom:auto;width:auto;height:auto;margin:0;padding:0;border:0;background:transparent;color:inherit;overflow:visible;z-index:200;display:grid;gap:10px;max-width:min(360px,calc(100% - 32px))}
 .toast{padding:13px 16px;border-radius:12px;background:var(--raise);border:1px solid var(--line);border-left:4px solid var(--ac);box-shadow:0 10px 30px rgba(0,0,0,.4);animation:in .25s}.toast.ok{border-left-color:var(--ok)}.toast.bad{border-left-color:var(--bad)}
 @keyframes in{from{opacity:0;transform:translateX(24px)}}
 /* messaging */
@@ -153,7 +161,7 @@ dialog::backdrop{background:rgba(3,6,18,.75);backdrop-filter:blur(4px)}dialog.wi
 @media(max-width:900px){.split{grid-template-columns:1fr}.pd{grid-template-columns:1fr}}
 @media(max-width:720px){
 body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
-.top{padding:0 14px}.wrap{padding:18px 14px 32px}
+.top{padding:var(--sat) 14px 0}.wrap{padding:18px 14px 32px}
 .nav{position:fixed;top:auto;bottom:0;left:0;right:0;justify-content:space-around;gap:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:rgba(7,13,31,.95);border-top:1px solid var(--line);border-bottom:0}
 .nav button{flex:1;flex-direction:column;gap:2px;min-height:54px;padding:6px 2px;border-radius:12px;font-size:.7rem;position:relative}.nav button.on{background:rgba(45,212,191,.16);color:var(--ac)}
 .nav .badge{position:absolute;top:4px;right:calc(50% - 26px);height:18px;min-width:18px;font-size:.65rem}
@@ -283,6 +291,7 @@ html[data-theme="light"] .chip{background:var(--soft);color:#475569}
 html[data-theme="light"] .chips button{background:#fff;border-color:var(--line)}
 html[data-theme="light"] .chips button:hover{background:var(--soft)}
 html[data-theme="light"] .chips button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+html[data-theme="light"] .banner{background:rgba(15,118,110,.07);border-color:rgba(15,118,110,.3)}
 html[data-theme="light"] .auth-t{background:var(--bg)}
 html[data-theme="light"] .auth-t .on{color:#fff}
 html[data-theme="light"] .pill{color:var(--ac-t);background:rgba(15,118,110,.1)}
@@ -376,6 +385,7 @@ html[data-theme="light"] .cookie p{color:#334155}
     <div class="ctl" id="shop-ctl">
       <input id="q" type="search" placeholder="Search products…" aria-label="Search products" autocomplete="off">
       <div class="chips" id="cats" role="group" aria-label="Categories"></div>
+      <div class="banner" id="seller-banner" hidden></div>
       <div class="bar"><span class="mut" id="count"></span>
         <select id="sort" aria-label="Sort products"><option value="name">Name: A–Z</option><option value="pa">Price: low to high</option><option value="pd">Price: high to low</option></select>
       </div>
@@ -408,7 +418,7 @@ html[data-theme="light"] .cookie p{color:#334155}
 </footer>
 
 <div class="cookie" id="cookie" role="region" aria-label="Cookie notice" hidden>
-  <p>BlueMart uses one essential cookie to keep you signed in and protect your forms, and remembers your theme and this notice on your device. We use no advertising or analytics cookies. <a href="/cookies">Cookie Policy</a></p>
+  <p>BlueMart uses one essential cookie to keep you signed in and protect your forms, and remembers your theme and this notice on your device. We use no advertising or analytics cookies. If you choose to sign in with Google, Google's sign-in service is loaded from Google. <a href="/cookies">Cookie Policy</a></p>
   <button class="btn sm" type="button" id="cookie-ok">OK</button>
 </div>
 
@@ -428,19 +438,24 @@ html[data-theme="light"] .cookie p{color:#334155}
   <h2>Welcome to BlueMart</h2>
   <div class="auth-t"><button type="button" data-a="login" class="on">Sign in</button><button type="button" data-a="register">Create account</button></div>
   <form id="f-auth" novalidate>
-    <label for="a-user">Username</label><input id="a-user" autocomplete="username" required>
+    <label for="a-user" id="a-user-l">Username or email</label><input id="a-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     <div id="a-email-w" hidden><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email"></div>
     <label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="current-password" required>
     <div id="a-consents" hidden>
       <label class="chk" for="a-age"><input type="checkbox" id="a-age"><span>I am 18 years old or older.</span></label>
       <label class="chk" for="a-terms"><input type="checkbox" id="a-terms"><span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and have read the <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
     </div>
-    <p class="mut" id="a-hint" style="font-size:.78rem" hidden>Letters, numbers and underscores for the username (3+); 8+ characters for the password.</p>
+    <p class="mut" id="a-hint" style="font-size:.78rem" hidden>Letters, numbers and underscores for the username (3+); 8+ characters for the password. We will email you a link to verify your address before you can sign in.</p>
     <!-- Sign-in / sign-up result. Inside the dialog on purpose: a toast can be covered by an open dialog. -->
     <p class="form-msg" id="a-msg" role="alert" aria-live="assertive" hidden></p>
     <button class="btn full" style="margin-top:18px" id="a-go">Sign in</button>
     <p class="mut" id="a-resend" hidden style="font-size:.84rem">Didn't get the email? <a href="#" id="a-resend-l">Resend verification</a></p>
   </form>
+  <!-- Google sign-in: only shown when the server has a GOOGLE_CLIENT_ID and google-auth installed -->
+  <div class="gwrap" id="g-wrap" hidden>
+    <div class="or"><span>or</span></div>
+    <div id="g-btn"></div>
+  </div>
 </dialog>
 
 <dialog id="dlg-prod" class="wide"></dialog>
@@ -475,12 +490,13 @@ html[data-theme="light"] .cookie p{color:#334155}
   </form></dialog>
 
 <dialog id="dlg-acct"><button class="x" type="button" data-close aria-label="Close">×</button>
-  <h2>Your account</h2><p class="mut" id="acct-name"></p>
+  <h2>Your account</h2><p class="mut" id="acct-name" style="margin:4px 0 0"></p>
+  <div class="acct-info" id="acct-info" hidden></div>
   <div class="row"><button class="btn ghost" id="acct-profile" type="button">Edit public profile</button><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
   <div class="card" style="margin-top:20px">
     <h2>Delete my account</h2>
     <p class="mut" style="font-size:.86rem">This removes your email, listings, cart and delivery addresses straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.</p>
-    <form id="f-del"><label for="del-pass">Confirm your password</label><input id="del-pass" type="password" autocomplete="current-password" required>
+    <form id="f-del"><label id="del-label" for="del-input">Confirm your password</label><input id="del-input" type="password" autocomplete="current-password" required>
       <div class="acts-r"><button class="btn danger">Delete my account</button></div></form>
   </div>
   <p class="mut" style="font-size:.82rem;margin-bottom:0">Want a copy of your data or have a privacy question? Email <a href="mailto:{{ biz.email }}">{{ biz.email }}</a>.</p>
@@ -512,7 +528,7 @@ html[data-theme="light"] .cookie p{color:#334155}
 {% raw %}
 'use strict';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const S = { user: null, csrf: '', products: [], cat: 'all', q: '', sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, avatar: null, ship: null, news: null, newsGuestDone: false, notes: { threads: [], buyer_unread: 0, seller_unread: 0, to_ship: 0 } };
+const S = { user: null, csrf: '', products: [], cat: 'all', q: '', seller: null, sort: 'name', cart: { items: [], total: 0 }, view: 'shop', sellTab: 'listings', edit: null, auth: 'login', lastUser: '', cfg: {}, photo: null, avatar: null, ship: null, news: null, newsGuestDone: false, gReady: false, hasPw: true, notes: { threads: [], buyer_unread: 0, seller_unread: 0, to_ship: 0 } };
 const CATS = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Other'];
 const VIEWS = ['shop', 'orders', 'sell'], SELL_TABS = ['listings', 'orders', 'payouts', 'profile'];
 const BASE_TITLE = document.title;
@@ -591,7 +607,7 @@ function ask(title, msg, ok = 'Confirm', danger = false) {
 function avatarEl(url, name, size = 56) {
   const st = `width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px`;
   return url
-    ? h('img', { class: 'avatar', src: img(url, size * 2), alt: '', style: st, width: size, height: size })
+    ? h('img', { class: 'avatar', src: img(url, size * 2), alt: '', style: st, width: size, height: size, referrerpolicy: 'no-referrer' })
     : h('span', { class: 'avatar ph', style: st, 'aria-hidden': 'true' }, (name || '?').slice(0, 1).toUpperCase());
 }
 
@@ -651,17 +667,28 @@ function authMsg(text, ok = false) {
 }
 function openAuth(tab = 'login') {
   setAuthTab(tab); $('#a-resend').hidden = true; $('#dlg-auth').showModal(); setTimeout(() => $('#a-user').focus(), 50);
+  initGoogle();
 }
 function setAuthTab(t) {
   S.auth = t; authMsg('');
   $$('.auth-t button').forEach(b => b.classList.toggle('on', b.dataset.a === t));
   $('#a-email-w').hidden = t !== 'register'; $('#a-hint').hidden = t !== 'register'; $('#a-consents').hidden = t !== 'register';
+  $('#a-user-l').textContent = t === 'login' ? 'Username or email' : 'Username';
   $('#a-go').textContent = t === 'login' ? 'Sign in' : 'Create account';
   $('#a-pass').autocomplete = t === 'login' ? 'current-password' : 'new-password';
 }
 function setUser(name, csrf) {
   S.user = { username: name }; S.csrf = csrf || '';
   $('#btn-acct').textContent = name;
+}
+/* Everything that happens after ANY successful sign-in (password or Google). */
+async function afterLogin(username, csrf) {
+  $('#dlg-auth').close(); $('#f-auth').reset(); authMsg('');
+  setUser(username, csrf);
+  toast('Welcome, ' + username + '!', 'ok');
+  startPolling();
+  await Promise.all([loadCart(), refreshProducts(), loadNews()]);
+  if (S.view !== 'shop') view(S.view);
 }
 async function submitAuth(e) {
   e.preventDefault();
@@ -677,7 +704,7 @@ async function submitAuth(e) {
   }
   const btn = $('#a-go'), label = btn.textContent;
   btn.disabled = true; btn.textContent = 'Please wait…';
-  S.lastUser = username;
+  S.lastUser = username;   // may be a username or an email: the server accepts both for resend
   const r = await api('/api/' + S.auth, { method: 'POST', body: S.auth === 'login' ? { username, password } : { username, password, email, accept_terms: $('#a-terms').checked, age_confirmed: $('#a-age').checked } });
   btn.disabled = false; btn.textContent = label;
   $('#a-resend').hidden = !(!r.success && /verify your email/i.test(r.message || ''));
@@ -690,14 +717,63 @@ async function submitAuth(e) {
     $('#a-pass').value = ''; setAuthTab('login');
     return authMsg(r.message, true);   // set AFTER the tab switch, which clears the message
   }
-  $('#dlg-auth').close(); $('#f-auth').reset();
-  setUser(username, r.csrf_token);
-  toast('Welcome back, ' + username + '!', 'ok');
-  startPolling();
-  await Promise.all([loadCart(), refreshProducts(), loadNews()]);
-  if (S.view !== 'shop') view(S.view);
+  await afterLogin(r.username || username, r.csrf_token);
 }
-function openAccount() { $('#acct-name').textContent = 'Signed in as ' + S.user.username; $('#del-pass').value = ''; $('#dlg-acct').showModal(); }
+
+/* ---------- Google sign-in (button appears only if the server has GOOGLE_CLIENT_ID) ---------- */
+function loadGoogle() {
+  if (window.google && google.accounts && google.accounts.id) return Promise.resolve(true);
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => res(true); s.onerror = () => res(false);
+    document.head.append(s);
+  });
+}
+async function initGoogle() {
+  if (!S.cfg.google_client_id) return;
+  if (!S.gReady) {
+    if (!await loadGoogle()) return;
+    try { google.accounts.id.initialize({ client_id: S.cfg.google_client_id, callback: googleCallback }); S.gReady = true; }
+    catch { return; }
+  }
+  const box = $('#g-btn');
+  $('#g-wrap').hidden = false; box.replaceChildren();
+  google.accounts.id.renderButton(box, { type: 'standard', theme: currentTheme() === 'light' ? 'outline' : 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 300 });
+}
+async function googleCallback(resp) {
+  authMsg('');
+  const r = await api('/api/auth/google', { method: 'POST', body: { credential: resp.credential, accept_terms: $('#a-terms').checked, age_confirmed: $('#a-age').checked } });
+  if (r.needs_consent) {   // brand-new Google user: show the 18+ / Terms boxes, then they click Google again
+    setAuthTab('register'); $('#a-resend').hidden = true;
+    return authMsg(r.message);
+  }
+  if (!r.success) return authMsg(r.message || 'Google sign-in failed. Please try again.');
+  await afterLogin(r.username, r.csrf_token);
+}
+
+/* ---------- account dialog ---------- */
+function renderDel(hasPw) {
+  S.hasPw = hasPw;
+  const l = $('#del-label'), i = $('#del-input');
+  l.textContent = hasPw ? 'Confirm your password' : 'Type DELETE to confirm';
+  i.type = hasPw ? 'password' : 'text'; i.autocomplete = hasPw ? 'current-password' : 'off';
+  i.placeholder = hasPw ? '' : 'DELETE'; i.value = '';
+}
+async function openAccount() {
+  $('#acct-name').textContent = 'Signed in as ' + S.user.username;
+  $('#acct-info').hidden = true; renderDel(true);
+  $('#dlg-acct').showModal();
+  const r = await api('/api/profile');
+  if (!r.success) return;
+  const p = r.profile;
+  renderDel(!!p.has_password);   // Google-only members have no password: they type DELETE instead
+  $('#acct-info').replaceChildren(
+    p.email ? h('span', {}, p.email, ' ', h('span', { class: 'pill ' + (p.email_verified ? 'ok' : 'warn') }, p.email_verified ? 'verified' : 'not verified')) : null,
+    p.member_since ? h('span', { class: 'mut' }, 'Member since ' + when(p.member_since).toLocaleDateString()) : null,
+    h('span', { class: 'mut' }, p.google_linked ? (p.has_password ? 'Sign-in: password and Google' : 'Sign-in: Google (no password set)') : 'Sign-in: password'));
+  $('#acct-info').hidden = false;
+}
 function cookieNotice() { try { if (localStorage.getItem('bm_cookie_ok')) return; } catch { /* show notice */ } $('#cookie').hidden = false; }
 async function logout() {
   if (!await ask('Sign out?', 'You can sign back in at any time.', 'Sign out')) return;
@@ -762,19 +838,28 @@ async function unsubscribeNews() {
 }
 
 /* ---------- shop ---------- */
+function loadError(msg) {
+  $('#count').textContent = '';
+  $('#grid').replaceChildren(empty('Could not load products', msg || 'Please check your connection and try again.', ['Try again', async () => { $('#grid').replaceChildren(...Array.from({ length: 4 }, () => h('div', { class: 'sk' }))); await refreshProducts(); }]));
+}
 async function refreshProducts() {
   const p = await api('/api/products');
   if (Array.isArray(p)) { S.products = p; renderShop(); if (S.view === 'sell' && S.sellTab === 'listings') loadSell(); }
-  else toast(p.message || 'Could not load products.', 'bad');
+  else { toast(p.message || 'Could not load products.', 'bad'); if (!S.products.length) loadError(p.message); }
 }
 function renderCats() {
   $('#cats').replaceChildren(...['all', ...CATS].map(c => h('button', { type: 'button', class: S.cat === c ? 'on' : '', 'aria-pressed': String(S.cat === c), data: { cat: c } }, c === 'all' ? 'All' : c)));
 }
+function clearFilters() { S.q = ''; S.cat = 'all'; S.seller = null; $('#q').value = ''; renderCats(); renderShop(); }
 function renderShop() {
   const q = S.q.toLowerCase();
-  const l = S.products.filter(p => (S.cat === 'all' || p.Category === S.cat) && p['Product Name'].toLowerCase().includes(q));
-  l.sort((a, b) => S.sort === 'pa' ? a.Price - b.Price : S.sort === 'pd' ? b.Price - a.Price : a['Product Name'].localeCompare(b['Product Name']));
-  $('#grid').replaceChildren(...(l.length ? l.map(card) : [empty('No products found', S.q || S.cat !== 'all' ? 'Try another search or category.' : 'No one has listed anything yet. Be the first!', S.q || S.cat !== 'all' ? ['Clear filters', () => { S.q = ''; S.cat = 'all'; $('#q').value = ''; renderCats(); renderShop(); }] : ['Start selling', () => view('sell')])]));
+  const l = S.products.filter(p => (S.cat === 'all' || p.Category === S.cat) && (!S.seller || p.Seller === S.seller) && p['Product Name'].toLowerCase().includes(q));
+  l.sort((a, b) => S.sort === 'pa' ? Number(a.Price) - Number(b.Price) : S.sort === 'pd' ? Number(b.Price) - Number(a.Price) : a['Product Name'].localeCompare(b['Product Name']));
+  const ban = $('#seller-banner');
+  ban.hidden = !S.seller;
+  if (S.seller) ban.replaceChildren(h('span', {}, 'Showing products by ', h('b', {}, S.seller)), h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => { S.seller = null; renderShop(); } } }, 'Show all products'));
+  const filtered = S.q || S.cat !== 'all' || S.seller;
+  $('#grid').replaceChildren(...(l.length ? l.map(card) : [empty('No products found', filtered ? 'Try another search or category.' : 'No one has listed anything yet. Be the first!', filtered ? ['Clear filters', clearFilters] : ['Start selling', () => view('sell')])]));
   $('#count').textContent = `${l.length} product${l.length === 1 ? '' : 's'}`;
 }
 function card(p) {
@@ -845,7 +930,10 @@ async function openSeller(username) {
         h('p', { class: 'mut' }, '@' + s.username + (s.location ? ' · ' + s.location : '')))),
     h('p', { class: 'mut', style: 'margin:0 0 12px;font-size:.88rem' }, sellerStats(s)),
     s.bio ? h('p', { class: 'bio' }, s.bio) : null,
-    listed ? h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => { d.close(); S.q = ''; S.cat = 'all'; $('#q').value = ''; S.sellerFilter = null; view('shop'); toast(`${s.username} has ${listed} product${listed === 1 ? '' : 's'} listed.`); } } }, 'Back to shop')) : null,
+    listed ? h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => {
+      d.close(); S.q = ''; S.cat = 'all'; S.seller = s.username; $('#q').value = '';
+      renderCats(); view('shop'); renderShop();
+      $('#shop-ctl').scrollIntoView({ behavior: 'smooth', block: 'start' }); } } }, `See their ${listed} product${listed === 1 ? '' : 's'}`)) : null,
     h('h3', { style: 'font-size:1rem;margin-bottom:4px' }, 'Reviews'),
     ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'rev' },
       h('div', { class: 'line', style: 'padding:0' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut', style: 'font-size:.8rem' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())),
@@ -977,6 +1065,7 @@ function orderCard(o) {
   acts.append(btns); card.append(acts);
   if (paid && o.status !== 'completed' && !closed) card.append(h('div', { class: 'note' }, 'BlueMart keeps the seller\'s payout marked as on hold until every shipment is delivered and you confirm receipt.'));
   if (o.status === 'disputed') card.append(h('div', { class: 'note warn' }, 'Your report is open. Payouts stay on hold while it is reviewed, and delivery cannot be confirmed until it is resolved.'));
+  if (o.payment_status === 'refunded') card.append(h('div', { class: 'note' }, 'This order was cancelled and your payment was refunded to your original payment method. Banks can take a few days to show it.'));
   if (!paid && o.status === 'pending') card.append(h('div', { class: 'note warn' }, 'Payment has not been completed. Your items are held for a short time and are released automatically if you do not pay (or right away if you cancel checkout). Already paid? ', h('button', { class: 'linkbtn', type: 'button', on: { click: async e => { e.target.disabled = true; const r = await api(`/api/orders/${o.id}/verify-payment`, { method: 'POST', body: {} }); toast(r.message, r.success && r.paid ? 'ok' : ''); loadOrders(); loadCart(); } } }, 'Check payment status')));
   return card;
 }
@@ -1117,7 +1206,7 @@ async function sellListings(body) {
     h('label', { for: 'p-price' }, 'Price (USD)'), h('input', { id: 'p-price', type: 'number', step: '0.01', min: 0, value: S.edit ? S.edit.Price : '' }),
     h('label', { for: 'p-cat' }, 'Category'), h('select', { id: 'p-cat' }, h('option', { value: '' }, 'Select…'), CATS.map(c => h('option', { value: c, selected: S.edit && S.edit.Category === c }, c))),
     h('label', { for: 'p-qty' }, 'Quantity'), h('input', { id: 'p-qty', type: 'number', min: 0, step: 1, value: S.edit ? S.edit.Quantity : '' }),
-    S.edit ? h('p', { class: 'mut', style: 'font-size:.8rem' }, 'Photos can only be set when a product is first listed.') : [h('label', {}, 'Photo (optional)'), photoField({ key: 'photo' }), h('p', { class: 'mut', style: 'font-size:.78rem;margin:6px 0 0' }, 'Only upload photos you own or have permission to use.')],
+    S.edit ? h('p', { class: 'mut', style: 'font-size:.8rem' }, 'Photos can only be set when a product is first listed.') : [h('label', {}, 'Photo (optional)'), photoField({ key: 'photo' }), h('p', { class: 'mut', style: 'font-size:.78rem;margin:6px 0 0' }, 'Only upload photos you own or have permission to use. Listing a name you already sell adds the quantity to that product.')],
     h('div', { class: 'row', style: 'margin-top:16px' }, h('button', { class: 'btn', id: 'p-go' }, S.edit ? 'Save changes' : 'List product'),
       S.edit ? h('button', { class: 'btn ghost', type: 'button', on: { click: () => { S.edit = null; loadSell(); } } }, 'Cancel') : null));
   /* class "grid mine": two cards per row on phones (see CSS) */
@@ -1132,7 +1221,7 @@ function myCard(p) {
     h('div', { class: 'pb' }, h('div', { class: 'prow' }, h('h3', {}, p['Product Name']), h('b', { class: 'price' }, money(p.Price))), h('div', { class: 'meta' }, h('span', { class: 'chip' }, p.Category), h('span', {}, p.Quantity + ' in stock')),
       h('div', { class: 'row' }, h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api('/api/products/restock', { method: 'POST', body: { name: p['Product Name'], quantity: 1 } }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) refreshProducts(); } } }, '+1 stock'),
         h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => { S.edit = p; loadSell(); scrollTo({ top: 0, behavior: 'smooth' }); } } }, 'Edit'),
-        h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => { if (!await ask('Delete listing?', `Remove "${p['Product Name']}" from your store.`, 'Delete', true)) return; const r = await api('/api/products/delete', { method: 'POST', body: { name: p['Product Name'] } }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) refreshProducts(); } } }, 'Delete'))));
+        h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => { if (!await ask('Delete listing?', `Remove "${p['Product Name']}" from your store. Products that are part of an active order cannot be deleted yet.`, 'Delete', true)) return; const r = await api('/api/products/delete', { method: 'POST', body: { name: p['Product Name'] } }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) refreshProducts(); } } }, 'Delete'))));
 }
 async function submitProduct(e) {
   e.preventDefault();
@@ -1192,8 +1281,9 @@ function sellerCard(o) {
   }
   const row = h('div', { class: 'row', style: 'margin-top:12px' });
   if (!closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: () => openChat(o.id, S.user.username, o.buyer_username) } }, 'Message buyer', h('span', { class: 'badge alert', hidden: true, 'data-unread': `s|${o.id}|${S.user.username}` }, '0')));
-  if (sh === 'shipped' && !closed) row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api(`/api/seller/orders/${o.id}/delivered`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Mark as delivered'));
-  if (['pending', 'shipped'].includes(sh) && !['completed', 'cancelled', 'disputed'].includes(o.status) && !closed) row.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => {
+  if (sh === 'shipped' && !closed && o.status !== 'disputed') row.append(h('button', { class: 'btn ghost sm', type: 'button', on: { click: async () => { const r = await api(`/api/seller/orders/${o.id}/delivered`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) loadSell(); } } }, 'Mark as delivered'));
+  /* The server only lets a seller cancel & refund BEFORE shipping, and only single-seller orders. */
+  if (sh === 'pending' && !['completed', 'cancelled', 'disputed'].includes(o.status) && !closed) row.append(h('button', { class: 'btn danger sm', type: 'button', on: { click: async () => {
     if (!await ask('Cancel and refund?', 'The buyer is refunded in full and the stock is returned. This cannot be undone. Orders with several sellers must be cancelled through support.', 'Cancel & refund', true)) return;
     const r = await api(`/api/seller/orders/${o.id}/cancel`, { method: 'POST', body: {} }); toast(r.message, r.success ? 'ok' : 'bad'); if (r.success) { loadSell(); pollNotes(); } } } }, 'Cancel & refund'));
   if (row.children.length) card.append(row);
@@ -1247,18 +1337,19 @@ async function sellProfile(body) {
 }
 
 /* ---------- payment return + deep links from emails ---------- */
-/* Stripe tells our server about the payment by webhook, which can lag a few seconds behind the redirect. */
+/* Stripe tells our server about the payment by webhook, which can lag behind the redirect (or fail).
+   So we ask the server to check with Stripe directly right away, and keep checking for ~20 seconds. */
 async function awaitPayment(id) {
-  for (let i = 0; i < 8; i++) {
-    // If the webhook is late, ask the server to check with Stripe directly.
-    if (i === 1 || i === 3 || i === 6) await api(`/api/orders/${encodeURIComponent(id)}/verify-payment`, { method: 'POST', body: {} });
+  for (let i = 0; i < 9; i++) {
+    if (i % 2 === 0) await api(`/api/orders/${encodeURIComponent(id)}/verify-payment`, { method: 'POST', body: {} });
     const r = await api('/api/orders');
     const o = r.success && r.orders.find(x => String(x.id) === String(id));
-    if (o && o.payment_status === 'paid') { toast(`Payment confirmed for order #${id}. Thank you!`, 'ok'); loadCart(); if (S.view === 'orders') loadOrders(); return; }
-    if (o && o.status === 'cancelled') { if (S.view === 'orders') loadOrders(); return; }
+    if (o && o.payment_status === 'paid') { toast(`Payment confirmed for order #${id}. Thank you!`, 'ok'); await loadCart(); if (S.view === 'orders') loadOrders(); return; }
+    if (o && (o.status === 'cancelled' || o.payment_status === 'refunded')) { if (S.view === 'orders') loadOrders(); return; }
     await sleep(2500);
   }
-  toast('Still confirming your payment. Refresh your orders in a minute.');
+  toast('Still confirming your payment. Use "Check payment status" on the order in a minute.');
+  if (S.view === 'orders') loadOrders();
 }
 function handleUrl() {
   const p = new URLSearchParams(location.search), pay = p.get('payment'), id = p.get('order_id');
@@ -1287,8 +1378,10 @@ function wire() {
   $('#acct-profile').onclick = () => { $('#dlg-acct').close(); S.sellTab = 'profile'; view('sell'); };
   $('#f-del').addEventListener('submit', async e => {
     e.preventDefault();
+    const val = $('#del-input').value;
+    if (!val.trim()) return toast(S.hasPw ? 'Enter your password to continue.' : 'Type DELETE to confirm.', 'bad');
     if (!await ask('Delete your account?', 'Your email, listings, cart and delivery addresses are removed right away. This cannot be undone.', 'Delete my account', true)) return;
-    const r = await api('/api/account/delete', { method: 'POST', body: { password: $('#del-pass').value } });
+    const r = await api('/api/account/delete', { method: 'POST', body: S.hasPw ? { password: val } : { confirm: val.trim() } });
     toast(r.message, r.success ? 'ok' : 'bad');
     if (r.success) setTimeout(() => location.reload(), 1200);
   });
@@ -1360,9 +1453,10 @@ async function init() {
   $('#grid').replaceChildren(...Array.from({ length: 8 }, () => h('div', { class: 'sk' })));
   const [s, p] = await Promise.all([api('/api/session'), api('/api/products')]);
   S.cfg = s.config || {};
-  if (Array.isArray(p)) S.products = p; else toast(p.message || 'Could not load products.', 'bad');
+  if (Array.isArray(p)) S.products = p; else { toast(p.message || 'Could not load products.', 'bad'); }
   if (s.logged_in) { setUser(s.username, s.csrf_token); startPolling(); await Promise.all([loadCart(), loadNews()]); }
-  renderShop(); handleUrl();
+  if (Array.isArray(p)) renderShop(); else loadError(p.message);
+  handleUrl();
 }
 init();
 
