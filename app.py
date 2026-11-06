@@ -2,6 +2,7 @@ import smtplib
 import secrets
 import datetime
 import json
+import re
 import time
 import cloudinary
 import cloudinary.uploader
@@ -23,6 +24,15 @@ from psycopg2 import pool
 from psycopg2.extensions import STATUS_READY
 from werkzeug.security import generate_password_hash, check_password_hash
 from marshmallow import Schema, fields, ValidationError, validate
+
+# Google sign-in (pip install google-auth requests). If the packages are missing
+# the app still runs, just without the Google button.
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+except ImportError:
+    google_id_token = None
+    google_requests = None
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -78,6 +88,9 @@ app.config.update(
 
 BASE_URL = (os.getenv("BASE_URL") or "").strip().rstrip("/")
 
+# Google OAuth "Web application" client ID (Google Cloud Console > Credentials).
+GOOGLE_CLIENT_ID = (os.getenv("GOOGLE_CLIENT_ID") or "").strip()
+
 # --- Email (Brevo SMTP) ------------------------------------------------------
 # Brevo dashboard: SMTP & API > SMTP. The login is the "...@smtp-brevo.com"
 # address shown there (NOT your Brevo account email); the password is an SMTP key.
@@ -118,6 +131,8 @@ if not EMAIL_CONFIGURED:
     logger.warning("Brevo SMTP is not fully configured (BREVO_SMTP_LOGIN, BREVO_SMTP_KEY, BREVO_SENDER_EMAIL); emails will not be sent.")
 if any("[" in v for v in BUSINESS.values()):
     logger.warning("BUSINESS_NAME / BUSINESS_ADDRESS / BUSINESS_COUNTRY / SUPPORT_EMAIL are not all set; legal pages show placeholders.")
+if GOOGLE_CLIENT_ID and google_id_token is None:
+    logger.warning("GOOGLE_CLIENT_ID is set but google-auth is not installed; Google sign-in is OFF. Run: pip install google-auth requests")
 
 # Stripe requires a Checkout Session to live at least 30 minutes, so the stock
 # reservation is a little longer than that to avoid landing under the minimum.
@@ -443,6 +458,10 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;")
+            # Google sign-in, member-since date, and whether the user chose a password.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub VARCHAR(64) UNIQUE;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT TRUE;")
 
             # Postgres allows multiple NULLs under a UNIQUE constraint, so this is
             # safe to add even if older rows have no email yet.
@@ -735,11 +754,16 @@ class RegisterSchema(Schema):
     age_confirmed = fields.Bool(required=True, validate=validate.Equal(True, error="You must be 18 or older to create an account."))
 
 class LoginSchema(Schema):
-    username = fields.Str(required=True)
+    username = fields.Str(required=True, validate=validate.Length(min=1, max=255))  # username OR email
     password = fields.Str(required=True)
 
+class GoogleLoginSchema(Schema):
+    credential = fields.Str(required=True, validate=validate.Length(min=20, max=4096))
+    accept_terms = fields.Bool(load_default=False)
+    age_confirmed = fields.Bool(load_default=False)
+
 class ResendVerificationSchema(Schema):
-    username = fields.Str(required=True)
+    username = fields.Str(required=True, validate=validate.Length(min=1, max=255))  # username OR email
 
 class ProductSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=MAX_PRODUCT_NAME_LENGTH))
@@ -777,7 +801,9 @@ class NewsletterSchema(Schema):
     consent = fields.Bool(required=True, validate=validate.Equal(True, error="Please tick the box to agree to receive emails."))
 
 class DeleteAccountSchema(Schema):
-    password = fields.Str(required=True)
+    # Members with a password send `password`; Google-only members send `confirm` = "DELETE".
+    password = fields.Str(required=False, load_default='')
+    confirm = fields.Str(required=False, load_default='')
 
 class ShipmentSchema(Schema):
     provider = fields.Str(required=True, validate=validate.Length(min=2, max=100))
@@ -879,9 +905,14 @@ def set_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    # Allows Google's sign-in button (accounts.google.com/gsi) to load.
     response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; img-src 'self' data: https://res.cloudinary.com; style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'none'; font-src 'self'; "
+        "default-src 'self'; "
+        "img-src 'self' data: https://res.cloudinary.com https://*.googleusercontent.com; "
+        "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; "
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; "
+        "connect-src 'self' https://accounts.google.com/gsi/; "
+        "frame-src https://accounts.google.com/gsi/; font-src 'self'; "
         "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     )
     return response
@@ -1442,14 +1473,28 @@ def verify_email(token):
         ), 500
 
 
+def resolve_login_name(identifier):
+    """Accept a username or an email address; return the username."""
+    identifier = (identifier or "").strip()
+    if "@" not in identifier:          # usernames can never contain "@"
+        return identifier
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT username FROM users WHERE LOWER(email) = LOWER(%s) AND deleted_at IS NULL;", (identifier,))
+        row = cur.fetchone()
+        cur.close()
+    return row[0] if row else identifier
+
+
 @app.route('/api/resend-verification', methods=['POST'])
 @rate_limit("3 per minute; 10 per hour")
 @validate_json(ResendVerificationSchema)
 def resend_verification():
-    username = request.validated_data['username'].strip()
     generic_message = "If that account exists and needs verifying, a new email is on its way."
+    username = (request.validated_data['username'] or '').strip()
 
     try:
+        username = resolve_login_name(username)
         with get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute("SELECT email, email_verified FROM users WHERE username = %s;", (username,))
@@ -1505,10 +1550,11 @@ def _verification_page(title, message, ok=True):
 @rate_limit("10 per minute; 60 per hour")
 @validate_json(LoginSchema)
 def login():
-    username = request.validated_data['username'].strip()
+    username = (request.validated_data['username'] or '').strip()
     password = request.validated_data['password']
 
     try:
+        username = resolve_login_name(username)   # username OR email
         user = Useraccount(username)
         success, msg = user.verify_password(password)
         if success:
@@ -1520,6 +1566,90 @@ def login():
     except Exception as e:
         logger.error(f"Login error for {username}: {e}")
         return api_error("We couldn't sign you in right now. Please try again shortly.", 500)
+
+
+# -----------------------------------------------------------------------------
+# GOOGLE SIGN-IN
+# -----------------------------------------------------------------------------
+
+def _start_session(username):
+    session.clear()
+    session['username'] = username
+    session['csrf_token'] = secrets.token_urlsafe(32)
+    return session['csrf_token']
+
+
+def _unique_username(cur, email):
+    base = re.sub(r'\W', '', email.split('@')[0])[:20] or 'user'
+    if len(base) < 3:
+        base += 'user'
+    name = base
+    while True:
+        cur.execute("SELECT 1 FROM users WHERE username = %s;", (name,))
+        if not cur.fetchone():
+            return name
+        name = f"{base}{secrets.randbelow(10000):04d}"
+
+
+@app.route('/api/auth/google', methods=['POST'])
+@rate_limit("10 per minute; 60 per hour")
+@validate_json(GoogleLoginSchema)
+def google_login():
+    if not (GOOGLE_CLIENT_ID and google_id_token):
+        return api_error("Google sign-in is not set up yet.", 503)
+    data = request.validated_data
+    try:
+        info = google_id_token.verify_oauth2_token(data['credential'], google_requests.Request(), GOOGLE_CLIENT_ID)
+    except ValueError:
+        return api_error("Google sign-in failed. Please try again.", 401)
+    if not info.get('email_verified'):
+        return api_error("Your Google email address is not verified.", 403)
+
+    email = info['email'].strip().lower()
+    sub = info['sub']
+    gname = (info.get('name') or '').strip()[:MAX_DISPLAY_NAME_LENGTH] or None
+    picture = info.get('picture')
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT username, email_verified FROM users
+                WHERE (google_sub = %s OR LOWER(email) = %s) AND deleted_at IS NULL
+                ORDER BY COALESCE(google_sub = %s, FALSE) DESC LIMIT 1 FOR UPDATE;
+            """, (sub, email, sub))
+            row = cur.fetchone()
+            if row:
+                username, was_verified = row
+                # If the address was never verified, someone else may have registered
+                # it with a password they know. Invalidate that password.
+                reset_pw = None if was_verified else generate_password_hash(secrets.token_urlsafe(32), method='pbkdf2:sha256')
+                cur.execute("""
+                    UPDATE users SET google_sub = COALESCE(google_sub, %s), email_verified = TRUE,
+                        verification_token = NULL, failed_login_attempts = 0, locked_until = NULL,
+                        display_name = COALESCE(display_name, %s), avatar_url = COALESCE(avatar_url, %s),
+                        password_hash = COALESCE(%s, password_hash),
+                        has_password = (has_password AND %s)
+                    WHERE username = %s;
+                """, (sub, gname, picture, reset_pw, reset_pw is None, username))
+            else:
+                if not (data['accept_terms'] and data['age_confirmed']):
+                    cur.close()
+                    return api_error("Almost there: confirm you are 18+ and accept the Terms, then click Google again.",
+                                     428, needs_consent=True)
+                username = _unique_username(cur, email)
+                cur.execute("""
+                    INSERT INTO users (username, password_hash, email, email_verified, google_sub, display_name,
+                                       avatar_url, terms_accepted_at, terms_version, age_confirmed_at, has_password)
+                    VALUES (%s, %s, %s, TRUE, %s, %s, %s, NOW(), %s, NOW(), FALSE);
+                """, (username, generate_password_hash(secrets.token_urlsafe(32), method='pbkdf2:sha256'),
+                      email, sub, gname, picture, LEGAL_VERSION))
+            conn.commit(); cur.close()
+        csrf = _start_session(username)
+        return api_ok("Signed in with Google.", 200, username=username, csrf_token=csrf)
+    except Exception as e:
+        logger.exception("Google login failed: %s", e)
+        return api_error("We couldn't sign you in with Google right now.", 500)
+
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -1542,7 +1672,8 @@ def check_session():
 
 
 def _public_config():
-    return {"platform_fee_percent": float(PLATFORM_FEE_PERCENT), "support_email": BUSINESS["email"]}
+    return {"platform_fee_percent": float(PLATFORM_FEE_PERCENT), "support_email": BUSINESS["email"],
+            "google_client_id": GOOGLE_CLIENT_ID if google_id_token else ""}
 
 
 # -----------------------------------------------------------------------------
@@ -1551,12 +1682,12 @@ def _public_config():
 
 def _profile_dict(row):
     return {
-        'username': row['username'],
-        'email': row['email'],
-        'display_name': row['display_name'] or '',
-        'bio': row['bio'] or '',
-        'location': row['location'] or '',
-        'avatar_url': row['avatar_url'],
+        'username': row['username'], 'email': row['email'],
+        'display_name': row['display_name'] or '', 'bio': row['bio'] or '',
+        'location': row['location'] or '', 'avatar_url': row['avatar_url'],
+        'email_verified': bool(row['email_verified']), 'google_linked': bool(row['google_linked']),
+        'has_password': bool(row['has_password']),
+        'member_since': row['created_at'].isoformat() if row['created_at'] else None,
     }
 
 
@@ -1564,7 +1695,8 @@ def _load_profile(username):
     with get_db_connection() as conn:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT username, email, display_name, bio, location, avatar_url
+            SELECT username, email, display_name, bio, location, avatar_url, email_verified,
+                   created_at, has_password, (google_sub IS NOT NULL) AS google_linked
             FROM users WHERE username = %s AND deleted_at IS NULL;
         """, (username,))
         row = cur.fetchone()
@@ -2022,7 +2154,10 @@ def _refund_and_cancel_order(order_id, payment_intent, stripe_session_id):
 @app.route('/api/orders/create', methods=['POST'])
 @require_login
 def create_order():
-    """Create an unpaid order and reserve its stock for the reservation window."""
+    """Create an unpaid order and reserve its stock for the reservation window.
+    NOTE: the page does not use this endpoint (checkout goes through
+    /api/create-checkout-session). It is kept for compatibility, but it can hold
+    stock without a shipping address, so delete it if nothing else calls it."""
     username = session['username']
     try:
         order_id, total, items, _ = _create_reserved_order(username)
@@ -3276,15 +3411,23 @@ def newsletter_unsubscribe(token):
 @validate_json(DeleteAccountSchema)
 def delete_account():
     """Data deletion request. Removes personal data immediately. Order and
-    payment records we must keep for accounting are retained anonymised."""
+    payment records we must keep for accounting are retained anonymised.
+    Members with a password confirm with it; Google-only members type DELETE."""
     username = session['username']
+    data = request.validated_data
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT password_hash, email FROM users WHERE username = %s FOR UPDATE;", (username,))
+            cur.execute("SELECT password_hash, email, has_password FROM users WHERE username = %s FOR UPDATE;", (username,))
             row = cur.fetchone()
-            if not row or not check_password_hash(row[0], request.validated_data['password']):
-                cur.close(); return api_error("That password is not correct.", 403)
+            if not row:
+                cur.close(); return api_error("Account not found.", 404)
+            if row[2]:
+                ok, bad_msg = check_password_hash(row[0], data['password']), "That password is not correct."
+            else:
+                ok, bad_msg = (data['confirm'] or '').strip() == 'DELETE', "Type DELETE to confirm."
+            if not ok:
+                cur.close(); return api_error(bad_msg, 403)
             email = row[1]
 
             cur.execute("""
@@ -3321,11 +3464,13 @@ def delete_account():
                     WHERE username = %s;
                 """, (username,))
                 cur.execute("UPDATE order_messages SET body = '[deleted]' WHERE sender_username = %s;", (username,))
-                # Profile photo and about info are personal data too.
+                # Profile photo and about info are personal data too. google_sub is cleared
+                # so a deleted Google user can sign up again later.
                 cur.execute("""
                     UPDATE users
                     SET email = NULL, email_verified = FALSE, verification_token = NULL,
                         display_name = NULL, bio = NULL, location = NULL, avatar_url = NULL,
+                        google_sub = NULL,
                         password_hash = %s, failed_login_attempts = 0, locked_until = NULL, deleted_at = NOW()
                     WHERE username = %s;
                 """, (generate_password_hash(secrets.token_urlsafe(32), method='pbkdf2:sha256'), username))
