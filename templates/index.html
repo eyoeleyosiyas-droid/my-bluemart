@@ -401,7 +401,7 @@ html[data-theme="light"] .cookie p{color:#334155}
   <section class="view" id="v-sell" hidden>
     <div class="top-row"><div><h1>Sell on BlueMart</h1><p class="mut" style="margin:4px 0 0">List products, ship orders and see your payout ledger.</p></div></div>
     <div class="tabs" id="sell-tabs" role="group" aria-label="Seller sections">
-      <button type="button" data-t="listings" class="on">Listings</button><button type="button" data-t="orders">Orders to ship <span class="badge alert bn-ship" hidden>0</span></button><button type="button" data-t="payouts">Payouts</button><button type="button" data-t="profile">Seller profile</button>
+      <button type="button" data-t="listings" class="on">Listings</button><button type="button" data-t="orders">Orders to ship <span class="badge alert bn-ship" hidden>0</span></button><button type="button" data-t="payouts">Payouts</button><button type="button" data-t="profile">Profile</button>
     </div>
     <div id="sell-body"></div>
   </section>
@@ -492,13 +492,8 @@ html[data-theme="light"] .cookie p{color:#334155}
 <dialog id="dlg-acct"><button class="x" type="button" data-close aria-label="Close">×</button>
   <h2>Your account</h2><p class="mut" id="acct-name" style="margin:4px 0 0"></p>
   <div class="acct-info" id="acct-info" hidden></div>
-  <div class="row"><button class="btn ghost" id="acct-profile" type="button">Edit public profile</button><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
-  <div class="card" style="margin-top:20px">
-    <h2>Delete my account</h2>
-    <p class="mut" style="font-size:.86rem">This removes your email, listings, cart and delivery addresses straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.</p>
-    <form id="f-del"><label id="del-label" for="del-input">Confirm your password</label><input id="del-input" type="password" autocomplete="current-password" required>
-      <div class="acts-r"><button class="btn danger">Delete my account</button></div></form>
-  </div>
+  <div class="row"><button class="btn ghost" id="acct-profile" type="button">Profile &amp; delete account</button><button class="btn ghost" id="acct-out" type="button">Sign out</button></div>
+  <p class="mut" style="font-size:.84rem;margin:16px 0 0">You can delete your account from <b>Profile</b> (under Sell).</p>
   <p class="mut" style="font-size:.82rem;margin-bottom:0">Want a copy of your data or have a privacy question? Email <a href="mailto:{{ biz.email }}">{{ biz.email }}</a>.</p>
 </dialog>
 
@@ -753,21 +748,13 @@ async function googleCallback(resp) {
 }
 
 /* ---------- account dialog ---------- */
-function renderDel(hasPw) {
-  S.hasPw = hasPw;
-  const l = $('#del-label'), i = $('#del-input');
-  l.textContent = hasPw ? 'Confirm your password' : 'Type DELETE to confirm';
-  i.type = hasPw ? 'password' : 'text'; i.autocomplete = hasPw ? 'current-password' : 'off';
-  i.placeholder = hasPw ? '' : 'DELETE'; i.value = '';
-}
 async function openAccount() {
   $('#acct-name').textContent = 'Signed in as ' + S.user.username;
-  $('#acct-info').hidden = true; renderDel(true);
+  $('#acct-info').hidden = true;
   $('#dlg-acct').showModal();
   const r = await api('/api/profile');
   if (!r.success) return;
   const p = r.profile;
-  renderDel(!!p.has_password);   // Google-only members have no password: they type DELETE instead
   $('#acct-info').replaceChildren(
     p.email ? h('span', {}, p.email, ' ', h('span', { class: 'pill ' + (p.email_verified ? 'ok' : 'warn') }, p.email_verified ? 'verified' : 'not verified')) : null,
     p.member_since ? h('span', { class: 'mut' }, 'Member since ' + when(p.member_since).toLocaleDateString()) : null,
@@ -1327,13 +1314,28 @@ async function sellProfile(body) {
     h('label', { for: 'pf-bio' }, 'About you'), bio, cnt);
   const go = h('button', { class: 'btn', type: 'submit' }, 'Save profile');
   form.append(h('div', { class: 'row', style: 'margin-top:14px' }, go, h('button', { class: 'btn ghost', type: 'button', on: { click: () => openSeller(S.user.username) } }, 'Preview public page')));
+  /* Delete account: password members confirm with their password, Google-only members type DELETE. */
+  const hasPw = !!p.has_password;
+  const delIn = h('input', { id: 'del-input', type: hasPw ? 'password' : 'text', autocomplete: hasPw ? 'current-password' : 'off', placeholder: hasPw ? '' : 'DELETE' });
+  const delForm = h('form', { class: 'card', novalidate: true, style: 'border-color:rgba(248,113,113,.4)', on: { submit: async e => {
+    e.preventDefault();
+    const val = delIn.value;
+    if (!val.trim()) return toast(hasPw ? 'Enter your password to continue.' : 'Type DELETE to confirm.', 'bad');
+    if (!await ask('Delete your account?', 'Your email, listings, cart and delivery addresses are removed right away. This cannot be undone.', 'Delete my account', true)) return;
+    const r = await api('/api/account/delete', { method: 'POST', body: hasPw ? { password: val } : { confirm: val.trim() } });
+    toast(r.message, r.success ? 'ok' : 'bad');
+    if (r.success) setTimeout(() => location.reload(), 1200); } } },
+    h('h2', {}, 'Delete my account'),
+    h('p', { class: 'mut', style: 'font-size:.86rem;margin:0' }, 'This removes your email, listings, cart and delivery addresses straight away. Order records we must keep for accounting stay in anonymised form. It cannot be undone, and you need to have no open orders.'),
+    h('label', { for: 'del-input' }, hasPw ? 'Confirm your password' : 'Type DELETE to confirm'), delIn,
+    h('div', { class: 'acts-r' }, h('button', { class: 'btn danger', type: 'submit' }, 'Delete my account')));
   body.replaceChildren(
     h('div', { class: 'stats' },
       h('div', {}, h('b', {}, s.rating_count ? '★ ' + s.rating_average.toFixed(1) : '—'), h('span', {}, `${s.rating_count} review${s.rating_count === 1 ? '' : 's'}`)),
       h('div', {}, h('b', {}, s.completed_orders), h('span', {}, 'Completed orders')),
       h('div', {}, h('b', {}, s.on_time_rate ? s.on_time_rate + '%' : (s.verified ? '✓ Verified' : 'Not verified')), h('span', {}, s.on_time_rate ? 'Shipped on time' : 'Email status'))),
     h('div', { class: 'split' }, form,
-      h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'rev' }, h('div', { class: 'line', style: 'padding:0' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut', style: 'font-size:.8rem' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())), v.review_text ? h('p', {}, v.review_text) : null)) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')]))));
+      h('div', { class: 'card' }, h('h2', {}, 'Recent reviews'), ...(s.reviews.length ? s.reviews.map(v => h('div', { class: 'rev' }, h('div', { class: 'line', style: 'padding:0' }, h('b', {}, '★'.repeat(v.rating)), h('span', { class: 'mut', style: 'font-size:.8rem' }, 'Verified purchase · ' + v.buyer_username + ' · ' + when(v.created_at).toLocaleDateString())), v.review_text ? h('p', {}, v.review_text) : null)) : [h('p', { class: 'mut' }, 'No reviews yet. Reviews appear after buyers complete an order.')]))), delForm);
 }
 
 /* ---------- payment return + deep links from emails ---------- */
@@ -1376,15 +1378,6 @@ function wire() {
   $('#btn-acct').onclick = () => S.user ? openAccount() : openAuth('login');
   $('#acct-out').onclick = () => { $('#dlg-acct').close(); logout(); };
   $('#acct-profile').onclick = () => { $('#dlg-acct').close(); S.sellTab = 'profile'; view('sell'); };
-  $('#f-del').addEventListener('submit', async e => {
-    e.preventDefault();
-    const val = $('#del-input').value;
-    if (!val.trim()) return toast(S.hasPw ? 'Enter your password to continue.' : 'Type DELETE to confirm.', 'bad');
-    if (!await ask('Delete your account?', 'Your email, listings, cart and delivery addresses are removed right away. This cannot be undone.', 'Delete my account', true)) return;
-    const r = await api('/api/account/delete', { method: 'POST', body: S.hasPw ? { password: val } : { confirm: val.trim() } });
-    toast(r.message, r.success ? 'ok' : 'bad');
-    if (r.success) setTimeout(() => location.reload(), 1200);
-  });
   $('#cookie-ok').onclick = () => { try { localStorage.setItem('bm_cookie_ok', '1'); } catch { /* storage blocked */ } $('#cookie').hidden = true; };
   $('#btn-checkout').onclick = openShipping;
   $('#f-ship').addEventListener('submit', submitShipping);
