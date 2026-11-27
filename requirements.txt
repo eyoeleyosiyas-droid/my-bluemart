@@ -1,0 +1,12 @@
+Flask>=3.0
+gunicorn>=22.0
+psycopg2-binary>=2.9
+marshmallow>=3.20
+stripe>=8.0
+cloudinary>=1.40
+Flask-Limiter>=3.5
+# Google sign-in (optional: leave GOOGLE_CLIENT_ID unset to switch it off)
+google-auth>=2.0
+requests>=2.31
+# Shared rate-limit counters across workers (set RATELIMIT_STORAGE_URI=redis://...)
+redis>=5.0
